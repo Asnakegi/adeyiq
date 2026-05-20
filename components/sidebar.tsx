@@ -7,7 +7,7 @@ const navItems = [
   { label: "Flights", href: "/flights", badge: 6 },
   { label: "Shipments", href: "/shipments", badge: 142 },
   { label: "ULD Builder", href: "/uld", badge: null },
-  { label: "3D View", href: "/uld", badge: null },
+  { label: "3D View", href: "/3dview", badge: null },
   { label: "Load Planning", href: "/planning", badge: null },
   { label: "DG Compliance", href: "/dg", badge: 2 },
   { label: "Reports", href: "/reports", badge: null },
