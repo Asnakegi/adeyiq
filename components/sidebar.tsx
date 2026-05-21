@@ -9,6 +9,7 @@ const navItems = [
   { label: "ULD Builder", href: "/uld", badge: null },
   { label: "3D View", href: "/3dview", badge: null },
   { label: "Load Planning", href: "/planning", badge: null },
+  { label: "Optimizer", href: "/optimizer", badge: null },
   { label: "DG Compliance", href: "/dg", badge: 2 },
   { label: "Reports", href: "/reports", badge: null },
   { label: "Settings", href: "/settings", badge: null },
