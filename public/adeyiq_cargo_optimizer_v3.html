@@ -1,0 +1,939 @@
+﻿
+<h2 class="sr-only">AdeyIQ cargo load optimizer  -  select aircraft, choose ULD type, add shipments via Excel or manual entry, get AI recommendation, view cargo packed in ULD then ULDs loaded into aircraft interior in 3D</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:13px}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+:root{--y:#EAB308;--g:#22c55e;--b:#378ADD;--r:#ef4444;--o:#f97316;--pu:#a78bfa}
+.wrap{background:#111;color:#fff;border-radius:12px;padding:0;overflow:hidden;min-height:700px;display:flex;flex-direction:column}
+.top-bar{padding:12px 16px;border-bottom:0.5px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.top-title{font-size:14px;font-weight:600;color:#fff}
+.top-sub{font-size:11px;color:#555;margin-top:1px}
+.stage-row{display:flex;align-items:center;gap:6px;font-size:11px}
+.stage{display:flex;align-items:center;gap:4px;color:#555}
+.stage.done{color:var(--g)}.stage.active{color:var(--y)}
+.stage-num{width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.stage-arrow{color:#333;font-size:10px}
+.main{display:grid;grid-template-columns:240px 1fr;flex:1;min-height:0;overflow:hidden}
+.left{background:#141414;border-right:0.5px solid rgba(255,255,255,.07);overflow-y:auto;display:flex;flex-direction:column;gap:0}
+.sec{border-bottom:0.5px solid rgba(255,255,255,.06);padding:10px 12px}
+.sec-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#444;margin-bottom:8px}
+.ac-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.ac-btn{border:0.5px solid rgba(255,255,255,.08);border-radius:8px;padding:7px 8px;cursor:pointer;background:#1a1a1a;text-align:left;transition:all .12s}
+.ac-btn:hover{border-color:rgba(255,255,255,.18)}
+.ac-btn.active{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.08)}
+.ac-lbl{font-size:12px;font-weight:700;color:#ddd}
+.ac-btn.active .ac-lbl{color:var(--y)}
+.ac-type{font-size:9px;color:#555;margin-top:1px}
+.uld-list{display:flex;flex-direction:column;gap:3px}
+.uld-btn{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;border:0.5px solid rgba(255,255,255,.07);background:#1a1a1a;cursor:pointer;transition:all .12s;color:#aaa}
+.uld-btn:hover{border-color:rgba(255,255,255,.15)}
+.uld-btn.active{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.07);color:var(--y)}
+.uld-btn.rec-uld{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.06)}
+.uld-code{font-size:12px;font-weight:700}
+.uld-meta{font-size:10px;color:#555;margin-top:0px}
+.uld-btn.active .uld-meta,.uld-btn.rec-uld .uld-meta{color:rgba(234,179,8,.5)}
+.uld-badge{margin-left:auto;font-size:9px;padding:1px 5px;border-radius:99px}
+.custom-form{background:#1a1a1a;border-radius:8px;padding:8px;border:0.5px solid rgba(255,255,255,.07);margin-top:6px}
+.custom-form input,.custom-form select{font-size:11px;padding:4px 7px;background:#222;border:0.5px solid rgba(255,255,255,.1);border-radius:6px;color:#ddd;outline:none;width:100%;margin-bottom:4px}
+.custom-form .r2{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.add-custom-btn{width:100%;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:#aaa;font-size:11px;padding:5px;border-radius:6px;cursor:pointer;margin-top:2px}
+.add-custom-btn:hover{background:rgba(255,255,255,.09)}
+.tabs{display:flex;border-bottom:0.5px solid rgba(255,255,255,.07)}
+.tab{flex:1;padding:7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;color:#555;transition:all .12s}
+.tab.active{color:var(--y);border-bottom-color:var(--y)}
+.tp{display:none}.tp.active{display:block;padding:8px}
+.f-row{margin-bottom:6px}
+.f-lbl{font-size:10px;color:#666;display:block;margin-bottom:2px}
+.f-row input{font-size:11px;padding:5px 7px;background:#222;border:0.5px solid rgba(255,255,255,.1);border-radius:6px;color:#ddd;outline:none;width:100%}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.dz{border:1px dashed rgba(255,255,255,.15);border-radius:8px;padding:14px;text-align:center;cursor:pointer;position:relative;transition:border-color .15s}
+.dz:hover{border-color:rgba(234,179,8,.4)}
+.dz input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{font-size:20px;margin-bottom:4px;color:#555}
+.dz-title{font-size:11px;font-weight:600;color:#bbb}
+.dz-sub{font-size:10px;color:#555;margin-top:1px}
+.slist{max-height:90px;overflow-y:auto;margin:6px 0;display:flex;flex-direction:column;gap:2px}
+.s-row{display:flex;align-items:center;gap:6px;padding:4px 6px;background:#1a1a1a;border-radius:5px;font-size:10px;color:#888}
+.s-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.s-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-rm{cursor:pointer;color:#444;font-size:14px;line-height:1}
+.s-rm:hover{color:var(--r)}
+.run-btn{width:100%;padding:10px;font-size:13px;font-weight:700;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .12s}
+.run-opt{background:var(--y);color:#111;border:none}
+.run-opt:hover{background:#f5c400}
+.run-opt:disabled{background:#333;color:#666;cursor:not-allowed}
+.run-ac{background:rgba(56,189,248,.1);border:0.5px solid rgba(56,189,248,.3);color:#38bdf8}
+.run-ac:hover{background:rgba(56,189,248,.15)}
+.run-ac:disabled{opacity:.35;cursor:not-allowed}
+.right{display:flex;flex-direction:column;overflow:hidden}
+.rec-bar{padding:8px 14px;border-bottom:0.5px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px;flex-shrink:0;background:#0d0d0d}
+.rec-icon{font-size:16px;flex-shrink:0}
+.rec-text{flex:1;min-width:0}
+.rec-combo{font-size:14px;font-weight:700;color:var(--y)}
+.rec-reason{font-size:11px;color:#666;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-kpi{display:flex;gap:8px;flex-shrink:0}
+.rk{text-align:center}
+.rk-v{font-size:14px;font-weight:700;color:#ddd}
+.rk-l{font-size:9px;color:#555}
+.view-tabs{display:flex;border-bottom:0.5px solid rgba(255,255,255,.07);flex-shrink:0}
+.vt{flex:1;padding:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;color:#555;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .12s}
+.vt.active{color:var(--y);border-bottom-color:var(--y);background:rgba(234,179,8,.04)}
+.canvas-area{position:relative;flex-shrink:0;background:#0d0d0d}
+canvas#cv{width:100%;height:260px;display:block}
+.c-hint{position:absolute;bottom:6px;right:10px;font-size:10px;color:#333;pointer-events:none}
+.stage-hint{position:absolute;bottom:6px;left:10px;font-size:10px;padding:3px 8px;border-radius:99px}
+.pal-tabs{display:flex;gap:4px;padding:6px 12px;flex-shrink:0;overflow-x:auto;border-bottom:0.5px solid rgba(255,255,255,.06)}
+.pal-tabs::-webkit-scrollbar{height:3px}.pal-tabs::-webkit-scrollbar-thumb{background:#333}
+.ptab{padding:4px 10px;border-radius:99px;border:0.5px solid rgba(255,255,255,.1);font-size:10px;cursor:pointer;background:transparent;color:#666;display:flex;align-items:center;gap:4px;white-space:nowrap;transition:all .12s}
+.ptab:hover{border-color:rgba(255,255,255,.2);color:#aaa}
+.ptab.active{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.08);color:var(--y);font-weight:600}
+.tbl-area{flex:1;overflow-y:auto;min-height:0}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{padding:6px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#444;border-bottom:0.5px solid rgba(255,255,255,.07);white-space:nowrap;position:sticky;top:0;background:#111}
+td{padding:6px 10px;border-bottom:0.5px solid rgba(255,255,255,.04);color:#888;vertical-align:middle;white-space:nowrap}
+tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
+.bt{font-size:9px;padding:2px 6px;border-radius:99px;font-weight:700}
+.btg{background:rgba(34,197,94,.12);color:#22c55e}
+.bty{background:rgba(234,179,8,.12);color:var(--y)}
+.btr{background:rgba(239,68,68,.12);color:var(--r)}
+.btb{background:rgba(56,189,248,.12);color:#38bdf8}
+.foot{display:flex;gap:8px;padding:8px 12px;border-top:0.5px solid rgba(255,255,255,.07);flex-shrink:0}
+.foot button{flex:1;padding:8px;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .12s}
+.exp-btn{background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:#888}
+.exp-btn:hover{background:rgba(255,255,255,.09)}
+.pdf-btn{background:var(--y);border:none;color:#111}
+.pdf-btn:hover{background:#f5c400}
+.stat-pill{font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600}
+.up-ok{background:rgba(34,197,94,.12);color:#22c55e}
+.up-err{background:rgba(239,68,68,.12);color:var(--r)}
+.up-info{background:rgba(56,189,248,.12);color:#38bdf8}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);border-top:0.5px solid rgba(255,255,255,.07);flex-shrink:0}
+.kpi-c{padding:8px;text-align:center;border-right:0.5px solid rgba(255,255,255,.06)}
+.kpi-c:last-child{border-right:none}
+.kpi-v{font-size:16px;font-weight:700;color:var(--y)}
+.kpi-l{font-size:9px;color:#555;margin-top:1px;text-transform:uppercase;letter-spacing:.04em}
+</style>
+
+<div class="wrap">
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div><div class="top-title">AdeyIQ - Cargo Load Optimizer</div><div class="top-sub">ULD buildup - aircraft loading - AI recommendation</div></div>
+  <div class="stage-row" id="stageRow">
+    <div class="stage active" id="st1"><span class="stage-num">1</span> Manifest</div>
+    <span class="stage-arrow">></span>
+    <div class="stage" id="st2"><span class="stage-num">2</span> ULD buildup</div>
+    <span class="stage-arrow">></span>
+    <div class="stage" id="st3"><span class="stage-num">3</span> Aircraft loading</div>
+  </div>
+</div>
+
+<div class="main">
+<!-- LEFT COLUMN -->
+<div class="left">
+
+  <!-- Aircraft -->
+  <div class="sec">
+    <div class="sec-lbl">Aircraft type</div>
+    <div class="ac-grid" id="acGrid"></div>
+  </div>
+
+  <!-- ULD -->
+  <div class="sec">
+    <div class="sec-lbl">ULD type <span id="uldDeckNote" style="color:#555;text-transform:none;font-weight:400;font-size:9px"></span></div>
+    <div class="uld-list" id="uldList"></div>
+    <!-- Custom ULD toggle -->
+    <button onclick="toggleCustomForm()" id="customToggle" style="width:100%;background:transparent;border:0.5px dashed rgba(255,255,255,.12);border-radius:7px;color:#555;font-size:10px;padding:6px;cursor:pointer;margin-top:6px">+ Add custom ULD</button>
+    <div class="custom-form" id="customForm" style="display:none">
+      <div class="sec-lbl" style="margin-bottom:6px">Custom ULD dimensions</div>
+      <input id="cuCode" placeholder="Code (e.g. CUSTOM-1)">
+      <div class="r2">
+        <input id="cuL" type="number" placeholder="L (cm)">
+        <input id="cuW" type="number" placeholder="W (cm)">
+      </div>
+      <div class="r2">
+        <input id="cuH" type="number" placeholder="H (cm)">
+        <input id="cuWt" type="number" placeholder="Max wt (kg)">
+      </div>
+      <select id="cuDeck" style="font-size:11px;padding:4px 7px;background:#222;border:0.5px solid rgba(255,255,255,.1);border-radius:6px;color:#ddd;width:100%;margin-bottom:4px;outline:none">
+        <option value="lower">Lower deck</option>
+        <option value="main">Main deck</option>
+      </select>
+      <button class="add-custom-btn" onclick="addCustomULD()">Add to ULD list</button>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="sec" style="flex:1">
+    <div class="tabs" style="margin:-10px -12px 8px;border-radius:0">
+      <button class="tab active" onclick="switchTab('excel',this)">Excel</button>
+      <button class="tab" onclick="switchTab('manual',this)">Manual</button>
+    </div>
+
+    <div class="tp active" id="tp-excel" style="padding:0">
+      <div class="dz" id="dz">
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0])">
+        <div class="dz-icon"></div>
+        <div class="dz-title">Drop Excel / CSV here</div>
+        <div class="dz-sub">or click to browse</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+        <span class="stat-pill up-info" id="upStat">No file loaded</span>
+        <button onclick="dlTemplate()" style="font-size:10px;color:var(--y);background:none;border:none;cursor:pointer;text-decoration:underline">Template</button>
+      </div>
+    </div>
+
+    <div class="tp" id="tp-manual" style="padding:0">
+      <div class="f-row"><label class="f-lbl">AWB / Description</label><input id="fdesc" placeholder="071-10001 fresh flowers"></div>
+      <div class="r3" style="gap:4px;margin-bottom:6px">
+        <div><label class="f-lbl">L (cm)</label><input id="fl" type="number" placeholder="80"></div>
+        <div><label class="f-lbl">W (cm)</label><input id="fw" type="number" placeholder="60"></div>
+        <div><label class="f-lbl">H (cm)</label><input id="fh" type="number" placeholder="50"></div>
+      </div>
+      <div class="r2" style="margin-bottom:6px">
+        <div><label class="f-lbl">Weight (kg)</label><input id="fwt" type="number" placeholder="40"></div>
+        <div><label class="f-lbl">Pieces</label><input id="fpcs" type="number" placeholder="1" value="1"></div>
+      </div>
+      <button onclick="addManual()" style="width:100%;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:#aaa;font-size:11px;padding:6px;border-radius:7px;cursor:pointer">+ Add to manifest</button>
+    </div>
+  </div>
+
+  <!-- Manifest + buttons -->
+  <div class="sec">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#444">Manifest <span id="sCnt" style="color:var(--y)">0 items</span></span>
+      <button onclick="clearAll()" style="font-size:10px;color:#444;background:none;border:none;cursor:pointer">Clear all</button>
+    </div>
+    <div class="slist" id="shipList"><div style="font-size:10px;color:#444;text-align:center;padding:8px">No shipments added</div></div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
+      <button class="run-btn run-opt" id="runOptBtn" onclick="optimize()" disabled>Run ULD buildup</button>
+      <button class="run-btn run-ac" id="runAcBtn" onclick="loadIntoAircraft()" disabled>Load into aircraft</button>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT COLUMN -->
+<div class="right">
+  <!-- AI Recommendation bar -->
+  <div class="rec-bar" id="recBar">
+    <div class="rec-icon"></div>
+    <div class="rec-text">
+      <div class="rec-combo" id="recCombo">Select aircraft and add cargo to get AI recommendation</div>
+      <div class="rec-reason" id="recReason">AI will analyze dimensions and weight to suggest optimal ULD combination</div>
+    </div>
+    <div class="rec-kpi" id="recKpis"></div>
+  </div>
+
+  <!-- 3D View tabs -->
+  <div class="view-tabs">
+    <button class="vt active" id="vt1" onclick="setView('uld',this)">ULD buildup</button>
+    <button class="vt" id="vt2" onclick="setView('aircraft',this)">Aircraft interior</button>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-area">
+    <canvas id="cv"></canvas>
+    <div class="c-hint">drag  -  scroll to zoom</div>
+    <div class="stage-hint" id="stageHint" style="display:none"></div>
+  </div>
+
+  <!-- Pallet tabs -->
+  <div class="pal-tabs" id="palTabs"></div>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi-c"><div class="kpi-v" id="kv1"> - </div><div class="kpi-l">Aircraft</div></div>
+    <div class="kpi-c"><div class="kpi-v" id="kv2"> - </div><div class="kpi-l">ULD type</div></div>
+    <div class="kpi-c"><div class="kpi-v" id="kv3"> - </div><div class="kpi-l">Positions loaded</div></div>
+    <div class="kpi-c"><div class="kpi-v" id="kv4"> - </div><div class="kpi-l">Chargeable wt</div></div>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-area">
+    <table>
+      <thead><tr><th>Position</th><th>ULD</th><th>AWB / Description</th><th>Pcs</th><th>Actual wt</th><th>DIM wt</th><th>Chargeable</th><th>Overhang</th><th>Status</th></tr></thead>
+      <tbody id="tblBody"><tr><td colspan="9" style="text-align:center;color:#333;padding:20px">Select aircraft  -  add cargo  -  run ULD buildup</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Footer buttons -->
+  <div class="foot">
+    <button class="exp-btn" onclick="exportCSV()"><span></span>Export CSV</button>
+    <button class="pdf-btn" onclick="generatePDF()"><span></span>Generate PDF</button>
+  </div>
+</div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/*  DATA  */
+const ULD_DB={
+  PMC: {code:'PMC',name:'Main deck pallet',deck:'main', l:317.5,w:243.8,h:243.8,tare:130,vol:17.16,maxWt:6804},
+  PAJ: {code:'PAJ',name:'Main deck pallet (88in)',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
+  P1P: {code:'P1P',name:'Main deck pallet',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
+  AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:156.2,w:153.4,h:162.6,tare:64,vol:5.20,maxWt:1588},
+  LD6: {code:'LD6',name:'Lower deck pallet',deck:'lower',l:317.5,w:243.8,h:162.6,tare:130,vol:11.39,maxWt:3175},
+  PAJ5:{code:'PAJ5',name:'Lower deck pallet (88in)',deck:'lower',l:317.5,w:223.5,h:162.6,tare:120,vol:10.33,maxWt:3175},
+  DPE: {code:'DPE',name:'LD2 container',deck:'lower',l:153.4,w:119.4,h:162.6,tare:80,vol:3.40,maxWt:1225},
+  PLA: {code:'PLA',name:'Half-width pallet (=2AKE)',deck:'lower',l:317.5,w:153.4,h:162.6,tare:91,vol:6.94,maxWt:2500},
+};
+const AIRCRAFT={
+  B777F:{label:'B777F',name:'Boeing 777F',type:'freighter',
+    main:{uld:'PMC',pos:['P1','P2','P3','P4','P5','P6','P7','P8','P9','P10','P11'],maxPay:75000,door:{w:305,h:261}},
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','F7','A1','A2','A3','A4','A5','A6','A7'],maxPay:28000,door:{w:183,h:170}},
+    mainUlds:['PMC','PAJ','P1P'],lowerUlds:['AKE','LD6']},
+  B777_300:{label:'B777-300',name:'Boeing 777-300',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','A1','A2','A3','A4','A5','A6','A7','A8','A9','A10','A11','A12','A13','A14'],maxPay:45000,door:{w:183,h:170}},
+    mainUlds:[],lowerUlds:['AKE','LD6','PAJ5','PLA']},
+  A350:{label:'A350-900',name:'Airbus A350-900',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','AFT1','AFT2','AFT3','AFT4','AFT5'],maxPay:15000,door:{w:182,h:174}},
+    mainUlds:[],lowerUlds:['AKE','PAJ5','PLA']},
+  B789:{label:'B789-900',name:'Boeing 787-9',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','A1','A2','A3','A4','A5','A6'],maxPay:18000,door:{w:175,h:127}},
+    mainUlds:[],lowerUlds:['AKE','PAJ5','PLA']},
+  B788:{label:'B788',name:'Boeing 787-8',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','A1','A2','A3','A4','A5','A6'],maxPay:14000,door:{w:175,h:127}},
+    mainUlds:[],lowerUlds:['AKE','PAJ5','PLA']},
+  B737:{label:'B737-800',name:'Boeing 737-800',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['FWD','AFT'],maxPay:4000,door:{w:118,h:86}},
+    mainUlds:[],lowerUlds:['AKE','DPE']},
+  B767:{label:'B767-300',name:'Boeing 767-300ER',type:'pax',
+    main:null,
+    lower:{uld:'DPE',pos:['F1','F2','F3','F4','F5','A1','A2','A3','A4','A5'],maxPay:11000,door:{w:178,h:122}},
+    mainUlds:[],lowerUlds:['DPE','AKE','PLA']},
+};
+const COLORS=['#EAB308','#22c55e','#60a5fa','#f97316','#a78bfa','#f43f5e','#14b8a6','#fb923c','#818cf8','#34d399','#fbbf24','#c084fc'];
+const PAL_COL=['#EAB308','#22c55e','#60a5fa','#f97316','#a78bfa'];
+const DIM_DIV=6000;
+
+/*  STATE  */
+let selAC='B788', selULD='AKE', customULDs={};
+let shipments=[], allPallets=[], activePal=0, viewMode='uld';
+let scene,camera,renderer,isDrag=false,prev={x:0,y:0},rot={x:.4,y:.5},zoom=1;
+
+/*  AIRCRAFT & ULD BUILDERS  */
+function buildAcGrid(){
+  document.getElementById('acGrid').innerHTML=Object.entries(AIRCRAFT).map(([k,v])=>`
+    <button class="ac-btn ${k===selAC?'active':''}" onclick="selectAC('${k}')">
+      <div class="ac-lbl">${v.label}</div>
+      <div class="ac-type">${v.type==='freighter'?' Cargo':' PAX'}</div>
+    </button>`).join('');
+}
+
+function buildULDList(){
+  const ac=AIRCRAFT[selAC];
+  const allCodes=[...new Set([...ac.mainUlds,...ac.lowerUlds,...Object.keys(customULDs)])];
+  document.getElementById('uldDeckNote').textContent=
+    ac.type==='freighter'?'(main + lower deck)':'(lower deck only)';
+  const rec=getRecULD();
+  document.getElementById('uldList').innerHTML=allCodes.map(code=>{
+    const u=ULD_DB[code]||customULDs[code];
+    if(!u)return'';
+    const isSel=selULD===code;
+    const isRec=rec?.uldCode===code;
+    const deckBg=u.deck==='main'?'rgba(239,159,39,.15)':'rgba(56,189,248,.12)';
+    const deckCol=u.deck==='main'?'#EF9F27':'#38bdf8';
+    const isCustom=!!customULDs[code];
+    return`<button class="uld-btn ${isSel?'active':''} ${isRec&&!isSel?'rec-uld':''}" onclick="selectULD('${code}')">
+      <div>
+        <div class="uld-code">${u.code}${isCustom?' <span style="font-size:9px;color:#555">(custom)</span>':''}</div>
+        <div class="uld-meta">${u.l}x${u.w}x${u.h}cm - ${u.vol||((u.l*u.w*u.h/1e6).toFixed(2))}m3</div>
+      </div>
+      <div style="text-align:right">
+        <span style="font-size:9px;padding:1px 5px;border-radius:99px;background:${deckBg};color:${deckCol}">${u.deck}</span>
+        ${isRec?'<div style="font-size:9px;color:#22c55e;margin-top:2px"> AI pick</div>':''}
+      </div>
+    </button>`;
+  }).join('');
+}
+
+/*  AI RECOMMENDATION  */
+function getRecULD(){
+  if(!shipments.length)return null;
+  const totalVol=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h*sh.pcs)/1e6,0);
+  const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
+  const bigPcs=shipments.filter(sh=>sh.l>200||sh.w>200||sh.h>200);
+  if(bigPcs.length>0) return{uldCode:'PMC',reason:`${bigPcs.length} oversized item(s) need main deck PMC`};
+  const akeVol=ULD_DB.AKE.vol, akeCap=28*akeVol;
+  if(totalVol<=akeCap*0.5) return{uldCode:'AKE',reason:`Low volume (${totalVol.toFixed(1)}m3)  -  pure AKE is most efficient`};
+  if(totalVol>akeCap*0.7) return{uldCode:'LD6',reason:`High volume (${totalVol.toFixed(1)}m3)  -  use LD6 for more capacity per slot`};
+  return{uldCode:'AKE',reason:`Balanced load  -  AKE provides good utilization`};
+}
+
+function updateRec(){
+  if(!shipments.length){
+    document.getElementById('recCombo').textContent='Add cargo to get AI recommendation';
+    document.getElementById('recReason').textContent='AI analyses dimensions and weight to recommend optimal ULD';
+    document.getElementById('recKpis').innerHTML='';
+    return;
+  }
+  const totalVol=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h*sh.pcs)/1e6,0);
+  const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
+  const dimWt=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h)/DIM_DIV*sh.pcs,0);
+  const chargeWt=Math.max(totalWt,dimWt);
+  const rec=getRecULD();
+  const uld=ULD_DB[rec.uldCode]||ULD_DB.AKE;
+  const posNeeded=Math.ceil(totalVol/uld.vol);
+  document.getElementById('recCombo').textContent=`Use ${selULD}  -  ~${posNeeded} position${posNeeded!==1?'s':''} needed`;
+  document.getElementById('recReason').textContent=rec.reason;
+  document.getElementById('recKpis').innerHTML=`
+    <div class="rk"><div class="rk-v">${totalVol.toFixed(1)}</div><div class="rk-l">m3 total</div></div>
+    <div class="rk" style="margin-left:12px"><div class="rk-v">${Math.round(chargeWt)}</div><div class="rk-l">kg chargeable</div></div>
+    <div class="rk" style="margin-left:12px"><div class="rk-v">${posNeeded}</div><div class="rk-l">ULDs needed</div></div>`;
+  buildULDList();
+}
+
+/*  BIN PACKING  */
+function packBin(boxes,spec,useOH){
+  const spaces=[{x:0,y:0,z:0,lx:spec.l*(useOH?1.25:1),ly:spec.h,lz:spec.w*(useOH?1.1:1)}];
+  const placed=[],rem=[];
+  for(const box of boxes){
+    let best=null,bi=-1;
+    for(let si=0;si<spaces.length;si++){
+      const sp=spaces[si];
+      const rots=[[box.l,box.h,box.w],[box.w,box.h,box.l],[box.l,box.w,box.h],[box.w,box.l,box.h],[box.h,box.l,box.w],[box.h,box.w,box.l]];
+      for(const[bl,bh,bw]of rots)if(bl<=sp.lx&&bh<=sp.ly&&bw<=sp.lz){best={bl,bh,bw};bi=si;break;}
+      if(best)break;
+    }
+    if(best){
+      const{bl,bh,bw}=best,sp=spaces[bi];
+      const ovL=Math.max(0,sp.x+bl-spec.l),ovW=Math.max(0,sp.z+bw-spec.w);
+      placed.push({...box,px:sp.x,py:sp.y,pz:sp.z,bl,bh,bw,overhang:ovL>0||ovW>0,ovCm:Math.round(Math.max(ovL,ovW))});
+      const ns=[{x:sp.x+bl,y:sp.y,z:sp.z,lx:sp.lx-bl,ly:sp.ly,lz:sp.lz},{x:sp.x,y:sp.y+bh,z:sp.z,lx:bl,ly:sp.ly-bh,lz:sp.lz},{x:sp.x,y:sp.y,z:sp.z+bw,lx:bl,ly:bh,lz:sp.lz-bw}].filter(s=>s.lx>2&&s.ly>2&&s.lz>2);
+      spaces.splice(bi,1,...ns);spaces.sort((a,b)=>(a.y-b.y)||(a.x-b.x)||(a.z-b.z));
+    }else rem.push(box);
+  }
+  return{placed,rem};
+}
+
+function optimize(){
+  if(!shipments.length){alert('Add shipments first.');return;}
+  const u=ULD_DB[selULD]||customULDs[selULD];
+  if(!u){alert('Select a valid ULD type.');return;}
+  let boxes=shipments.flatMap(s=>Array.from({length:s.pcs},(_,i)=>({...s,piece:i+1})));
+  boxes.sort((a,b)=>(b.l*b.w*b.h)-(a.l*a.w*a.h));
+  allPallets=[];
+  const ac=AIRCRAFT[selAC];
+  const positions=u.deck==='main'?(ac.mainUlds.includes(selULD)?ac.main?.pos||[]:Array.from({length:12},(_,i)=>`P${i+1}`)):ac.lower?.pos||Array.from({length:20},(_,i)=>i<10?`F${i+1}`:`A${i-9}`);
+  let rem=[...boxes];
+  for(let i=0;i<positions.length&&rem.length;i++){
+    const{placed,rem:r}=packBin(rem,u,false);
+    if(!placed.length)break;
+    const vol=placed.reduce((s,b)=>s+b.bl*b.bh*b.bw,0);
+    allPallets.push({posId:positions[i],deck:u.deck,spec:u,placed,util:Math.round(vol/(u.l*u.h*u.w)*100),totalWt:placed.reduce((s,b)=>s+b.wt,0),hasOH:placed.some(b=>b.overhang),color:PAL_COL[allPallets.length%PAL_COL.length]});
+    rem=r;
+  }
+  activePal=0;
+  setStage(2);
+  setView('uld');
+  buildPalTabs();
+  renderULDView();
+  updateKPIs();
+  updateTable();
+  document.getElementById('runAcBtn').disabled=false;
+}
+
+function loadIntoAircraft(){
+  if(!allPallets.length){alert('Run ULD buildup first.');return;}
+  setStage(3);
+  setView('aircraft');
+}
+
+/*  STAGE INDICATOR  */
+function setStage(n){
+  [1,2,3].forEach(i=>{
+    const el=document.getElementById('st'+i);
+    el.className='stage'+(i<n?' done':i===n?' active':'');
+  });
+}
+
+/*  VIEW SWITCHER  */
+function setView(mode,btn){
+  viewMode=mode;
+  document.querySelectorAll('.vt').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  else document.getElementById(mode==='uld'?'vt1':'vt2').classList.add('active');
+  const hint=document.getElementById('stageHint');
+  if(mode==='uld'&&allPallets.length){
+    hint.style.display='block';
+    hint.style.background='rgba(234,179,8,.12)';hint.style.color='#EAB308';
+    hint.textContent=`Stage 1: Cargo packed into ${allPallets[activePal]?.spec?.code||selULD}`;
+  } else if(mode==='aircraft'&&allPallets.length){
+    hint.style.display='block';
+    hint.style.background='rgba(56,189,248,.12)';hint.style.color='#38bdf8';
+    hint.textContent=`Stage 2: ${allPallets.length} ULD(s) loaded into ${AIRCRAFT[selAC].label}`;
+  } else hint.style.display='none';
+  if(mode==='uld') renderULDView();
+  else renderAircraftView();
+}
+
+/*  THREE.JS  -  ULD BUILDUP VIEW  */
+function initRenderer(){
+  const canvas=document.getElementById('cv');
+  const W=canvas.offsetWidth||580,H=260;
+  if(renderer){renderer.dispose();renderer=null;}
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(45,W/H,1,3000);
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,preserveDrawingBuffer:true});
+  renderer.setSize(W,H);renderer.setClearColor(0,0);
+  scene.add(new THREE.AmbientLight(0xffffff,.65));
+  return{W,H};
+}
+
+function updateCam(cx,cy,cz){
+  const md=Math.max(cx*2,cy*2,cz*2)||300,r=md*1.8*zoom;
+  camera.position.set(cx+r*Math.sin(rot.y)*Math.cos(rot.x),cy+r*Math.sin(rot.x),cz+r*Math.cos(rot.y)*Math.cos(rot.x));
+  camera.lookAt(cx,cy,cz);
+  renderer.render(scene,camera);
+}
+
+function setupMouse(canvas,cx,cy,cz){
+  const mv=(dx,dy)=>{rot.y+=dx*.009;rot.x=Math.max(-1.2,Math.min(1.2,rot.x-dy*.009));updateCam(cx,cy,cz);};
+  canvas.onmousedown=e=>{isDrag=true;prev={x:e.clientX,y:e.clientY};};
+  canvas.onmouseup=canvas.onmouseleave=()=>isDrag=false;
+  canvas.onmousemove=e=>{if(!isDrag)return;mv(e.clientX-prev.x,e.clientY-prev.y);prev={x:e.clientX,y:e.clientY};};
+  canvas.onwheel=e=>{e.preventDefault();zoom=Math.max(.3,Math.min(3,zoom+(e.deltaY>0?.12:-.12)));updateCam(cx,cy,cz);};
+  canvas.ontouchstart=e=>{isDrag=true;prev={x:e.touches[0].clientX,y:e.touches[0].clientY};};
+  canvas.ontouchend=()=>isDrag=false;
+  canvas.ontouchmove=e=>{if(!isDrag)return;mv(e.touches[0].clientX-prev.x,e.touches[0].clientY-prev.y);prev={x:e.touches[0].clientX,y:e.touches[0].clientY};};
+}
+
+function renderULDView(){
+  initRenderer();
+  const canvas=document.getElementById('cv');
+  const pallet=allPallets[activePal];
+  const spec=pallet?.spec||(ULD_DB[selULD]||customULDs[selULD]);
+  if(!spec){renderer.render(scene,camera);return;}
+  const md=Math.max(spec.l,spec.w,spec.h);
+  const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(md*2,md*2,md*2);scene.add(dl);
+  const dl2=new THREE.DirectionalLight(0xffffff,.3);dl2.position.set(-md,-md,-md);scene.add(dl2);
+  const pc=parseInt((pallet?.color||'#EAB308').replace('#',''),16);
+  const eg=new THREE.EdgesGeometry(new THREE.BoxGeometry(spec.l,spec.h,spec.w));
+  const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:pc,transparent:true,opacity:.3}));
+  ln.position.set(spec.l/2,spec.h/2,spec.w/2);scene.add(ln);
+  const flr=new THREE.Mesh(new THREE.PlaneGeometry(spec.l,spec.w),new THREE.MeshBasicMaterial({color:pc,transparent:true,opacity:.04,side:THREE.DoubleSide}));
+  flr.rotation.x=-Math.PI/2;flr.position.set(spec.l/2,0,spec.w/2);scene.add(flr);
+  if(pallet){
+    for(const b of pallet.placed){
+      const col=parseInt(b.color.replace('#',''),16);
+      const geo=new THREE.BoxGeometry(b.bl-1,b.bh-1,b.bw-1);
+      const mat=new THREE.MeshLambertMaterial({color:b.overhang?0xEAB308:col,transparent:true,opacity:.83});
+      const mesh=new THREE.Mesh(geo,mat);mesh.position.set(b.px+b.bl/2,b.py+b.bh/2,b.pz+b.bw/2);scene.add(mesh);
+      const eg2=new THREE.EdgesGeometry(geo);
+      const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.2}));ln2.position.copy(mesh.position);scene.add(ln2);
+    }
+  }
+  rot={x:.4,y:.5};zoom=1;
+  const cx=spec.l/2,cy=spec.h/2,cz=spec.w/2;
+  updateCam(cx,cy,cz);setupMouse(canvas,cx,cy,cz);
+}
+
+/*  THREE.JS  -  AIRCRAFT INTERIOR VIEW  */
+function renderAircraftView(){
+  initRenderer();
+  const canvas=document.getElementById('cv');
+  const ac=AIRCRAFT[selAC];
+  if(!ac){renderer.render(scene,camera);return;}
+
+  const lowerSpec=ULD_DB[ac.lower?.uld||'AKE']||ULD_DB.AKE;
+  const mainSpec=ac.main?ULD_DB[ac.main.uld]||ULD_DB.PMC:null;
+  const lowerPos=ac.lower?.pos||[];
+  const mainPos=ac.main?.pos||[];
+  const lowerPals=allPallets.filter(p=>p.deck==='lower');
+  const mainPals=allPallets.filter(p=>p.deck==='main');
+
+  // Layout constants
+  const LOWER_Y=0;
+  const FLOOR_GAP=20;
+  const MAIN_Y=(mainSpec?lowerSpec.h+FLOOR_GAP:0);
+  const lowerLen=lowerPos.length*lowerSpec.l;
+  const mainLen=mainPos.length*(mainSpec?.l||318);
+  const totalLen=Math.max(lowerLen,mainLen,300);
+
+  // Fuselage
+  const fuseH=MAIN_Y+(mainSpec?.h||0)+80;
+  const fuseW=Math.max(mainSpec?.w||244,lowerSpec.w)+120;
+  const fuseEg=new THREE.EdgesGeometry(new THREE.BoxGeometry(totalLen+200,fuseH,fuseW));
+  const fuseLn=new THREE.LineSegments(fuseEg,new THREE.LineBasicMaterial({color:0x378ADD,transparent:true,opacity:.12}));
+  fuseLn.position.set(totalLen/2,fuseH/2-40,0);scene.add(fuseLn);
+
+  // Floor
+  const flrMesh=new THREE.Mesh(new THREE.PlaneGeometry(totalLen+200,fuseW),new THREE.MeshBasicMaterial({color:0x378ADD,transparent:true,opacity:.03,side:THREE.DoubleSide}));
+  flrMesh.rotation.x=-Math.PI/2;flrMesh.position.set(totalLen/2,LOWER_Y-2,0);scene.add(flrMesh);
+
+  // Add ambient + directional light
+  const dlA=new THREE.DirectionalLight(0xffffff,.9);dlA.position.set(totalLen,fuseH*2,fuseW*2);scene.add(dlA);
+  scene.add(new THREE.AmbientLight(0xffffff,.6));
+
+  // LOWER DECK positions
+  lowerPos.forEach((posId,i)=>{
+    const x=i*lowerSpec.l;
+    const pal=lowerPals[i]||null;
+    const col=pal?parseInt(pal.color.replace('#',''),16):0x333333;
+    const geo=new THREE.BoxGeometry(lowerSpec.l-4,lowerSpec.h-4,lowerSpec.w-4);
+    if(pal){
+      const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.75});
+      const mesh=new THREE.Mesh(geo,mat);mesh.position.set(x+lowerSpec.l/2,LOWER_Y+lowerSpec.h/2,0);scene.add(mesh);
+      // Util bar on top
+      const utilW=(pal.util/100)*(lowerSpec.l-8);
+      const utilGeo=new THREE.BoxGeometry(utilW,4,lowerSpec.w-8);
+      const utilMat=new THREE.MeshBasicMaterial({color:pal.util>=80?0x22c55e:pal.util>=60?0xEAB308:0xf97316});
+      const utilMesh=new THREE.Mesh(utilGeo,utilMat);
+      utilMesh.position.set(x+4+utilW/2,LOWER_Y+lowerSpec.h+2,0);scene.add(utilMesh);
+    } else {
+      const eg=new THREE.EdgesGeometry(geo);
+      const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0x2a2a2a,transparent:true,opacity:.8}));
+      ln.position.set(x+lowerSpec.l/2,LOWER_Y+lowerSpec.h/2,0);scene.add(ln);
+    }
+    const eg2=new THREE.EdgesGeometry(geo);
+    const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:0x333333,transparent:true,opacity:pal?.25:.4}));
+    ln2.position.set(x+lowerSpec.l/2,LOWER_Y+lowerSpec.h/2,0);scene.add(ln2);
+  });
+
+  // MAIN DECK positions (freighters)
+  if(mainSpec){
+    mainPos.forEach((posId,i)=>{
+      const x=i*mainSpec.l;
+      const pal=mainPals[i]||null;
+      const col=pal?parseInt(pal.color.replace('#',''),16):0x333333;
+      const geo=new THREE.BoxGeometry(mainSpec.l-4,mainSpec.h-4,mainSpec.w-4);
+      if(pal){
+        const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.75});
+        const mesh=new THREE.Mesh(geo,mat);mesh.position.set(x+mainSpec.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(mesh);
+        const utilW=(pal.util/100)*(mainSpec.l-8);
+        const utilGeo=new THREE.BoxGeometry(utilW,5,mainSpec.w-8);
+        const utilMat=new THREE.MeshBasicMaterial({color:pal.util>=80?0x22c55e:pal.util>=60?0xEAB308:0xf97316});
+        const utilMesh=new THREE.Mesh(utilGeo,utilMat);
+        utilMesh.position.set(x+4+utilW/2,MAIN_Y+mainSpec.h+3,0);scene.add(utilMesh);
+      } else {
+        const eg=new THREE.EdgesGeometry(geo);
+        const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0x2a2a2a,transparent:true,opacity:.8}));
+        ln.position.set(x+mainSpec.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(ln);
+      }
+      const eg2=new THREE.EdgesGeometry(geo);
+      const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:0x333333,transparent:true,opacity:pal?.22:.35}));
+      ln2.position.set(x+mainSpec.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(ln2);
+    });
+  }
+
+  const cx=totalLen/2, cy=fuseH/2, cz=0;
+  rot={x:.45,y:-.4};zoom=1;
+  updateCam(cx,cy,cz);setupMouse(canvas,cx,cy,cz);
+}
+
+/*  UI HELPERS  */
+function buildPalTabs(){
+  if(!allPallets.length){document.getElementById('palTabs').innerHTML='';return;}
+  document.getElementById('palTabs').innerHTML=allPallets.map((p,i)=>`
+    <button class="ptab ${i===activePal?'active':''}" onclick="switchPal(${i})">
+      <span style="width:6px;height:6px;border-radius:2px;background:${p.color};display:inline-block"></span>
+      ${p.posId} <span style="opacity:.6">${p.util}%</span>
+    </button>`).join('');
+}
+
+function switchPal(i){
+  activePal=i;buildPalTabs();
+  if(viewMode==='uld')renderULDView();
+}
+
+function updateKPIs(){
+  const u=ULD_DB[selULD]||customULDs[selULD];
+  const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
+  const dimWt=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h)/DIM_DIV*sh.pcs,0);
+  document.getElementById('kv1').textContent=selAC;
+  document.getElementById('kv2').textContent=selULD;
+  document.getElementById('kv3').textContent=allPallets.length>0?`${allPallets.length}/${AIRCRAFT[selAC].lower?.pos.length||'?'}`:' - ';
+  document.getElementById('kv4').textContent=Math.max(totalWt,dimWt)>0?Math.round(Math.max(totalWt,dimWt))+' kg':' - ';
+  document.getElementById('kv3').style.color=allPallets.length>0?'#22c55e':'#EAB308';
+}
+
+function updateTable(){
+  const tbody=document.getElementById('tblBody');
+  if(!allPallets.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Run ULD buildup to generate load plan</td></tr>';return;}
+  let rows='';
+  for(const p of allPallets){
+    const grps={};
+    for(const b of p.placed){if(!grps[b.id])grps[b.id]=[];grps[b.id].push(b);}
+    for(const grp of Object.values(grps)){
+      const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1),cw=+(Math.max(aw,dw)).toFixed(1);
+      const oh=grp.some(x=>x.overhang);
+      rows+=`<tr onclick="switchPal(${allPallets.indexOf(p)});if(viewMode==='aircraft')setView('uld')">
+        <td><span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:2px;background:${p.color};display:inline-block"></span><b style="color:#ddd">${p.posId}</b></span></td>
+        <td style="color:#666;font-size:10px">${p.spec.code}</td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;color:#888">${b.desc}</td>
+        <td style="text-align:center">${grp.length}</td>
+        <td style="font-family:monospace">${aw}kg</td>
+        <td style="font-family:monospace">${dw}kg</td>
+        <td style="font-weight:700;font-family:monospace;color:${cw===aw?'#22c55e':'#EAB308'}">${cw}kg</td>
+        <td>${oh?`<span class="bt bty">+${grp[0].ovCm}cm</span>`:'<span style="color:#333"> - </span>'}</td>
+        <td><span class="bt btg">Placed</span></td>
+      </tr>`;
+    }
+  }
+  tbody.innerHTML=rows;
+}
+
+function renderList(){
+  const el=document.getElementById('shipList');
+  document.getElementById('sCnt').textContent=shipments.length+' item'+(shipments.length!==1?'s':'');
+  el.innerHTML=!shipments.length
+    ?'<div style="font-size:10px;color:#444;text-align:center;padding:8px">No shipments added</div>'
+    :shipments.map(s=>`<div class="s-row"><span class="s-dot" style="background:${s.color}"></span><span class="s-lbl">${s.desc} - ${s.l}x${s.w}x${s.h}cm ${s.wt}kg x${s.pcs}</span><span class="s-rm" onclick="removeShipment(${s.id})">x</span></div>`).join('');
+  document.getElementById('runOptBtn').disabled=shipments.length===0;
+  updateRec();
+}
+
+function removeShipment(id){shipments=shipments.filter(s=>s.id!==id);renderList();}
+function clearAll(){shipments=[];allPallets=[];renderList();buildPalTabs();document.getElementById('runAcBtn').disabled=true;updateKPIs();document.getElementById('tblBody').innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Select aircraft  -  add cargo  -  run ULD buildup</td></tr>';setStage(1);if(renderer)renderULDView();}
+
+function selectAC(k){selAC=k;const ac=AIRCRAFT[k];selULD=ac.lowerUlds[0]||ac.mainUlds[0]||'AKE';buildAcGrid();buildULDList();allPallets=[];buildPalTabs();updateKPIs();setStage(1);document.getElementById('runAcBtn').disabled=true;if(renderer){if(viewMode==='aircraft')renderAircraftView();else renderULDView();}}
+function selectULD(code){selULD=code;buildULDList();if(renderer&&viewMode==='uld')renderULDView();}
+
+/*  CUSTOM ULD  */
+function toggleCustomForm(){
+  const f=document.getElementById('customForm');
+  f.style.display=f.style.display==='none'?'block':'none';
+}
+function addCustomULD(){
+  const code=document.getElementById('cuCode').value.trim();
+  const l=parseFloat(document.getElementById('cuL').value);
+  const w=parseFloat(document.getElementById('cuW').value);
+  const h=parseFloat(document.getElementById('cuH').value);
+  const maxWt=parseFloat(document.getElementById('cuWt').value);
+  const deck=document.getElementById('cuDeck').value;
+  if(!code||!l||!w||!h||!maxWt){alert('Fill in all custom ULD fields.');return;}
+  customULDs[code]={code,name:'Custom ULD',deck,l,w,h,tare:0,vol:+(l*w*h/1e6).toFixed(3),maxWt};
+  AIRCRAFT[selAC].lowerUlds.push(code);
+  selULD=code;buildULDList();
+  document.getElementById('customForm').style.display='none';
+  ['cuCode','cuL','cuW','cuH','cuWt'].forEach(id=>document.getElementById(id).value='');
+}
+
+/*  MANUAL ENTRY  */
+function addManual(){
+  const desc=document.getElementById('fdesc').value||'Cargo item';
+  const l=parseFloat(document.getElementById('fl').value);
+  const w=parseFloat(document.getElementById('fw').value);
+  const h=parseFloat(document.getElementById('fh').value);
+  const wt=parseFloat(document.getElementById('fwt').value);
+  const pcs=parseInt(document.getElementById('fpcs').value)||1;
+  if(!l||!w||!h||!wt){alert('Enter all dimensions and weight.');return;}
+  shipments.push({id:Date.now()+Math.random(),desc,l,w,h,wt,pcs,color:COLORS[shipments.length%COLORS.length]});
+  renderList();
+  document.getElementById('fdesc').value='';
+  ['fl','fw','fh','fwt'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fpcs').value='1';
+}
+
+/*  EXCEL  */
+function switchTab(id,btn){
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tp').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');document.getElementById('tp-'+id).classList.add('active');
+}
+
+async function handleFile(file){
+  if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  const ab=await file.arrayBuffer();
+  const wb=XLSX.read(new Uint8Array(ab),{type:'array'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(json.length<2){setStat('err','File empty');return;}
+  const hdrs=json[0].map(h=>String(h));
+  const rows=json.slice(1).filter(r=>r.some(c=>c!==''));
+  const ALIASES={desc:['description','awb','awb number','name','item','cargo'],l:['length','l','len','l(cm)','length(cm)'],w:['width','w','wid','w(cm)'],h:['height','h','hgt','h(cm)'],wt:['weight','wt','kg','weight(kg)','gross weight'],pcs:['pieces','pcs','qty','quantity']};
+  const cm={};
+  for(const[k,al]of Object.entries(ALIASES)){const f=hdrs.find(h=>al.includes(h.toLowerCase().trim()));if(f)cm[k]=f;}
+  if(!cm.l||!cm.w||!cm.h||!cm.wt){setStat('err','Could not auto-detect columns  -  use template');return;}
+  let imp=0;
+  rows.forEach((row,ri)=>{
+    const v=c=>c?row[hdrs.indexOf(c)]:'';
+    const l=parseFloat(v(cm.l)),w=parseFloat(v(cm.w)),h=parseFloat(v(cm.h)),wt=parseFloat(v(cm.wt));
+    if(!l||!w||!h||!wt)return;
+    shipments.push({id:Date.now()+Math.random(),desc:String(v(cm.desc)||`Row ${ri+2}`),l,w,h,wt,pcs:parseInt(v(cm.pcs))||1,color:COLORS[shipments.length%COLORS.length]});
+    imp++;
+  });
+  renderList();setStat('ok',`${imp} shipments imported from "${file.name}"`);
+}
+
+function setStat(t,msg){const el=document.getElementById('upStat');el.className='stat-pill '+(t==='ok'?'up-ok':t==='err'?'up-err':'up-info');el.textContent=msg;}
+
+async function dlTemplate(){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([['AWB Number','Description','Length (cm)','Width (cm)','Height (cm)','Weight (kg)','Pieces'],['071-10001','Fresh flowers','80','60','50','40','2'],['071-10002','Auto parts','120','100','80','180','1'],['071-10003','Pharma','60','50','40','25','3']]);
+  ws['!cols']=[{wch:14},{wch:22},{wch:12},{wch:11},{wch:12},{wch:12},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,ws,'Manifest');XLSX.writeFile(wb,'AdeyIQ_Manifest_Template.xlsx');
+}
+
+function exportCSV(){
+  if(!allPallets.length){alert('Run optimization first.');return;}
+  let csv='Deck,Position,ULD,AWB/Desc,Pcs,Actual Wt,DIM Wt,Chargeable,Pos-L,Pos-W,Pos-H,Overhang\n';
+  for(const p of allPallets){
+    const grps={};
+    for(const b of p.placed){if(!grps[b.id])grps[b.id]=[];grps[b.id].push(b);}
+    for(const grp of Object.values(grps)){
+      const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1);
+      csv+=`${p.deck},${p.posId},${p.spec.code},"${b.desc}",${grp.length},${aw},${dw},${+(Math.max(aw,dw)).toFixed(1)},${Math.round(grp[0].px)},${Math.round(grp[0].pz)},${Math.round(grp[0].py)},${grp.some(x=>x.overhang)?'Yes':'No'}\n`;
+    }
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`AdeyIQ_LoadPlan_${selAC}_${selULD}.csv`;a.click();
+}
+
+
+function generatePDF(){
+  if(!allPallets.length){alert('Run ULD buildup first.');return;}
+  if(viewMode!=='uld')setView('uld');
+  setTimeout(()=>{
+    const canvas=document.getElementById('cv');
+    let img='';
+    try{img=canvas.toDataURL('image/png');}catch(e){img='';}
+    const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
+    const dimWt=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h)/DIM_DIV*sh.pcs,0);
+    const chargeWt=Math.max(totalWt,dimWt);
+    const ac=AIRCRAFT[selAC];
+    const loadedUldTypes=[...new Set(allPallets.map(p=>p.spec.code))].join(', ');
+    const loadSequence=allPallets.map(p=>p.posId).join(' -> ');
+    const rows=[];
+    const cards=[];
+    for(const p of allPallets){
+      const grps={};
+      for(const b of p.placed){if(!grps[b.id])grps[b.id]=[];grps[b.id].push(b);}
+      const groupRows=[];
+      for(const grp of Object.values(grps)){
+        const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1);
+        const cw=+(Math.max(aw,dw)).toFixed(1);
+        const dims=`${b.l}x${b.w}x${b.h} cm`;
+        const location=`L ${Math.round(grp[0].px)} / W ${Math.round(grp[0].pz)} / H ${Math.round(grp[0].py)}`;
+        rows.push(`<tr>
+          <td>${p.deck}</td><td>${p.posId}</td><td>${p.spec.code}</td><td>${b.desc}</td>
+          <td>${grp.length}</td><td>${dims}</td><td>${aw} kg</td><td>${dw} kg</td><td>${cw} kg</td>
+          <td>${location}</td>
+          <td>${grp.some(x=>x.overhang)?'Yes':'No'}</td>
+        </tr>`);
+        groupRows.push(`<tr>
+          <td>${b.desc}</td><td>${grp.length}</td><td>${dims}</td><td>${aw} kg</td><td>${cw} kg</td><td>${location}</td>
+        </tr>`);
+      }
+      cards.push(`<section class="build-card">
+        <div class="build-head">
+          <div><span class="pos">${p.posId}</span><span class="deck">${p.deck.toUpperCase()} DECK</span></div>
+          <div class="badge">${p.spec.code}</div>
+        </div>
+        <div class="build-meta">
+          <div><b>${p.util}%</b><span>ULD utilization</span></div>
+          <div><b>${p.placed.length}</b><span>pieces</span></div>
+          <div><b>${Math.round(p.totalWt)} kg</b><span>actual weight</span></div>
+          <div><b>${p.hasOH?'YES':'NO'}</b><span>overhang</span></div>
+        </div>
+        <table class="mini"><thead><tr><th>Cargo</th><th>Pcs</th><th>Dims</th><th>Actual</th><th>Chargeable</th><th>Build location</th></tr></thead><tbody>${groupRows.join('')}</tbody></table>
+        <div class="instruction">Build instruction: place heavy/large pieces first, keep labels visible, secure cargo inside ${p.spec.code}, then stage ULD at aircraft position ${p.posId}.</div>
+      </section>`);
+    }
+    const report=window.open('','_blank');
+    if(!report){alert('Allow pop-ups to generate the PDF report.');return;}
+    report.document.write(`<!doctype html><html><head><title>AdeyIQ Load Plan ${selAC}</title>
+      <style>
+        *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111;background:#f3f4f6}
+        .page{max-width:1180px;margin:0 auto;background:#fff;min-height:100vh}
+        .hero{background:#0b0b0b;color:#fff;padding:24px 28px 18px;border-bottom:5px solid #EAB308}
+        .hero-top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.brand{display:flex;gap:12px;align-items:center}
+        .logo{width:42px;height:42px;border-radius:8px;background:#EAB308;color:#111;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px}
+        h1{font-size:25px;margin:0 0 4px}.muted{color:#8b949e;font-size:12px}.docno{text-align:right;font-size:11px;color:#c9d1d9}
+        .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:18px}
+        .k{background:#171717;border:1px solid #2e2e2e;border-radius:8px;padding:12px}.k b{display:block;font-size:20px;color:#fff}.k span{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:.08em}
+        .content{padding:20px 24px 28px}.section-title{display:flex;align-items:center;gap:8px;margin:18px 0 10px;font-weight:800;text-transform:uppercase;font-size:12px;letter-spacing:.08em;color:#111}
+        .section-title:before{content:'';width:7px;height:18px;background:#EAB308;border-radius:2px}
+        .view{display:grid;grid-template-columns:1.7fr .9fr;gap:14px;align-items:stretch}
+        .view-img{border-radius:10px;overflow:hidden;background:#080808;border:1px solid #151515;min-height:330px;display:flex;align-items:center;justify-content:center}
+        .view-img img{width:100%;height:360px;object-fit:contain;background:#080808}
+        .ops-box{border:1px solid #ddd;border-radius:10px;padding:14px;background:#fafafa}.ops-box h3{margin:0 0 10px;font-size:14px}
+        .ops-box ol{padding-left:18px;margin:0;font-size:12px;line-height:1.65}.ops-box li{margin-bottom:6px}
+        .build-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .build-card{border:1px solid #d8d8d8;border-radius:10px;overflow:hidden;background:#fff;break-inside:avoid}
+        .build-head{display:flex;justify-content:space-between;align-items:center;background:#111;color:#fff;padding:10px 12px}.pos{font-size:18px;font-weight:900;color:#EAB308;margin-right:8px}.deck{font-size:10px;color:#aaa}
+        .badge{background:#EAB308;color:#111;border-radius:99px;padding:5px 10px;font-weight:900;font-size:12px}
+        .build-meta{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #eee}.build-meta div{padding:9px 10px;border-right:1px solid #eee}.build-meta div:last-child{border-right:0}.build-meta b{display:block;font-size:14px}.build-meta span{font-size:9px;color:#666;text-transform:uppercase}
+        table{width:100%;border-collapse:collapse;font-size:10.5px}th,td{border-bottom:1px solid #e5e5e5;text-align:left;padding:7px 6px;vertical-align:top}
+        th{background:#202020;color:#fff;text-transform:uppercase;font-size:8.5px;letter-spacing:.04em}.mini th{background:#f1f1f1;color:#333}.mini td{font-size:10px}
+        .instruction{background:#fff8d8;border-top:1px solid #f3df85;padding:9px 11px;font-size:11px;line-height:1.4}
+        .full-table{border:1px solid #ddd;border-radius:10px;overflow:hidden}
+        .sign{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}.sig{border:1px solid #d8d8d8;border-radius:8px;padding:12px;height:74px}.sig b{display:block;font-size:11px;margin-bottom:28px}.sig span{font-size:10px;color:#666}
+        .footer{margin-top:16px;font-size:10px;color:#666;display:flex;justify-content:space-between}.no-print{padding:18px 24px;background:#fff;border-top:1px solid #eee}
+        .print-btn{padding:12px 22px;background:#EAB308;border:0;border-radius:8px;font-weight:900;cursor:pointer}
+        @page{size:A4 landscape;margin:10mm}@media print{body{background:#fff}.page{max-width:none}.no-print{display:none}.content{padding:12px}.hero{padding:16px 18px}.view-img img{height:250px}.build-grid{grid-template-columns:1fr 1fr}.build-card{page-break-inside:avoid}.section-title{margin-top:12px}}
+      </style></head><body>
+      <div class="page">
+        <div class="hero">
+          <div class="hero-top">
+            <div class="brand"><div class="logo">A</div><div><h1>AdeyIQ Cargo Load Instruction</h1><div class="muted">Operational build plan for warehouse, ramp and load control</div></div></div>
+            <div class="docno">Generated: ${new Date().toLocaleString()}<br>Route page: Optimizer<br>Status: Ready for build</div>
+          </div>
+          <div class="summary">
+            <div class="k"><b>${ac.label}</b><span>Aircraft type</span></div>
+            <div class="k"><b>${loadedUldTypes}</b><span>ULD types loaded</span></div>
+            <div class="k"><b>${allPallets.length}</b><span>ULD positions</span></div>
+            <div class="k"><b>${Math.round(totalWt)} kg</b><span>Actual weight</span></div>
+            <div class="k"><b>${Math.round(chargeWt)} kg</b><span>Chargeable weight</span></div>
+          </div>
+        </div>
+        <div class="content">
+          <div class="section-title">ULD Build Overview</div>
+          <div class="view">
+            <div class="view-img">${img?`<img src="${img}" alt="3D ULD buildup view">`:'<p style="color:#fff">3D image could not be captured.</p>'}</div>
+            <div class="ops-box">
+              <h3>Operations notes</h3>
+              <ol>
+                <li>Build ULDs exactly by the position cards below.</li>
+                <li>Load sequence follows position order: ${loadSequence}.</li>
+                <li>Verify ULD code, deck, piece count and weight before aircraft acceptance.</li>
+                <li>Any overhang marked YES must be approved before dispatch.</li>
+                <li>After loading, sign the handover section and attach this PDF to the flight file.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="section-title">ULD Build Cards</div>
+          <div class="build-grid">${cards.join('')}</div>
+          <div class="section-title">Complete Cargo Detail</div>
+          <div class="full-table"><table><thead><tr><th>Deck</th><th>Position</th><th>ULD</th><th>AWB / Description</th><th>Pcs</th><th>Dims</th><th>Actual wt</th><th>DIM wt</th><th>Chargeable</th><th>Build location</th><th>Overhang</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+          <div class="sign">
+            <div class="sig"><b>Warehouse build completed by</b><span>Name / Time / Signature</span></div>
+            <div class="sig"><b>Ramp loading checked by</b><span>Name / Time / Signature</span></div>
+            <div class="sig"><b>Load control accepted by</b><span>Name / Time / Signature</span></div>
+          </div>
+          <div class="footer"><span>Generated by AdeyIQ Cargo Load Optimizer</span><span>Use latest approved flight manifest for final dispatch.</span></div>
+        </div>
+        <div class="no-print"><button class="print-btn" onclick="window.print()">Save as PDF</button></div>
+      </div>
+      <script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script>
+      </body></html>`);
+    report.document.close();
+  },250);
+}
+/*  INIT  */
+window.addEventListener('load',()=>{
+  buildAcGrid();buildULDList();renderList();updateKPIs();
+  renderULDView();
+  // Load demo shipments
+  const demo=[
+    {desc:'071-10001 Fresh flowers',l:80,w:60,h:50,wt:40,pcs:3},
+    {desc:'071-10002 Auto parts',l:120,w:100,h:80,wt:180,pcs:2},
+    {desc:'071-10003 Pharma',l:60,w:50,h:40,wt:25,pcs:4},
+    {desc:'071-10004 Electronics',l:90,w:70,h:60,wt:60,pcs:2},
+  ];
+  demo.forEach(d=>shipments.push({...d,id:Date.now()+Math.random(),color:COLORS[shipments.length%COLORS.length]}));
+  renderList();
+  setTimeout(()=>{optimize();},800);
+});
+</script>
+
+
+
