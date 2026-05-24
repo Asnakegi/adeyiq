@@ -597,15 +597,16 @@ function addBoldPolyline(points,color,thick=3,opacity=.9){
 
 function addULDStructure(spec,color){
   if(isLD3Container(spec)){
+    const frameColor=0xffffff;
     const shell=makeLD3Geometry(spec);
     const mesh=new THREE.Mesh(shell,new THREE.MeshLambertMaterial({color:0xe5e7eb,transparent:true,opacity:.035,side:THREE.BackSide,depthWrite:false}));
     scene.add(mesh);
-    const edges=new THREE.LineSegments(new THREE.EdgesGeometry(shell),new THREE.LineBasicMaterial({color,transparent:true,opacity:.95}));
+    const edges=new THREE.LineSegments(new THREE.EdgesGeometry(shell),new THREE.LineBasicMaterial({color:frameColor,transparent:true,opacity:.95}));
     scene.add(edges);
     const l=spec.l,w=spec.w,h=spec.h,baseW=spec.profile?.baseW||w,upperW=spec.profile?.upperW||w,breakH=spec.profile?.breakH||h*.35;
     const prof=[[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h],[0,0]];
-    [0,l].forEach(x=>addBoldPolyline(prof.map(([z,y])=>[x,y,z]),color,3.2,.95));
-    [[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h]].forEach(([z,y])=>addBar(0,y,z,l,y,z,color,2.5,.75));
+    [0,l].forEach(x=>addBoldPolyline(prof.map(([z,y])=>[x,y,z]),frameColor,3.2,.95));
+    [[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h]].forEach(([z,y])=>addBar(0,y,z,l,y,z,frameColor,2.5,.75));
 
     const doorW=spec.profile?.doorW||spec.profile?.baseW||spec.w*.78;
     const doorH=spec.profile?.doorH||spec.h*.88;
@@ -622,7 +623,7 @@ function addULDStructure(spec,color){
     const topCover=new THREE.Mesh(new THREE.BoxGeometry(spec.l*.96,5,spec.w*.9),new THREE.MeshBasicMaterial({color:0x2563eb,transparent:true,opacity:.85}));
     topCover.position.set(spec.l/2,spec.h+4,spec.w/2);scene.add(topCover);
 
-    const railMat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.75});
+    const railMat=new THREE.MeshBasicMaterial({color:frameColor,transparent:true,opacity:.75});
     [spec.w*.18,spec.w*.82].forEach(z=>{
       const rail=new THREE.Mesh(new THREE.BoxGeometry(spec.l,4,4),railMat);
       rail.position.set(spec.l/2,2,z);scene.add(rail);
@@ -814,8 +815,7 @@ function renderList(){
   el.innerHTML=!shipments.length
     ?'<div style="font-size:10px;color:#444;text-align:center;padding:8px">No shipments added</div>'
     :shipments.map(s=>`<div class="s-row"><span class="s-dot" style="background:${s.color}"></span><span class="s-lbl">${s.desc} - ${s.l}x${s.w}x${s.h}cm ${s.wt}kg x${s.pcs}</span><span class="s-rm" onclick="removeShipment(${s.id})">x</span></div>`).join('');
-  document.getElementById('runOptBtn').disabled=shipments.length===0;
-  updateRec();
+document.getElementById('runOptBtn').disabled=shipments.length===0;document.getElementById('runUldBtn')&&(document.getElementById('runUldBtn').disabled=shipments.length===0);  updateRec();
 }
 
 function removeShipment(id){shipments=shipments.filter(s=>s.id!==id);renderList();}
@@ -877,7 +877,7 @@ async function handleFile(file){
   if(json.length<2){setStat('err','File empty');return;}
   const hdrs=json[0].map(h=>String(h));
   const rows=json.slice(1).filter(r=>r.some(c=>c!==''));
-  const ALIASES={desc:['description','awb','awb number','name','item','cargo'],l:['length','l','len','l(cm)','length(cm)'],w:['width','w','wid','w(cm)'],h:['height','h','hgt','h(cm)'],wt:['weight','wt','kg','weight(kg)','gross weight'],pcs:['pieces','pcs','qty','quantity']};
+  const ALIASES={desc:['description','awb','awb number','name','item','cargo','shipment'],l:['length','l','len','l(cm)','length(cm)','length (cm)'],w:['width','w','wid','w(cm)','width(cm)','width (cm)'],h:['height','h','hgt','h(cm)','height(cm)','height (cm)'],wt:['weight','wt','kg','weight(kg)','gross weight','actual weight','weight (kg)'],pcs:['pieces','pcs','qty','quantity']};
   const cm={};
   for(const[k,al]of Object.entries(ALIASES)){const f=hdrs.find(h=>al.includes(h.toLowerCase().trim()));if(f)cm[k]=f;}
   if(!cm.l||!cm.w||!cm.h||!cm.wt){setStat('err','Could not auto-detect columns  -  use template');return;}
@@ -887,7 +887,7 @@ async function handleFile(file){
     const l=parseFloat(v(cm.l)),w=parseFloat(v(cm.w)),h=parseFloat(v(cm.h)),wt=parseFloat(v(cm.wt));
     if(!l||!w||!h||!wt)return;
     shipments.push({id:Date.now()+Math.random(),desc:String(v(cm.desc)||`Row ${ri+2}`),l,w,h,wt,pcs:parseInt(v(cm.pcs))||1,color:COLORS[shipments.length%COLORS.length]});
-    imp++;
+   imp++ ;
   });
   renderList();setStat('ok',`${imp} shipments imported from "${file.name}"`);
 }
