@@ -274,8 +274,8 @@ const ULD_DB={
   PMC: {code:'PMC',name:'Main deck pallet',deck:'main', l:317.5,w:243.8,h:243.8,tare:130,vol:17.16,maxWt:6804},
   PAJ: {code:'PAJ',name:'Main deck pallet (88in)',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
   P1P: {code:'P1P',name:'Main deck pallet',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
-  AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:156.2,w:153.4,h:162.6,tare:64,vol:5.20,maxWt:1588},
-  AKH: {code:'AKH',name:'LD3-45W container',deck:'lower',l:156,w:153,h:114,tare:95,vol:3.30,maxWt:1134},
+  AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:148,w:192,h:158,tare:64,vol:5.20,maxWt:1588,profile:{baseW:138,upperW:192,breakH:55,doorW:138,doorH:153}},
+  AKH: {code:'AKH',name:'LD3-45W container',deck:'lower',l:156,w:193,h:114,tare:95,vol:3.30,maxWt:1134,profile:{baseW:137,upperW:193,breakH:45}},
   LD6: {code:'LD6',name:'Lower deck pallet',deck:'lower',l:317.5,w:243.8,h:162.6,tare:130,vol:11.39,maxWt:3175},
   PAJ5:{code:'PAJ5',name:'Lower deck pallet (88in)',deck:'lower',l:317.5,w:223.5,h:162.6,tare:120,vol:10.33,maxWt:3175},
   DPE: {code:'DPE',name:'LD2 container',deck:'lower',l:153.4,w:119.4,h:162.6,tare:80,vol:3.40,maxWt:1225},
@@ -411,22 +411,45 @@ function updateRec(){
 }
 
 /*  BIN PACKING  */
+function isLD3Spec(spec){
+  return ['AKE','AKH','DKN','MKN','RKN'].includes(spec.code);
+}
+
+function ld3UsableWidthAtY(spec,y){
+  if(spec.profile){
+    return y<spec.profile.breakH?spec.profile.baseW:spec.profile.upperW;
+  }
+  return spec.w;
+}
+
+function fitsContour(spec,x,y,z,l,h,w){
+  if(!isLD3Spec(spec))return true;
+  const ys=[y,y+h*.5,y+h];
+  for(const yy of ys){
+    if(z<0||z+w>ld3UsableWidthAtY(spec,yy))return false;
+  }
+  return x>=0&&x+l<=spec.l&&y>=0&&y+h<=spec.h;
+}
+
 function packBin(boxes,spec,useOH){
-  const spaces=[{x:0,y:0,z:0,lx:spec.l*(useOH?1.25:1),ly:spec.h,lz:spec.w*(useOH?1.1:1)}];
+  const startW=isLD3Spec(spec)?ld3UsableWidthAtY(spec,0):spec.w;
+  const spaces=[{x:0,y:0,z:0,lx:spec.l*(useOH?1.25:1),ly:spec.h,lz:startW*(useOH?1.1:1)}];
   const placed=[],rem=[];
   for(const box of boxes){
     let best=null,bi=-1;
     for(let si=0;si<spaces.length;si++){
       const sp=spaces[si];
       const rots=[[box.l,box.h,box.w],[box.w,box.h,box.l],[box.l,box.w,box.h],[box.w,box.l,box.h],[box.h,box.l,box.w],[box.h,box.w,box.l]];
-      for(const[bl,bh,bw]of rots)if(bl<=sp.lx&&bh<=sp.ly&&bw<=sp.lz){best={bl,bh,bw};bi=si;break;}
+      for(const[bl,bh,bw]of rots)if(bl<=sp.lx&&bh<=sp.ly&&bw<=sp.lz&&fitsContour(spec,sp.x,sp.y,sp.z,bl,bh,bw)){best={bl,bh,bw};bi=si;break;}
       if(best)break;
     }
     if(best){
       const{bl,bh,bw}=best,sp=spaces[bi];
       const ovL=Math.max(0,sp.x+bl-spec.l),ovW=Math.max(0,sp.z+bw-spec.w);
       placed.push({...box,px:sp.x,py:sp.y,pz:sp.z,bl,bh,bw,overhang:ovL>0||ovW>0,ovCm:Math.round(Math.max(ovL,ovW))});
-      const ns=[{x:sp.x+bl,y:sp.y,z:sp.z,lx:sp.lx-bl,ly:sp.ly,lz:sp.lz},{x:sp.x,y:sp.y+bh,z:sp.z,lx:bl,ly:sp.ly-bh,lz:sp.lz},{x:sp.x,y:sp.y,z:sp.z+bw,lx:bl,ly:bh,lz:sp.lz-bw}].filter(s=>s.lx>2&&s.ly>2&&s.lz>2);
+      const upY=sp.y+bh;
+      const upW=isLD3Spec(spec)?ld3UsableWidthAtY(spec,upY):sp.lz;
+      const ns=[{x:sp.x+bl,y:sp.y,z:sp.z,lx:sp.lx-bl,ly:sp.ly,lz:sp.lz},{x:sp.x,y:upY,z:0,lx:bl,ly:sp.ly-bh,lz:upW},{x:sp.x,y:sp.y,z:sp.z+bw,lx:bl,ly:bh,lz:sp.lz-bw}].filter(s=>s.lx>2&&s.ly>2&&s.lz>2&&fitsContour(spec,s.x,s.y,s.z,Math.min(s.lx,2),Math.min(s.ly,2),Math.min(s.lz,2)));
       spaces.splice(bi,1,...ns);spaces.sort((a,b)=>(a.y-b.y)||(a.x-b.x)||(a.z-b.z));
     }else rem.push(box);
   }
@@ -531,16 +554,8 @@ function isLD3Container(spec){
 
 function makeLD3Geometry(spec){
   const l=spec.l,w=spec.w,h=spec.h;
-  const cut=Math.min(w*.18,28);
-  const shoulder=Math.min(h*.32,52);
-  const pts=[
-    [0,shoulder],
-    [cut,0],
-    [w,0],
-    [w,h],
-    [cut*.55,h],
-    [0,h-cut*.7],
-  ];
+  const baseW=spec.profile?.baseW||w,upperW=spec.profile?.upperW||w,breakH=spec.profile?.breakH||h*.35;
+  const pts=[[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h]];
   const n=pts.length,verts=[];
   [0,l].forEach(x=>pts.forEach(([z,y])=>verts.push(x,y,z)));
   const idx=[];
@@ -583,19 +598,29 @@ function addBoldPolyline(points,color,thick=3,opacity=.9){
 function addULDStructure(spec,color){
   if(isLD3Container(spec)){
     const shell=makeLD3Geometry(spec);
-    const mesh=new THREE.Mesh(shell,new THREE.MeshLambertMaterial({color:0xe5e7eb,transparent:true,opacity:.08,side:THREE.DoubleSide,depthWrite:false}));
+    const mesh=new THREE.Mesh(shell,new THREE.MeshLambertMaterial({color:0xe5e7eb,transparent:true,opacity:.035,side:THREE.BackSide,depthWrite:false}));
     scene.add(mesh);
     const edges=new THREE.LineSegments(new THREE.EdgesGeometry(shell),new THREE.LineBasicMaterial({color,transparent:true,opacity:.95}));
     scene.add(edges);
-    const l=spec.l,w=spec.w,h=spec.h,cut=Math.min(w*.18,28),shoulder=Math.min(h*.32,52);
-    const prof=[[0,shoulder],[cut,0],[w,0],[w,h],[cut*.55,h],[0,h-cut*.7],[0,shoulder]];
+    const l=spec.l,w=spec.w,h=spec.h,baseW=spec.profile?.baseW||w,upperW=spec.profile?.upperW||w,breakH=spec.profile?.breakH||h*.35;
+    const prof=[[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h],[0,0]];
     [0,l].forEach(x=>addBoldPolyline(prof.map(([z,y])=>[x,y,z]),color,3.2,.95));
-    [[0,shoulder],[cut,0],[w,0],[w,h],[cut*.55,h],[0,h-cut*.7]].forEach(([z,y])=>addBar(0,y,z,l,y,z,color,2.5,.75));
+    [[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h]].forEach(([z,y])=>addBar(0,y,z,l,y,z,color,2.5,.75));
 
-    const x=-1,z0=spec.w*.13,z1=spec.w*.91,y0=8,y1=spec.h*.88;
+    const doorW=spec.profile?.doorW||spec.profile?.baseW||spec.w*.78;
+    const doorH=spec.profile?.doorH||spec.h*.88;
+    const x=-1,z0=4,z1=Math.min(spec.w-4,z0+doorW),y0=4,y1=Math.min(spec.h-4,y0+doorH);
     addBoldPolyline([[x,y0,z0],[x,y0,z1],[x,y1,z1],[x,y1,z0],[x,y0,z0]],0xffffff,2.4,.85);
     addBoldPolyline([[x,y0+7,z0+7],[x,y0+7,z1-7],[x,y1-7,z1-7],[x,y1-7,z0+7],[x,y0+7,z0+7]],0xffffff,1.5,.45);
     addLine([[x,(y0+y1)/2,z0+10],[x,(y0+y1)/2,z1-10],[x,y0+10,(z0+z1)/2],[x,y1-10,(z0+z1)/2]],0xffffff,.28);
+
+    const panelMat=new THREE.MeshLambertMaterial({color:0xe5e7eb,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false});
+    const leftPanel=new THREE.Mesh(new THREE.PlaneGeometry(spec.l,spec.h*.82),panelMat);
+    leftPanel.rotation.y=Math.PI/2;leftPanel.position.set(spec.l/2,spec.h*.48,2);scene.add(leftPanel);
+    const backPanel=new THREE.Mesh(new THREE.PlaneGeometry(spec.w,spec.h*.82),panelMat);
+    backPanel.position.set(spec.l,spec.h*.48,spec.w/2);scene.add(backPanel);
+    const topCover=new THREE.Mesh(new THREE.BoxGeometry(spec.l*.96,5,spec.w*.9),new THREE.MeshBasicMaterial({color:0x2563eb,transparent:true,opacity:.85}));
+    topCover.position.set(spec.l/2,spec.h+4,spec.w/2);scene.add(topCover);
 
     const railMat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.75});
     [spec.w*.18,spec.w*.82].forEach(z=>{
