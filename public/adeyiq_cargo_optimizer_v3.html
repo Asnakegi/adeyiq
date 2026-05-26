@@ -194,6 +194,7 @@ tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
       <div class="r2" style="margin-bottom:6px">
         <div><label class="f-lbl">Weight (kg)</label><input id="fwt" type="number" placeholder="40"></div>
         <div><label class="f-lbl">Pieces</label><input id="fpcs" type="number" placeholder="1" value="1"></div>
+<div style="margin-top:4px"><label class="f-lbl" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="ftilt" style="accent-color:#EAB308"> Tiltable (H can rotate)</label></div>
       </div>
       <button onclick="addManual()" style="width:100%;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:#aaa;font-size:11px;padding:6px;border-radius:7px;cursor:pointer">+ Add to manifest</button>
     </div>
@@ -276,8 +277,8 @@ const ULD_DB={
   P1P: {code:'P1P',name:'Main deck pallet',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
   AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:148,w:192,h:158,tare:64,vol:5.20,maxWt:1588,profile:{baseW:138,upperW:192,breakH:55,doorW:138,doorH:153}},
   AKH: {code:'AKH',name:'LD3-45W container',deck:'lower',l:156,w:193,h:114,tare:95,vol:3.30,maxWt:1134,profile:{baseW:137,upperW:193,breakH:45}},
-  LD6: {code:'LD6',name:'Lower deck pallet',deck:'lower',l:317.5,w:243.8,h:162.6,tare:130,vol:11.39,maxWt:3175},
-  PAJ5:{code:'PAJ5',name:'Lower deck pallet (88in)',deck:'lower',l:317.5,w:223.5,h:162.6,tare:120,vol:10.33,maxWt:3175},
+  LD6:{code:'LD6',name:'PMC Lower deck (162cm)',deck:'lower',l:317.5,w:243.8,h:162.6,tare:130,vol:11.39,maxWt:3175},
+  PAJ5:{code:'PAJ5',name:'PAJ Lower deck (162cm)',deck:'lower',l:317.5,w:223.5,h:162.6,tare:120,vol:10.33,maxWt:3175},
   DPE: {code:'DPE',name:'LD2 container',deck:'lower',l:153.4,w:119.4,h:162.6,tare:80,vol:3.40,maxWt:1225},
   PLA: {code:'PLA',name:'Half-width pallet (=2AKE)',deck:'lower',l:317.5,w:153.4,h:162.6,tare:91,vol:6.94,maxWt:2500},
   BULK777:{code:'BULK777',name:'B777F bulk compartment',deck:'bulk',l:429.3,w:84.3,h:101.6,tare:0,vol:17.0,maxWt:3233},
@@ -300,11 +301,11 @@ const AIRCRAFT={
     main:{uld:'PMC',pos:['AL','AR','BL','BR','CL','CR','DL','DR','EL','ER','FL','FR','GL','GR','HL','HR','JL','JR','KL','KR','LL','LR','ML','MR','PL','PR','R'],maxPay:82100,door:{w:305,h:261}},
     lower:{uld:'AKE',pos:['25L','25R','31P','32L','32R','33L','33R','41L','41R','BULK'],maxPay:28000,door:{w:183,h:170}},
     notes:'B777F AHM560: 37-pallet cargo configuration. Main deck M-size positions AL/AR through PL/PR plus R. Position R pallets only. ANA guide confirms B777F bulk package table and 17 m3 bulk compartment.',
-    mainUlds:['PMC','PAJ','P1P','HMJ','AAX','AMA'],lowerUlds:['AKE','AKH','DKN','DLP','DLF','DAP','AMF','PLA','BULK777']},
+    mainUlds:['PMC','PAJ','P1P','HMJ','AAX','AMA'],lowerUlds:['PMC','AKE','AKH','DKN','DLP','DLF','DAP','AMF','PLA','BULK777']},
   B777_300:{label:'B777-300',name:'Boeing 777-300',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','A1','A2','A3','A4','A5','A6','A7','A8','A9','A10','A11','A12','A13','A14'],maxPay:45000,door:{w:183,h:170}},
-    mainUlds:[],lowerUlds:['AKE','AKH','LD6','PAJ5','PLA']},
+    mainUlds:[],lowerUlds:['AKE','AKH','PAJ5','PLA']},
   A350:{label:'A350-900',name:'Airbus A350-900',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','AFT1','AFT2','AFT3','AFT4','AFT5'],maxPay:15000,door:{w:182,h:174}},
@@ -312,7 +313,7 @@ const AIRCRAFT={
   B789:{label:'B789-900',name:'Boeing 787-9',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','A1','A2','A3','A4','A5','A6'],maxPay:18000,door:{w:175,h:127}},
-    mainUlds:[],lowerUlds:['AKE','AKH','PAJ5','PLA']},
+    mainUlds:['PMC','PAJ','P1P'],lowerUlds:['AKE','AKH','PAJ5','PLA']},
   B788:{label:'B788',name:'Boeing 787-8',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','A1','A2','A3','A4','A5','A6'],maxPay:14000,door:{w:175,h:127}},
@@ -439,7 +440,7 @@ function packBin(boxes,spec,useOH){
     let best=null,bi=-1;
     for(let si=0;si<spaces.length;si++){
       const sp=spaces[si];
-      const rots=[[box.l,box.h,box.w],[box.w,box.h,box.l],[box.l,box.w,box.h],[box.w,box.l,box.h],[box.h,box.l,box.w],[box.h,box.w,box.l]];
+      const rots=box.tiltable?[[box.l,box.w,box.h],[box.w,box.l,box.h],[box.l,box.h,box.w],[box.w,box.h,box.l],[box.h,box.l,box.w],[box.h,box.w,box.l]]:[[box.l,box.w,box.h],[box.w,box.l,box.h]];
       for(const[bl,bh,bw]of rots)if(bl<=sp.lx&&bh<=sp.ly&&bw<=sp.lz&&fitsContour(spec,sp.x,sp.y,sp.z,bl,bh,bw)){best={bl,bh,bw};bi=si;break;}
       if(best)break;
     }
@@ -852,7 +853,7 @@ function addManual(){
   const h=parseFloat(document.getElementById('fh').value);
   const wt=parseFloat(document.getElementById('fwt').value);
   const pcs=parseInt(document.getElementById('fpcs').value)||1;
-  if(!l||!w||!h||!wt){alert('Enter all dimensions and weight.');return;}
+  const tilt=document.getElementById('ftilt').checked;shipments.push({id:Date.now()+Math.random(),desc,l,w,h,wt,pcs,tiltable:tilt,color:COLORS[shipments.length%COLORS.length]});
   shipments.push({id:Date.now()+Math.random(),desc,l,w,h,wt,pcs,color:COLORS[shipments.length%COLORS.length]});
   renderList();
   document.getElementById('fdesc').value='';
