@@ -433,26 +433,65 @@ function fitsContour(spec,x,y,z,l,h,w){
 }
 
 function packBin(boxes,spec,useOH){
-  const startW=isLD3Spec(spec)?ld3UsableWidthAtY(spec,0):spec.w;
-  const spaces=[{x:0,y:0,z:0,lx:spec.l*(useOH?1.25:1),ly:spec.h,lz:startW*(useOH?1.1:1)}];
+  const effL=spec.l*(useOH?1.25:1);
+  const effW=(isLD3Spec(spec)?ld3UsableWidthAtY(spec,0):spec.w)*(useOH?1.1:1);
+  const effH=spec.h;
   const placed=[],rem=[];
+
+  function getBestRot(box){
+    const rots=box.tiltable?
+      [[box.l,box.w,box.h],[box.w,box.l,box.h],[box.l,box.h,box.w],[box.w,box.h,box.l],[box.h,box.l,box.w],[box.h,box.w,box.l]]:
+      [[box.l,box.w,box.h],[box.w,box.l,box.h]];
+    const valid=rots.filter(([bl,bh,bw])=>bl<=effL&&bh<=effH&&bw<=effW);
+    valid.sort((a,b)=>(Math.floor(effL/b[0])*Math.floor(effW/b[2]))-(Math.floor(effL/a[0])*Math.floor(effW/a[2])));
+    return valid[0]||null;
+  }
+
+  // Layer-based packing: fill complete rows before moving up
+  let curX=0,curZ=0,curY=0,rowH=0,layerD=0;
+
   for(const box of boxes){
-    let best=null,bi=-1;
-    for(let si=0;si<spaces.length;si++){
-      const sp=spaces[si];
-      const rots=box.tiltable?[[box.l,box.w,box.h],[box.w,box.l,box.h],[box.l,box.h,box.w],[box.w,box.h,box.l],[box.h,box.l,box.w],[box.h,box.w,box.l]]:[[box.l,box.w,box.h],[box.w,box.l,box.h]];
-      for(const[bl,bh,bw]of rots)if(bl<=sp.lx&&bh<=sp.ly&&bw<=sp.lz&&fitsContour(spec,sp.x,sp.y,sp.z,bl,bh,bw)){best={bl,bh,bw};bi=si;break;}
-      if(best)break;
+    const rot=getBestRot(box);
+    if(!rot){rem.push(box);continue;}
+    const[bl,bh,bw]=rot;
+
+    // Try to place in current row
+    let placed_ok=false;
+
+    // Check if fits in current row
+    if(curX+bl<=effL&&curZ+bw<=effW&&curY+bh<=effH&&fitsContour(spec,curX,curY,curZ,bl,bh,bw)){
+      placed.push({...box,px:curX,py:curY,pz:curZ,bl,bh,bw,overhang:false,ovCm:0});
+      rowH=Math.max(rowH,bh);
+      curX+=bl;
+      placed_ok=true;
     }
-    if(best){
-      const{bl,bh,bw}=best,sp=spaces[bi];
-      const ovL=Math.max(0,sp.x+bl-spec.l),ovW=Math.max(0,sp.z+bw-spec.w);
-      placed.push({...box,px:sp.x,py:sp.y,pz:sp.z,bl,bh,bw,overhang:ovL>0||ovW>0,ovCm:Math.round(Math.max(ovL,ovW))});
-      const upY=sp.y+bh;
-      const upW=isLD3Spec(spec)?ld3UsableWidthAtY(spec,upY):sp.lz;
-      const ns=[{x:sp.x+bl,y:sp.y,z:sp.z,lx:sp.lx-bl,ly:sp.ly,lz:sp.lz},{x:sp.x,y:upY,z:0,lx:bl,ly:sp.ly-bh,lz:upW},{x:sp.x,y:sp.y,z:sp.z+bw,lx:bl,ly:bh,lz:sp.lz-bw}].filter(s=>s.lx>2&&s.ly>2&&s.lz>2&&fitsContour(spec,s.x,s.y,s.z,Math.min(s.lx,2),Math.min(s.ly,2),Math.min(s.lz,2)));
-      spaces.splice(bi,1,...ns);spaces.sort((a,b)=>(a.y-b.y)||(a.x-b.x)||(a.z-b.z));
-    }else rem.push(box);
+    // Try next row (move along Z/width)
+    else if(curZ+layerD+bw<=effW&&curY+bh<=effH){
+      curX=0;
+      curZ+=layerD;
+      layerD=0;
+      if(curX+bl<=effL&&curZ+bw<=effW&&curY+bh<=effH&&fitsContour(spec,curX,curY,curZ,bl,bh,bw)){
+        placed.push({...box,px:curX,py:curY,pz:curZ,bl,bh,bw,overhang:false,ovCm:0});
+        rowH=Math.max(rowH,bh);
+        layerD=Math.max(layerD,bw);
+        curX+=bl;
+        placed_ok=true;
+      }
+    }
+    // Try next layer (move up Y)
+    else if(curY+rowH+bh<=effH){
+      curY+=rowH;
+      curX=0;curZ=0;rowH=0;layerD=0;
+      if(curX+bl<=effL&&curZ+bw<=effW&&curY+bh<=effH&&fitsContour(spec,curX,curY,curZ,bl,bh,bw)){
+        placed.push({...box,px:curX,py:curY,pz:curZ,bl,bh,bw,overhang:false,ovCm:0});
+        rowH=Math.max(rowH,bh);
+        layerD=Math.max(layerD,bw);
+        curX+=bl;
+        placed_ok=true;
+      }
+    }
+
+    if(!placed_ok)rem.push(box);
   }
   return{placed,rem};
 }
