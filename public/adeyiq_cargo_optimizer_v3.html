@@ -609,7 +609,9 @@ function setView(mode,btn){
   if(legend){
     if(mode==='aircraft'){
       const holds=[...new Set((AIRCRAFT[selAC].lower?.pos||[]).map(lowerHoldForPosition))];
-      legend.innerHTML=holds.map(h=>`<span class="hold-chip" style="color:#${holdColor(h).toString(16).padStart(6,'0')}">${h==='FWD'?'Forward hold':h==='AFT'?'Aft hold':'Bulk hold'}</span>`).join('');
+      const chips=holds.map(h=>`<span class="hold-chip" style="color:#${holdColor(h).toString(16).padStart(6,'0')}">${h==='FWD'?'Forward hold':h==='AFT'?'Aft hold':'Bulk hold'}</span>`);
+      if(AIRCRAFT[selAC].main)chips.push('<span class="hold-chip" style="color:#334155">Main deck L/R lanes</span>');
+      legend.innerHTML=chips.join('');
       legend.style.display='flex';
     }else{
       legend.style.display='none';
@@ -645,6 +647,8 @@ function initRenderer(){
 
 function updateCam(cx,cy,cz){
   const md=Math.max(cx*2,cy*2,cz*2)||300,r=md*1.8*zoom;
+  camera.far=Math.max(3000,r*3);
+  camera.updateProjectionMatrix();
   camera.position.set(cx+r*Math.sin(rot.y)*Math.cos(rot.x),cy+r*Math.sin(rot.x),cz+r*Math.cos(rot.y)*Math.cos(rot.x));
   camera.lookAt(cx,cy,cz);
   renderer.render(scene,camera);
@@ -969,6 +973,38 @@ function buildDeckLayouts(positions,pallets,defaultSpec,deck){
   return layouts;
 }
 
+function mainDeckPositionParts(posId){
+  const p=String(posId||'').toUpperCase();
+  const side=/[LR]$/.test(p)&&p.length>1?p.slice(-1):'C';
+  const station=side==='C'?p:p.slice(0,-1);
+  return{station,side};
+}
+
+function buildMainDeckLayouts(positions,pallets,defaultSpec,startX=0){
+  const byPos=new Map(pallets.map(p=>[p.posId,p]));
+  const stations=[];
+  positions.forEach(posId=>{
+    const part=mainDeckPositionParts(posId);
+    if(!stations.find(s=>s.station===part.station))stations.push({station:part.station,positions:[]});
+    stations.find(s=>s.station===part.station).positions.push(posId);
+  });
+  const sideGap=Math.max(28,Math.min(54,defaultSpec.w*.16));
+  const layouts=[];
+  let x=startX;
+  stations.forEach((station,stationIndex)=>{
+    const stationSlots=station.positions.map(posId=>({posId,pal:byPos.get(posId)||null,part:mainDeckPositionParts(posId)}));
+    const stationL=Math.max(defaultSpec.l,...stationSlots.map(s=>s.pal?.spec?.l||defaultSpec.l));
+    stationSlots.forEach((s,slotIndex)=>{
+      const spec=s.pal?.spec||defaultSpec;
+      const side=s.part.side;
+      const z=side==='L'?-(spec.w/2+sideGap/2):side==='R'?(spec.w/2+sideGap/2):0;
+      layouts.push({posId:s.posId,i:slotIndex,station:station.station,stationIndex,side,hold:'MAIN',pal:s.pal,spec,x,l:stationL,z,w:spec.w});
+    });
+    x+=stationL;
+  });
+  return layouts;
+}
+
 function holdRanges(layouts){
   const out=[];
   layouts.forEach(l=>{
@@ -996,14 +1032,14 @@ function renderAircraftView(){
   const lowerLayouts=buildDeckLayouts(lowerPos,lowerPals,lowerSpec,'lower');
   const lowerLen=lowerLayouts.length?Math.max(...lowerLayouts.map(l=>l.x+l.l)):360;
   const mainStart=lowerLen*.08;
-  const mainLayouts=mainSpec?buildDeckLayouts(mainPos,mainPals,mainSpec,'main').map(l=>({...l,x:l.x+mainStart})):[];
+  const mainLayouts=mainSpec?buildMainDeckLayouts(mainPos,mainPals,mainSpec,mainStart):[];
   const mainLen=mainLayouts.length?Math.max(...mainLayouts.map(l=>l.x+l.l)):0;
   const totalLen=Math.max(lowerLen,mainLen,420);
   const lowerMaxH=Math.max(lowerSpec.h,...lowerPals.map(p=>p.spec.h));
   const lowerMaxW=Math.max(lowerSpec.w,...lowerPals.map(p=>p.spec.w));
   const MAIN_Y=mainSpec?lowerMaxH+44:lowerMaxH+130;
   const mainMaxH=mainSpec?mainSpec.h:0;
-  const mainMaxW=mainSpec?mainSpec.w:0;
+  const mainMaxW=mainLayouts.length?Math.max(...mainLayouts.map(l=>Math.abs(l.z)+(l.w||mainSpec.w)/2))*2:0;
   const fuseRy=(MAIN_Y+mainMaxH+120)/2;
   const fuseCy=fuseRy-42;
   const fuseRz=Math.max(lowerMaxW,mainMaxW,244)/2+95;
@@ -1051,31 +1087,33 @@ function renderAircraftView(){
   });
 
   if(mainSpec){
-    const mainW=mainSpec.w+60;
+    const mainW=Math.max(mainMaxW,mainSpec.w)+70;
     addWireBox(totalLen/2,MAIN_Y+mainSpec.h/2,0,totalLen*.92,mainSpec.h+20,mainW,0xffffff,.16);
     addLabel3D('MAIN DECK',totalLen/2,MAIN_Y+mainSpec.h+72,0,'#ffffff',360,72);
     addBar(mainStart,MAIN_Y-5,-mainW/2,totalLen-60,MAIN_Y-5,-mainW/2,0xffffff,2,.25);
     addBar(mainStart,MAIN_Y-5, mainW/2,totalLen-60,MAIN_Y-5, mainW/2,0xffffff,2,.25);
+    addBar(mainStart,MAIN_Y-3,0,totalLen-60,MAIN_Y-3,0,0x60a5fa,1.5,.22);
     mainLayouts.forEach(slot=>{
       const pal=slot.pal;
       const col=pal?parseInt(pal.color.replace('#',''),16):0x333333;
-      const geo=new THREE.BoxGeometry(slot.l-5,mainSpec.h-5,mainSpec.w-5);
+      const slotW=slot.w||mainSpec.w;
+      const geo=new THREE.BoxGeometry(slot.l-5,mainSpec.h-5,slotW-5);
       if(pal){
         const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.55});
-        const mesh=new THREE.Mesh(geo,mat);mesh.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(mesh);
+        const mesh=new THREE.Mesh(geo,mat);mesh.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,slot.z||0);scene.add(mesh);
         const utilW=(pal.util/100)*(slot.l-8);
-        const utilGeo=new THREE.BoxGeometry(utilW,5,mainSpec.w-8);
+        const utilGeo=new THREE.BoxGeometry(utilW,5,slotW-8);
         const utilMat=new THREE.MeshBasicMaterial({color:pal.util>=80?0x22c55e:pal.util>=60?0xEAB308:0xf97316});
         const utilMesh=new THREE.Mesh(utilGeo,utilMat);
-        utilMesh.position.set(slot.x+4+utilW/2,MAIN_Y+mainSpec.h+3,0);scene.add(utilMesh);
+        utilMesh.position.set(slot.x+4+utilW/2,MAIN_Y+mainSpec.h+3,slot.z||0);scene.add(utilMesh);
       } else {
         const eg=new THREE.EdgesGeometry(geo);
         const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0x2a2a2a,transparent:true,opacity:.8}));
-        ln.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(ln);
+        ln.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,slot.z||0);scene.add(ln);
       }
       const eg2=new THREE.EdgesGeometry(geo);
       const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:0x333333,transparent:true,opacity:pal?.22:.2}));
-      ln2.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(ln2);
+      ln2.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,slot.z||0);scene.add(ln2);
     });
   }
 
