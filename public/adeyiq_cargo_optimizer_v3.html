@@ -180,7 +180,7 @@ tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
 
     <div class="tp active" id="tp-excel" style="padding:0">
       <div class="dz" id="dz">
-        <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0])">
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0]);this.value=''">
         <div class="dz-icon"></div>
         <div class="dz-title">Drop Excel / CSV here</div>
         <div class="dz-sub">or click to browse</div>
@@ -1234,27 +1234,56 @@ function switchTab(id,btn){
 
 async function handleFile(file){
   if(!file)return;
-  const ext=file.name.split('.').pop().toLowerCase();
-  const ab=await file.arrayBuffer();
-  const wb=XLSX.read(new Uint8Array(ab),{type:'array'});
-  const ws=wb.Sheets[wb.SheetNames[0]];
-  const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-  if(json.length<2){setStat('err','File empty');return;}
-  const hdrs=json[0].map(h=>String(h));
-  const rows=json.slice(1).filter(r=>r.some(c=>c!==''));
-  const ALIASES={desc:['description','awb','awb number','name','item','cargo','shipment'],l:['length','l','len','l(cm)','length(cm)','length (cm)'],w:['width','w','wid','w(cm)','width(cm)','width (cm)'],h:['height','h','hgt','h(cm)','height(cm)','height (cm)'],wt:['weight','wt','kg','weight(kg)','gross weight','actual weight','weight (kg)'],pcs:['pieces','pcs','qty','quantity']};
-  const cm={};
-  for(const[k,al]of Object.entries(ALIASES)){const f=hdrs.find(h=>al.includes(h.toLowerCase().trim()));if(f)cm[k]=f;}
-  if(!cm.l||!cm.w||!cm.h||!cm.wt){setStat('err','Could not auto-detect columns  -  use template');return;}
-  let imp=0;
-  rows.forEach((row,ri)=>{
-    const v=c=>c?row[hdrs.indexOf(c)]:'';
-    const l=parseFloat(v(cm.l)),w=parseFloat(v(cm.w)),h=parseFloat(v(cm.h)),wt=parseFloat(v(cm.wt));
-    if(!l||!w||!h||!wt)return;
-    shipments.push({id:Date.now()+Math.random(),desc:String(v(cm.desc)||`Row ${ri+2}`),l,w,h,wt,pcs:parseInt(v(cm.pcs))||1,color:COLORS[shipments.length%COLORS.length]});
-   imp++ ;
-  });
-  renderList();setStat('ok',`${imp} shipments imported from "${file.name}"`);
+  try{
+    const ab=await file.arrayBuffer();
+    const wb=XLSX.read(new Uint8Array(ab),{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+    const data=json.filter(r=>Array.isArray(r)&&r.some(c=>String(c).trim()!==''));
+    if(data.length<2){setStat('err','File empty');return;}
+
+    const norm=v=>String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'').trim();
+    const num=v=>{
+      const n=parseFloat(String(v||'').replace(/,/g,'').replace(/[^\d.-]/g,''));
+      return Number.isFinite(n)?n:0;
+    };
+    const intVal=v=>Math.max(1,parseInt(num(v))||1);
+    const findHeaderRow=()=>data.findIndex(row=>row.map(norm).some(h=>['lengthcm','length','lcm','l'].includes(h))&&row.map(norm).some(h=>['widthcm','width','wcm','w'].includes(h)));
+    const hi=Math.max(0,findHeaderRow());
+    const hdrs=data[hi].map(norm);
+    const rows=data.slice(hi+1);
+    const aliases={
+      desc:['description','desc','awbdescription','awbnumber','awb','name','item','cargo','shipment','shipmentnameid'],
+      l:['lengthcm','length','lcm','l','len'],
+      w:['widthcm','width','wcm','w','wid'],
+      h:['heightcm','height','hcm','h','hgt'],
+      wt:['weightkg','weight','grossweight','actualweight','wt','kg'],
+      pcs:['pieces','pcs','qty','quantity','noofpieces','piece']
+    };
+    const cm={};
+    Object.entries(aliases).forEach(([key,als])=>{cm[key]=hdrs.findIndex(h=>als.includes(h));});
+    if(cm.l<0||cm.w<0||cm.h<0||cm.wt<0){setStat('err','Could not detect L/W/H/Weight columns - use template');return;}
+
+    let imp=0,skipped=0;
+    const added=[];
+    rows.forEach((row,ri)=>{
+      if(!row.some(c=>String(c).trim()!==''))return;
+      const l=num(row[cm.l]),w=num(row[cm.w]),h=num(row[cm.h]),wt=num(row[cm.wt]);
+      const pcs=cm.pcs>=0?intVal(row[cm.pcs]):1;
+      if(l<=0||w<=0||h<=0||wt<=0||pcs<=0){skipped++;return;}
+      const desc=cm.desc>=0&&String(row[cm.desc]).trim()?String(row[cm.desc]).trim():`Row ${hi+ri+2}`;
+      added.push({id:Date.now()+Math.random()+imp,desc,l,w,h,wt,pcs,color:COLORS[(shipments.length+imp)%COLORS.length]});
+      imp++;
+    });
+    if(!imp){setStat('err',`No valid shipments found (${skipped} skipped)`);return;}
+    shipments=shipments.concat(added);
+    allPallets=[];activePal=0;buildPalTabs();document.getElementById('runAcBtn').disabled=true;setStage(1);
+    renderList();updateKPIs();updateTable();if(renderer)renderULDView();
+    setStat('ok',`${imp} shipment${imp!==1?'s':''} imported${skipped?`, ${skipped} skipped`:''} from "${file.name}"`);
+  }catch(err){
+    setStat('err','Could not read file - use .xlsx/.csv template');
+    console.error(err);
+  }
 }
 
 function setStat(t,msg){const el=document.getElementById('upStat');el.className='stat-pill '+(t==='ok'?'up-ok':t==='err'?'up-err':'up-info');el.textContent=msg;}
