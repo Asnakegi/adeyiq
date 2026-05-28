@@ -275,7 +275,7 @@ const ULD_DB={
   PMC: {code:'PMC',name:'Main deck pallet',deck:'main', l:317.5,w:243.8,h:243.8,tare:130,vol:17.16,maxWt:6804},
   PAJ: {code:'PAJ',name:'Main deck pallet (88in)',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
   P1P: {code:'P1P',name:'Main deck pallet',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
-  AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:148,w:192,h:158,tare:64,vol:5.20,maxWt:1588,profile:{baseW:138,upperW:192,breakH:55,doorW:138,doorH:153}},
+  AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:148,w:192,h:158,tare:64,vol:5.20,maxWt:1588,profile:{baseW:143,upperW:192,breakH:50,doorW:138,doorH:153}},
   AKH: {code:'AKH',name:'LD3-45W container',deck:'lower',l:156,w:193,h:114,tare:95,vol:3.30,maxWt:1134,profile:{baseW:137,upperW:193,breakH:45}},
   LD6:{code:'LD6',name:'PMC Lower deck (162cm)',deck:'lower',l:317.5,w:243.8,h:162.6,tare:130,vol:11.39,maxWt:3175},
   PAJ5:{code:'PAJ5',name:'PAJ Lower deck (162cm)',deck:'lower',l:317.5,w:223.5,h:162.6,tare:120,vol:10.33,maxWt:3175},
@@ -433,65 +433,83 @@ function fitsContour(spec,x,y,z,l,h,w){
 }
 
 function packBin(boxes,spec,useOH){
-  const effL=spec.l*(useOH?1.25:1);
-  const effW=(isLD3Spec(spec)?ld3UsableWidthAtY(spec,0):spec.w)*(useOH?1.1:1);
-  const effH=spec.h;
+  const effL=spec.l*(useOH?1.25:1),effH=spec.h;
+  const maxWAt=y=>(isLD3Spec(spec)?ld3UsableWidthAtY(spec,y):spec.w)*(useOH?1.1:1);
   const placed=[],rem=[];
 
-  function getBestRot(box){
-    const rots=box.tiltable?
-      [[box.l,box.w,box.h],[box.w,box.l,box.h],[box.l,box.h,box.w],[box.w,box.h,box.l],[box.h,box.l,box.w],[box.h,box.w,box.l]]:
-      [[box.l,box.w,box.h],[box.w,box.l,box.h]];
-    const valid=rots.filter(([bl,bh,bw])=>bl<=effL&&bh<=effH&&bw<=effW);
-    valid.sort((a,b)=>(Math.floor(effL/b[0])*Math.floor(effW/b[2]))-(Math.floor(effL/a[0])*Math.floor(effW/a[2])));
-    return valid[0]||null;
+  function rotations(box,allowTilt){
+    const upright=[
+      {bl:box.l,bh:box.h,bw:box.w,tilted:false,rot:'LxW'},
+      {bl:box.w,bh:box.h,bw:box.l,tilted:false,rot:'WxL'},
+    ];
+    if(!allowTilt)return upright;
+    return upright.concat([
+      {bl:box.l,bh:box.w,bw:box.h,tilted:true,rot:'LxH'},
+      {bl:box.h,bh:box.w,bw:box.l,tilted:true,rot:'HxL'},
+      {bl:box.w,bh:box.l,bw:box.h,tilted:true,rot:'WxH'},
+      {bl:box.h,bh:box.l,bw:box.w,tilted:true,rot:'HxW'},
+    ]);
   }
 
-  // Layer-based packing: fill complete rows before moving up
-  let curX=0,curZ=0,curY=0,rowH=0,layerD=0;
+  function bestRotAt(box,x,y,z,allowTilt){
+    let best=null;
+    const remL=effL-x,remW=maxWAt(y)-z,remH=effH-y;
+    for(const r of rotations(box,allowTilt)){
+      if(r.bl>remL||r.bh>remH||r.bw>remW)continue;
+      if(!fitsContour(spec,x,y,z,r.bl,r.bh,r.bw))continue;
+      const wholeLayerFit=Math.floor(effL/r.bl)*Math.floor(maxWAt(y)/r.bw);
+      const localFit=Math.floor(remL/r.bl)*Math.floor(remW/r.bw);
+      const waste=(remL*remW)-(r.bl*r.bw);
+      const score=wholeLayerFit*100000+localFit*1000-waste-(r.tilted?50000:0);
+      if(!best||score>best.score)best={...r,score};
+    }
+    return best;
+  }
+
+  function chooseRot(box,x,y,z){
+    return bestRotAt(box,x,y,z,false)||bestRotAt(box,x,y,z,true);
+  }
+
+  function placeBox(box,x,y,z,r){
+    placed.push({...box,px:x,py:y,pz:z,bl:r.bl,bh:r.bh,bw:r.bw,rot:r.rot,tilted:r.tilted,overhang:false,ovCm:0});
+    return {nextX:x+r.bl,rowDepth:r.bw,layerHeight:r.bh};
+  }
+
+  // Shelf packing: free L/W rotation first; tilt only if upright cannot fit.
+  let curX=0,curZ=0,curY=0,rowDepth=0,layerHeight=0;
 
   for(const box of boxes){
-    const rot=getBestRot(box);
-    if(!rot){rem.push(box);continue;}
-    const[bl,bh,bw]=rot;
-
-    // Try to place in current row
-    let placed_ok=false;
-
-    // Check if fits in current row
-    if(curX+bl<=effL&&curZ+bw<=effW&&curY+bh<=effH&&fitsContour(spec,curX,curY,curZ,bl,bh,bw)){
-      placed.push({...box,px:curX,py:curY,pz:curZ,bl,bh,bw,overhang:false,ovCm:0});
-      rowH=Math.max(rowH,bh);
-      curX+=bl;
-      placed_ok=true;
+    let placedOk=false;
+    let r=chooseRot(box,curX,curY,curZ);
+    if(r){
+      const p=placeBox(box,curX,curY,curZ,r);
+      curX=p.nextX;rowDepth=Math.max(rowDepth,p.rowDepth);layerHeight=Math.max(layerHeight,p.layerHeight);
+      placedOk=true;
     }
-    // Try next row (move along Z/width)
-    else if(curZ+layerD+bw<=effW&&curY+bh<=effH){
-      curX=0;
-      curZ+=layerD;
-      layerD=0;
-      if(curX+bl<=effL&&curZ+bw<=effW&&curY+bh<=effH&&fitsContour(spec,curX,curY,curZ,bl,bh,bw)){
-        placed.push({...box,px:curX,py:curY,pz:curZ,bl,bh,bw,overhang:false,ovCm:0});
-        rowH=Math.max(rowH,bh);
-        layerD=Math.max(layerD,bw);
-        curX+=bl;
-        placed_ok=true;
-      }
-    }
-    // Try next layer (move up Y)
-    else if(curY+rowH+bh<=effH){
-      curY+=rowH;
-      curX=0;curZ=0;rowH=0;layerD=0;
-      if(curX+bl<=effL&&curZ+bw<=effW&&curY+bh<=effH&&fitsContour(spec,curX,curY,curZ,bl,bh,bw)){
-        placed.push({...box,px:curX,py:curY,pz:curZ,bl,bh,bw,overhang:false,ovCm:0});
-        rowH=Math.max(rowH,bh);
-        layerD=Math.max(layerD,bw);
-        curX+=bl;
-        placed_ok=true;
+
+    if(!placedOk){
+      const nextZ=curZ+rowDepth;
+      r=chooseRot(box,0,curY,nextZ);
+      if(r){
+        curX=0;curZ=nextZ;rowDepth=0;
+        const p=placeBox(box,curX,curY,curZ,r);
+        curX=p.nextX;rowDepth=Math.max(rowDepth,p.rowDepth);layerHeight=Math.max(layerHeight,p.layerHeight);
+        placedOk=true;
       }
     }
 
-    if(!placed_ok)rem.push(box);
+    if(!placedOk){
+      const nextY=curY+layerHeight;
+      r=chooseRot(box,0,nextY,0);
+      if(r){
+        curX=0;curZ=0;curY=nextY;rowDepth=0;layerHeight=0;
+        const p=placeBox(box,curX,curY,curZ,r);
+        curX=p.nextX;rowDepth=Math.max(rowDepth,p.rowDepth);layerHeight=Math.max(layerHeight,p.layerHeight);
+        placedOk=true;
+      }
+    }
+
+    if(!placedOk)rem.push(box);
   }
   return{placed,rem};
 }
@@ -690,11 +708,11 @@ function renderULDView(){
   const flr=new THREE.Mesh(new THREE.PlaneGeometry(spec.l,spec.w),new THREE.MeshBasicMaterial({color:pc,transparent:true,opacity:.04,side:THREE.DoubleSide}));
   flr.rotation.x=-Math.PI/2;flr.position.set(spec.l/2,0,spec.w/2);scene.add(flr);
   if(pallet){
-    for(const b of pallet.placed){
+  for(const b of pallet.placed){
       const col=parseInt(b.color.replace('#',''),16);
       const geo=new THREE.BoxGeometry(b.bl-1,b.bh-1,b.bw-1);
       const mat=new THREE.MeshLambertMaterial({color:b.overhang?0xEAB308:col,transparent:false,opacity:1,emissive:b.overhang?0x5a4100:col,emissiveIntensity:.12});
-      const mesh=new THREE.Mesh(geo,mat);mesh.position.set(b.px+b.bl/2,b.py+b.bh/2,b.pz+b.bw/2);scene.add(mesh);
+      const mesh=new THREE.Mesh(geo,mat);mesh.position.set(b.px+b.bl/2,b.py+b.bh/2,b.pz+b.bw/2);
       const eg2=new THREE.EdgesGeometry(geo);
       const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.45,depthWrite:false}));ln2.position.copy(mesh.position);scene.add(ln2);
     }
@@ -833,6 +851,7 @@ function updateTable(){
     for(const grp of Object.values(grps)){
       const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1),cw=+(Math.max(aw,dw)).toFixed(1);
       const oh=grp.some(x=>x.overhang);
+      const tilted=grp.some(x=>x.tilted);
       rows+=`<tr onclick="switchPal(${allPallets.indexOf(p)});if(viewMode==='aircraft')setView('uld')">
         <td><span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:2px;background:${p.color};display:inline-block"></span><b style="color:#ddd">${p.posId}</b></span></td>
         <td style="color:#666;font-size:10px">${p.spec.code}</td>
@@ -842,7 +861,7 @@ function updateTable(){
         <td style="font-family:monospace">${dw}kg</td>
         <td style="font-weight:700;font-family:monospace;color:${cw===aw?'#22c55e':'#EAB308'}">${cw}kg</td>
         <td>${oh?`<span class="bt bty">+${grp[0].ovCm}cm</span>`:'<span style="color:#333"> - </span>'}</td>
-        <td><span class="bt btg">Placed</span></td>
+        <td><span class="bt ${tilted?'bty':'btg'}">${tilted?'Tilted':'Placed'}</span></td>
       </tr>`;
     }
   }
