@@ -67,7 +67,7 @@ body{font-family:system-ui,sans-serif;font-size:13px}
 .run-ac{background:rgba(56,189,248,.1);border:0.5px solid rgba(56,189,248,.3);color:#38bdf8}
 .run-ac:hover{background:rgba(56,189,248,.15)}
 .run-ac:disabled{opacity:.35;cursor:not-allowed}
-.right{display:flex;flex-direction:column;overflow:hidden}
+.right{display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .rec-bar{padding:8px 14px;border-bottom:0.5px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px;flex-shrink:0;background:#0d0d0d}
 .rec-icon{font-size:16px;flex-shrink:0}
 .rec-text{flex:1;min-width:0}
@@ -80,10 +80,17 @@ body{font-family:system-ui,sans-serif;font-size:13px}
 .view-tabs{display:flex;border-bottom:0.5px solid rgba(255,255,255,.07);flex-shrink:0}
 .vt{flex:1;padding:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;color:#555;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .12s}
 .vt.active{color:var(--y);border-bottom-color:var(--y);background:rgba(234,179,8,.04)}
-.canvas-area{position:relative;flex-shrink:0;background:#0d0d0d}
-canvas#cv{width:100%;height:260px;display:block}
-.c-hint{position:absolute;bottom:6px;right:10px;font-size:10px;color:#333;pointer-events:none}
-.stage-hint{position:absolute;bottom:6px;left:10px;font-size:10px;padding:3px 8px;border-radius:99px}
+.canvas-area{position:relative;flex-shrink:0;overflow:hidden;background:#f4f8fb;border-bottom:0.5px solid rgba(15,23,42,.1)}
+.canvas-area::before{content:"";position:absolute;inset:0;z-index:0;background:
+  linear-gradient(rgba(76,111,145,.12) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(76,111,145,.12) 1px,transparent 1px),
+  linear-gradient(135deg,rgba(76,111,145,.08) 0 1px,transparent 1px 44px);
+  background-size:44px 44px,44px 44px,88px 88px}
+canvas#cv{width:100%;height:clamp(390px,52vh,560px);display:block;position:relative;z-index:1}
+.c-hint{position:absolute;bottom:8px;right:12px;font-size:10px;color:rgba(15,23,42,.45);pointer-events:none;z-index:2}
+.stage-hint{position:absolute;bottom:8px;left:12px;font-size:10px;padding:4px 9px;border-radius:99px;z-index:2;box-shadow:0 4px 14px rgba(15,23,42,.12)}
+.hold-legend{position:absolute;top:8px;left:10px;display:none;gap:6px;z-index:2;pointer-events:none}
+.hold-chip{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border:1px solid currentColor;background:rgba(0,0,0,.55);padding:4px 7px;border-radius:999px}
 .pal-tabs{display:flex;gap:4px;padding:6px 12px;flex-shrink:0;overflow-x:auto;border-bottom:0.5px solid rgba(255,255,255,.06)}
 .pal-tabs::-webkit-scrollbar{height:3px}.pal-tabs::-webkit-scrollbar-thumb{background:#333}
 .ptab{padding:4px 10px;border-radius:99px;border:0.5px solid rgba(255,255,255,.1);font-size:10px;cursor:pointer;background:transparent;color:#666;display:flex;align-items:center;gap:4px;white-space:nowrap;transition:all .12s}
@@ -237,6 +244,7 @@ tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
     <canvas id="cv"></canvas>
     <div class="c-hint">drag  -  scroll to zoom</div>
     <div class="stage-hint" id="stageHint" style="display:none"></div>
+    <div class="hold-legend" id="holdLegend"></div>
   </div>
 
   <!-- Pallet tabs -->
@@ -277,8 +285,8 @@ const ULD_DB={
   P1P: {code:'P1P',name:'Main deck pallet',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
   AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:148,w:192,h:158,tare:64,vol:5.20,maxWt:1588,profile:{baseW:143,upperW:192,breakH:50,doorW:138,doorH:153}},
   AKH: {code:'AKH',name:'LD3-45W container',deck:'lower',l:156,w:193,h:114,tare:95,vol:3.30,maxWt:1134,profile:{baseW:137,upperW:193,breakH:45}},
-  LD6:{code:'LD6',name:'PMC Lower deck (162cm)',deck:'lower',l:317.5,w:243.8,h:162.6,tare:130,vol:11.39,maxWt:3175},
-  PAJ5:{code:'PAJ5',name:'PAJ Lower deck (162cm)',deck:'lower',l:317.5,w:223.5,h:162.6,tare:120,vol:10.33,maxWt:3175},
+  LD6:{code:'LD6',name:'PMC Lower deck (162cm)',deck:'lower',l:317.5,w:243.8,h:162.6,tare:130,vol:11.39,maxWt:3175,lowerDeckExtension:{maxH:125,buildL:340,l:400}},
+  PAJ5:{code:'PAJ5',name:'PAJ Lower deck (162cm)',deck:'lower',l:317.5,w:223.5,h:162.6,tare:120,vol:10.33,maxWt:3175,lowerDeckExtension:{maxH:125,buildL:340,l:400}},
   DPE: {code:'DPE',name:'LD2 container',deck:'lower',l:153.4,w:119.4,h:162.6,tare:80,vol:3.40,maxWt:1225},
   PLA: {code:'PLA',name:'Half-width pallet (=2AKE)',deck:'lower',l:317.5,w:153.4,h:162.6,tare:91,vol:6.94,maxWt:2500},
   BULK777:{code:'BULK777',name:'B777F bulk compartment',deck:'bulk',l:429.3,w:84.3,h:101.6,tare:0,vol:17.0,maxWt:3233},
@@ -301,24 +309,24 @@ const AIRCRAFT={
     main:{uld:'PMC',pos:['AL','AR','BL','BR','CL','CR','DL','DR','EL','ER','FL','FR','GL','GR','HL','HR','JL','JR','KL','KR','LL','LR','ML','MR','PL','PR','R'],maxPay:82100,door:{w:305,h:261}},
     lower:{uld:'AKE',pos:['25L','25R','31P','32L','32R','33L','33R','41L','41R','BULK'],maxPay:28000,door:{w:183,h:170}},
     notes:'B777F AHM560: 37-pallet cargo configuration. Main deck M-size positions AL/AR through PL/PR plus R. Position R pallets only. ANA guide confirms B777F bulk package table and 17 m3 bulk compartment.',
-    mainUlds:['PMC','PAJ','P1P','HMJ','AAX','AMA'],lowerUlds:['PMC','AKE','AKH','DKN','DLP','DLF','DAP','AMF','PLA','BULK777']},
+    mainUlds:['PMC','PAJ','P1P','HMJ','AAX','AMA'],lowerUlds:['LD6','AKE','AKH','DKN','DLP','DLF','DAP','AMF','PLA','BULK777']},
   B777_300:{label:'B777-300',name:'Boeing 777-300',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','A1','A2','A3','A4','A5','A6','A7','A8','A9','A10','A11','A12','A13','A14'],maxPay:45000,door:{w:183,h:170}},
-    mainUlds:[],lowerUlds:['AKE','AKH','PAJ5','PLA']},
+    mainUlds:[],lowerUlds:['AKE','AKH','PAJ5','LD6','PLA']},
   A350:{label:'A350-900',name:'Airbus A350-900',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','AFT1','AFT2','AFT3','AFT4','AFT5'],maxPay:15000,door:{w:182,h:174}},
-    mainUlds:[],lowerUlds:['AKE','AKH','PAJ5','PLA']},
+    mainUlds:[],lowerUlds:['AKE','AKH','PAJ5','LD6','PLA']},
   B789:{label:'B789-900',name:'Boeing 787-9',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','A1','A2','A3','A4','A5','A6'],maxPay:18000,door:{w:175,h:127}},
-    mainUlds:['PMC','PAJ','P1P'],lowerUlds:['AKE','AKH','PAJ5','PLA']},
+    mainUlds:['PMC','PAJ','P1P'],lowerUlds:['AKE','AKH','PAJ5','LD6','PLA']},
   B788:{label:'B788',name:'Boeing 787-8',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','A1','A2','A3','A4','A5','A6'],maxPay:14000,door:{w:175,h:127}},
     notes:'ANA guide: B787 bulk package table uses approx 317x88x111 cm envelope depending on piece height/width.',
-    mainUlds:[],lowerUlds:['AKE','AKH','DKN','DLP','DLF','DAP','AMF','PAJ5','PLA','BULK787']},
+    mainUlds:[],lowerUlds:['AKE','AKH','DKN','DLP','DLF','LD6','DAP','AMF','PAJ5','PLA','BULK787']},
   B737:{label:'B737-800',name:'Boeing 737-800',type:'pax',
     main:null,
     lower:{uld:'BULK737',pos:['FWD1','FWD2','AFT1','AFT2'],maxPay:8061,door:{w:121,h:88}},
@@ -412,6 +420,8 @@ function updateRec(){
 }
 
 /*  BIN PACKING  */
+const MIN_PALLET_SUPPORT=0.7;
+
 function isLD3Spec(spec){
   return ['AKE','AKH','DKN','MKN','RKN'].includes(spec.code);
 }
@@ -421,6 +431,33 @@ function ld3UsableWidthAtY(spec,y){
     return y<spec.profile.breakH?spec.profile.baseW:spec.profile.upperW;
   }
   return spec.w;
+}
+
+function usableLengthAtHeight(spec,y,h,useOH,neededL=0){
+  const baseL=spec.l*(useOH?1.25:1);
+  const ext=spec.lowerDeckExtension;
+  if(ext&&y+h<=ext.maxH){
+    const buildL=ext.buildL||ext.l;
+    const maxL=ext.l;
+    const extL=neededL>buildL?maxL:buildL;
+    return Math.max(baseL,extL);
+  }
+  return baseL;
+}
+
+function centeredLengthOffset(spec,y,h,useOH,neededL=0){
+  return Math.max(0,(usableLengthAtHeight(spec,y,h,useOH,neededL)-spec.l)/2);
+}
+
+function minSupportedX(spec,y,h,l,useOH){
+  const offset=centeredLengthOffset(spec,y,h,useOH,l);
+  return Math.max(0,offset-l*(1-MIN_PALLET_SUPPORT));
+}
+
+function maxSupportedX(spec,y,h,l,useOH){
+  const offset=centeredLengthOffset(spec,y,h,useOH,l);
+  const effL=usableLengthAtHeight(spec,y,h,useOH,l);
+  return Math.min(effL-l,offset+spec.l-l*MIN_PALLET_SUPPORT);
 }
 
 function fitsContour(spec,x,y,z,l,h,w){
@@ -433,7 +470,7 @@ function fitsContour(spec,x,y,z,l,h,w){
 }
 
 function packBin(boxes,spec,useOH){
-  const effL=spec.l*(useOH?1.25:1),effH=spec.h;
+  const effH=spec.h;
   const maxWAt=y=>(isLD3Spec(spec)?ld3UsableWidthAtY(spec,y):spec.w)*(useOH?1.1:1);
   const placed=[],rem=[];
 
@@ -453,25 +490,31 @@ function packBin(boxes,spec,useOH){
 
   function bestRotAt(box,x,y,z,allowTilt){
     let best=null;
-    const remL=effL-x,remW=maxWAt(y)-z,remH=effH-y;
+    const remW=maxWAt(y)-z,remH=effH-y;
     for(const r of rotations(box,allowTilt)){
-      if(r.bl>remL||r.bh>remH||r.bw>remW)continue;
-      if(!fitsContour(spec,x,y,z,r.bl,r.bh,r.bw))continue;
-      const wholeLayerFit=Math.floor(effL/r.bl)*Math.floor(maxWAt(y)/r.bw);
+      const effL=usableLengthAtHeight(spec,y,r.bh,useOH,r.bl);
+      const minX=minSupportedX(spec,y,r.bh,r.bl,useOH);
+      const maxX=maxSupportedX(spec,y,r.bh,r.bl,useOH);
+      const placeX=Math.max(x,minX);
+      const remL=Math.max(0,maxX-placeX+r.bl);
+      if(placeX>maxX||placeX+r.bl>effL||r.bh>remH||r.bw>remW)continue;
+      if(!fitsContour(spec,placeX,y,z,r.bl,r.bh,r.bw))continue;
+      const wholeLayerFit=Math.floor((maxX-minX+r.bl)/r.bl)*Math.floor(maxWAt(y)/r.bw);
       const localFit=Math.floor(remL/r.bl)*Math.floor(remW/r.bw);
       const waste=(remL*remW)-(r.bl*r.bw);
       const score=wholeLayerFit*100000+localFit*1000-waste-(r.tilted?50000:0);
-      if(!best||score>best.score)best={...r,score};
+      if(!best||score>best.score)best={...r,score,placeX};
     }
     return best;
   }
 
   function chooseRot(box,x,y,z){
-    return bestRotAt(box,x,y,z,false)||bestRotAt(box,x,y,z,true);
+    return bestRotAt(box,x,y,z,false)||bestRotAt(box,x,y,z,!!box.tiltable);
   }
 
   function placeBox(box,x,y,z,r){
-    placed.push({...box,px:x,py:y,pz:z,bl:r.bl,bh:r.bh,bw:r.bw,rot:r.rot,tilted:r.tilted,overhang:false,ovCm:0});
+    const offset=centeredLengthOffset(spec,y,r.bh,useOH,r.bl);
+    placed.push({...box,px:x-offset,py:y,pz:z,bl:r.bl,bh:r.bh,bw:r.bw,rot:r.rot,tilted:r.tilted,overhang:false,ovCm:0,balancedExt:offset>0});
     return {nextX:x+r.bl,rowDepth:r.bw,layerHeight:r.bh};
   }
 
@@ -482,7 +525,7 @@ function packBin(boxes,spec,useOH){
     let placedOk=false;
     let r=chooseRot(box,curX,curY,curZ);
     if(r){
-      const p=placeBox(box,curX,curY,curZ,r);
+      const p=placeBox(box,r.placeX,curY,curZ,r);
       curX=p.nextX;rowDepth=Math.max(rowDepth,p.rowDepth);layerHeight=Math.max(layerHeight,p.layerHeight);
       placedOk=true;
     }
@@ -492,7 +535,7 @@ function packBin(boxes,spec,useOH){
       r=chooseRot(box,0,curY,nextZ);
       if(r){
         curX=0;curZ=nextZ;rowDepth=0;
-        const p=placeBox(box,curX,curY,curZ,r);
+        const p=placeBox(box,r.placeX,curY,curZ,r);
         curX=p.nextX;rowDepth=Math.max(rowDepth,p.rowDepth);layerHeight=Math.max(layerHeight,p.layerHeight);
         placedOk=true;
       }
@@ -503,7 +546,7 @@ function packBin(boxes,spec,useOH){
       r=chooseRot(box,0,nextY,0);
       if(r){
         curX=0;curZ=0;curY=nextY;rowDepth=0;layerHeight=0;
-        const p=placeBox(box,curX,curY,curZ,r);
+        const p=placeBox(box,r.placeX,curY,curZ,r);
         curX=p.nextX;rowDepth=Math.max(rowDepth,p.rowDepth);layerHeight=Math.max(layerHeight,p.layerHeight);
         placedOk=true;
       }
@@ -562,6 +605,16 @@ function setView(mode,btn){
   if(btn)btn.classList.add('active');
   else document.getElementById(mode==='uld'?'vt1':'vt2').classList.add('active');
   const hint=document.getElementById('stageHint');
+  const legend=document.getElementById('holdLegend');
+  if(legend){
+    if(mode==='aircraft'){
+      const holds=[...new Set((AIRCRAFT[selAC].lower?.pos||[]).map(lowerHoldForPosition))];
+      legend.innerHTML=holds.map(h=>`<span class="hold-chip" style="color:#${holdColor(h).toString(16).padStart(6,'0')}">${h==='FWD'?'Forward hold':h==='AFT'?'Aft hold':'Bulk hold'}</span>`).join('');
+      legend.style.display='flex';
+    }else{
+      legend.style.display='none';
+    }
+  }
   if(mode==='uld'&&allPallets.length){
     hint.style.display='block';
     hint.style.background='rgba(234,179,8,.12)';hint.style.color='#EAB308';
@@ -578,12 +631,14 @@ function setView(mode,btn){
 /*  THREE.JS  -  ULD BUILDUP VIEW  */
 function initRenderer(){
   const canvas=document.getElementById('cv');
-  const W=canvas.offsetWidth||580,H=260;
+  canvas.style.width='';
+  canvas.style.height='';
+  const W=canvas.clientWidth||580,H=canvas.clientHeight||420;
   if(renderer){renderer.dispose();renderer=null;}
   scene=new THREE.Scene();
   camera=new THREE.PerspectiveCamera(45,W/H,1,3000);
   renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,preserveDrawingBuffer:true});
-  renderer.setSize(W,H);renderer.setClearColor(0,0);
+  renderer.setSize(W,H,false);renderer.setClearColor(0,0);
   scene.add(new THREE.AmbientLight(0xffffff,.65));
   return{W,H};
 }
@@ -655,10 +710,8 @@ function addBoldPolyline(points,color,thick=3,opacity=.9){
 
 function addULDStructure(spec,color){
   if(isLD3Container(spec)){
-    const frameColor=0xffffff;
+    const frameColor=0x334155;
     const shell=makeLD3Geometry(spec);
-    const mesh=new THREE.Mesh(shell,new THREE.MeshLambertMaterial({color:0xe5e7eb,transparent:true,opacity:.035,side:THREE.BackSide,depthWrite:false}));
-    scene.add(mesh);
     const edges=new THREE.LineSegments(new THREE.EdgesGeometry(shell),new THREE.LineBasicMaterial({color:frameColor,transparent:true,opacity:.95}));
     scene.add(edges);
     const l=spec.l,w=spec.w,h=spec.h,baseW=spec.profile?.baseW||w,upperW=spec.profile?.upperW||w,breakH=spec.profile?.breakH||h*.35;
@@ -669,17 +722,13 @@ function addULDStructure(spec,color){
     const doorW=spec.profile?.doorW||spec.profile?.baseW||spec.w*.78;
     const doorH=spec.profile?.doorH||spec.h*.88;
     const x=-1,z0=4,z1=Math.min(spec.w-4,z0+doorW),y0=4,y1=Math.min(spec.h-4,y0+doorH);
-    addBoldPolyline([[x,y0,z0],[x,y0,z1],[x,y1,z1],[x,y1,z0],[x,y0,z0]],0xffffff,2.4,.85);
-    addBoldPolyline([[x,y0+7,z0+7],[x,y0+7,z1-7],[x,y1-7,z1-7],[x,y1-7,z0+7],[x,y0+7,z0+7]],0xffffff,1.5,.45);
-    addLine([[x,(y0+y1)/2,z0+10],[x,(y0+y1)/2,z1-10],[x,y0+10,(z0+z1)/2],[x,y1-10,(z0+z1)/2]],0xffffff,.28);
+    addBoldPolyline([[x,y0,z0],[x,y0,z1],[x,y1,z1],[x,y1,z0],[x,y0,z0]],frameColor,2.4,.85);
+    addBoldPolyline([[x,y0+7,z0+7],[x,y0+7,z1-7],[x,y1-7,z1-7],[x,y1-7,z0+7],[x,y0+7,z0+7]],frameColor,1.5,.45);
+    addLine([[x,(y0+y1)/2,z0+10],[x,(y0+y1)/2,z1-10],[x,y0+10,(z0+z1)/2],[x,y1-10,(z0+z1)/2]],frameColor,.28);
 
-    const panelMat=new THREE.MeshLambertMaterial({color:0xe5e7eb,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false});
-    const leftPanel=new THREE.Mesh(new THREE.PlaneGeometry(spec.l,spec.h*.82),panelMat);
-    leftPanel.rotation.y=Math.PI/2;leftPanel.position.set(spec.l/2,spec.h*.48,2);scene.add(leftPanel);
-    const backPanel=new THREE.Mesh(new THREE.PlaneGeometry(spec.w,spec.h*.82),panelMat);
-    backPanel.position.set(spec.l,spec.h*.48,spec.w/2);scene.add(backPanel);
-    const topCover=new THREE.Mesh(new THREE.BoxGeometry(spec.l*.96,5,spec.w*.9),new THREE.MeshBasicMaterial({color:0x2563eb,transparent:true,opacity:.85}));
-    topCover.position.set(spec.l/2,spec.h+4,spec.w/2);scene.add(topCover);
+    const roofY=spec.h+4,roofX0=spec.l*.02,roofX1=spec.l*.98,roofZ0=spec.w*.05,roofZ1=spec.w*.95;
+    addBoldPolyline([[roofX0,roofY,roofZ0],[roofX1,roofY,roofZ0],[roofX1,roofY,roofZ1],[roofX0,roofY,roofZ1],[roofX0,roofY,roofZ0]],frameColor,2.2,.65);
+    addLine([[spec.l/2,roofY,roofZ0],[spec.l/2,roofY,roofZ1],[roofX0,roofY,(roofZ0+roofZ1)/2],[roofX1,roofY,(roofZ0+roofZ1)/2]],frameColor,.35);
 
     const railMat=new THREE.MeshBasicMaterial({color:frameColor,transparent:true,opacity:.75});
     [spec.w*.18,spec.w*.82].forEach(z=>{
@@ -705,16 +754,19 @@ function renderULDView(){
   const dl2=new THREE.DirectionalLight(0xffffff,.3);dl2.position.set(-md,-md,-md);scene.add(dl2);
   const pc=parseInt((pallet?.color||'#EAB308').replace('#',''),16);
   addULDStructure(spec,pc);
-  const flr=new THREE.Mesh(new THREE.PlaneGeometry(spec.l,spec.w),new THREE.MeshBasicMaterial({color:pc,transparent:true,opacity:.04,side:THREE.DoubleSide}));
-  flr.rotation.x=-Math.PI/2;flr.position.set(spec.l/2,0,spec.w/2);scene.add(flr);
   if(pallet){
   for(const b of pallet.placed){
       const col=parseInt(b.color.replace('#',''),16);
       const geo=new THREE.BoxGeometry(b.bl-1,b.bh-1,b.bw-1);
-      const mat=new THREE.MeshLambertMaterial({color:b.overhang?0xEAB308:col,transparent:false,opacity:1,emissive:b.overhang?0x5a4100:col,emissiveIntensity:.12});
-      const mesh=new THREE.Mesh(geo,mat);mesh.position.set(b.px+b.bl/2,b.py+b.bh/2,b.pz+b.bw/2);
+      const fillColor=b.overhang?0xEAB308:col;
+      const mat=new THREE.MeshLambertMaterial({color:fillColor,transparent:false,opacity:1,emissive:fillColor,emissiveIntensity:.08});
+      const mesh=new THREE.Mesh(geo,mat);
+      mesh.position.set(b.px+b.bl/2,b.py+b.bh/2,b.pz+b.bw/2);
+      scene.add(mesh);
       const eg2=new THREE.EdgesGeometry(geo);
-      const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.45,depthWrite:false}));ln2.position.copy(mesh.position);scene.add(ln2);
+      const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.55,depthWrite:false}));
+      ln2.position.copy(mesh.position);
+      scene.add(ln2);
     }
   }
   rot={x:.4,y:.5};zoom=1;
@@ -723,6 +775,210 @@ function renderULDView(){
 }
 
 /*  THREE.JS  -  AIRCRAFT INTERIOR VIEW  */
+function addThinPolyline(points,color,opacity=.6){
+  const geo=new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(p[0],p[1],p[2])));
+  const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color,transparent:true,opacity,depthWrite:false}));
+  scene.add(line);return line;
+}
+
+function addWireBox(cx,cy,cz,l,h,w,color,opacity=.45){
+  const geo=new THREE.BoxGeometry(l,h,w);
+  const ln=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color,transparent:true,opacity,depthWrite:false}));
+  ln.position.set(cx,cy,cz);scene.add(ln);return ln;
+}
+
+function addEllipseLoop(x,cy,cz,ry,rz,color,opacity=.35){
+  const pts=[];
+  for(let i=0;i<=64;i++){
+    const a=(Math.PI*2*i)/64;
+    pts.push([x,cy+Math.sin(a)*ry,cz+Math.cos(a)*rz]);
+  }
+  addThinPolyline(pts,color,opacity);
+}
+
+function addFuselageWire(x0,x1,cy,ry,rz,color=0x378ADD){
+  const stations=8;
+  for(let i=0;i<=stations;i++){
+    const x=x0+(x1-x0)*(i/stations);
+    const stationOpacity=(i===0||i===stations)?0.5:0.18;
+    addEllipseLoop(x,cy,0,ry,rz,color,stationOpacity);
+  }
+  [0,Math.PI/2,Math.PI,Math.PI*1.5].forEach(a=>{
+    const y=cy+Math.sin(a)*ry,z=Math.cos(a)*rz;
+    addThinPolyline([[x0,y,z],[x1,y,z]],color,.32);
+  });
+  const nose=x0-140,tail=x1+160;
+  [[0,1],[.25,.75],[.5,.5],[.75,.25]].forEach(([sy,sz])=>{
+    const y1=cy+ry*sy,z1=rz*sz,y2=cy-ry*sy,z2=-rz*sz;
+    addThinPolyline([[nose,cy,0],[x0,y1,z1]],color,.22);
+    addThinPolyline([[nose,cy,0],[x0,y2,z2]],color,.22);
+    addThinPolyline([[tail,cy,0],[x1,y1,z1]],color,.22);
+    addThinPolyline([[tail,cy,0],[x1,y2,z2]],color,.22);
+  });
+  const wingY=cy-ry*.12,wingX=x0+(x1-x0)*.46;
+  addThinPolyline([[wingX-80,wingY,rz*.85],[wingX+260,wingY,rz*2.2],[wingX+430,wingY,rz*.95]],color,.18);
+  addThinPolyline([[wingX-80,wingY,-rz*.85],[wingX+260,wingY,-rz*2.2],[wingX+430,wingY,-rz*.95]],color,.18);
+}
+
+function makeFuselageSkinGeometry(x0,x1,cy,ry,rz,stations=30,segments=40){
+  const verts=[],idx=[];
+  for(let i=0;i<=stations;i++){
+    const t=i/stations;
+    let scale=1;
+    if(t<.12)scale=Math.max(.08,Math.sin((t/.12)*Math.PI/2));
+    else if(t>.88)scale=Math.max(.08,Math.sin(((1-t)/.12)*Math.PI/2));
+    const x=x0+(x1-x0)*t;
+    for(let j=0;j<segments;j++){
+      const a=(Math.PI*2*j)/segments;
+      verts.push(x,cy+Math.sin(a)*ry*scale,Math.cos(a)*rz*scale);
+    }
+  }
+  for(let i=0;i<stations;i++){
+    for(let j=0;j<segments;j++){
+      const a=i*segments+j,b=i*segments+(j+1)%segments,c=(i+1)*segments+(j+1)%segments,d=(i+1)*segments+j;
+      idx.push(a,b,d,b,c,d);
+    }
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(idx);geo.computeVertexNormals();
+  return geo;
+}
+
+function addAeroPanel(points,y,thick,color,opacity=.62){
+  const verts=[],idx=[],n=points.length;
+  points.forEach(([x,z])=>verts.push(x,y+thick/2,z));
+  points.forEach(([x,z])=>verts.push(x,y-thick/2,z));
+  for(let i=1;i<n-1;i++)idx.push(0,i,i+1,n,n+i+1,n+i);
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    idx.push(i,j,n+j,i,n+j,n+i);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(idx);geo.computeVertexNormals();
+  const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false}));
+  scene.add(mesh);return mesh;
+}
+
+function addVerticalFin(points,z,thick,color,opacity=.68){
+  const verts=[],idx=[],n=points.length;
+  points.forEach(([x,y])=>verts.push(x,y,z+thick/2));
+  points.forEach(([x,y])=>verts.push(x,y,z-thick/2));
+  for(let i=1;i<n-1;i++)idx.push(0,i,i+1,n,n+i+1,n+i);
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    idx.push(i,j,n+j,i,n+j,n+i);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(idx);geo.computeVertexNormals();
+  const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false}));
+  scene.add(mesh);return mesh;
+}
+
+function addEngine(x,y,z,r,len,color){
+  const geo=new THREE.CylinderGeometry(r,r*.9,len,24,1,true);
+  const mat=new THREE.MeshLambertMaterial({color,transparent:true,opacity:.9,side:THREE.DoubleSide,depthWrite:false});
+  const eng=new THREE.Mesh(geo,mat);
+  eng.rotation.z=Math.PI/2;
+  eng.position.set(x,y,z);
+  scene.add(eng);
+  const rim=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.22}));
+  rim.rotation.copy(eng.rotation);rim.position.copy(eng.position);scene.add(rim);
+}
+
+function addAircraftSolidModel(x0,x1,cy,ry,rz,totalLen){
+  const skinColor=0xa7fff0,accent=0x46d6c6;
+  const skin=new THREE.Mesh(makeFuselageSkinGeometry(x0-130,x1+150,cy,ry*.82,rz*.68),new THREE.MeshLambertMaterial({color:skinColor,transparent:true,opacity:.38,side:THREE.DoubleSide,depthWrite:false}));
+  scene.add(skin);
+
+  const wingY=cy-ry*.22,wingX=x0+(x1-x0)*.45;
+  [1,-1].forEach(side=>{
+    addAeroPanel([
+      [wingX-150,side*rz*.42],
+      [wingX+220,side*rz*.62],
+      [wingX+520,side*rz*2.12],
+      [wingX+40,side*rz*1.55],
+    ],wingY,10,skinColor,.76);
+    addEngine(wingX+165,wingY-42,side*rz*1.05,22,70,accent);
+  });
+
+  const tailX=x1+18,tailY=cy+ry*.3;
+  [1,-1].forEach(side=>{
+    addAeroPanel([
+      [tailX-120,side*rz*.32],
+      [tailX+35,side*rz*.45],
+      [tailX+125,side*rz*1.08],
+      [tailX-40,side*rz*.85],
+    ],tailY,8,skinColor,.78);
+  });
+  addVerticalFin([[tailX-95,cy+ry*.42],[tailX+35,cy+ry*1.38],[tailX+115,cy+ry*.45]],0,14,accent,.82);
+
+  const noseX=x0-92;
+  addAeroPanel([[noseX-22,-rz*.2],[noseX+58,-rz*.18],[noseX+74,rz*.18],[noseX-18,rz*.2]],cy+ry*.2,4,0x164e63,.72);
+}
+
+function addLabel3D(text,x,y,z,color='#EAB308',w=260,h=64){
+  const canvas=document.createElement('canvas');
+  canvas.width=512;canvas.height=128;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,512,128);
+  ctx.font='700 34px Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(0,0,0,.55)';
+  ctx.fillRect(24,34,464,60);
+  ctx.strokeStyle=color;ctx.lineWidth=3;
+  ctx.strokeRect(24,34,464,60);
+  ctx.fillStyle=color;
+  ctx.fillText(text,256,64);
+  const tex=new THREE.CanvasTexture(canvas);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,depthTest:false});
+  const sprite=new THREE.Sprite(mat);
+  sprite.position.set(x,y,z);
+  sprite.scale.set(w,h,1);
+  scene.add(sprite);
+  return sprite;
+}
+
+function lowerHoldForPosition(posId){
+  const p=String(posId||'').toUpperCase();
+  if(p.includes('BULK'))return'BULK';
+  if(/^F/.test(p)||/^P?1/.test(p)||/^2/.test(p))return'FWD';
+  return'AFT';
+}
+
+function holdColor(hold){
+  return hold==='FWD'?0x60a5fa:hold==='AFT'?0xEAB308:0xf97316;
+}
+
+function buildDeckLayouts(positions,pallets,defaultSpec,deck){
+  const byPos=new Map(pallets.map(p=>[p.posId,p]));
+  const layouts=[];
+  let x=0,lastHold=null;
+  positions.forEach((posId,i)=>{
+    const hold=deck==='lower'||deck==='bulk'?lowerHoldForPosition(posId):'MAIN';
+    if(lastHold&&hold!==lastHold)x+=hold==='BULK'?85:120;
+    const pal=byPos.get(posId)||pallets[i]||null;
+    const spec=pal?.spec||defaultSpec;
+    const slotL=Math.max(spec?.l||defaultSpec.l,defaultSpec.l);
+    layouts.push({posId,i,hold,pal,spec,x,l:slotL});
+    x+=slotL;
+    lastHold=hold;
+  });
+  return layouts;
+}
+
+function holdRanges(layouts){
+  const out=[];
+  layouts.forEach(l=>{
+    let g=out.find(x=>x.hold===l.hold);
+    if(!g){g={hold:l.hold,x0:l.x,x1:l.x+l.l};out.push(g);}
+    g.x0=Math.min(g.x0,l.x);g.x1=Math.max(g.x1,l.x+l.l);
+  });
+  return out;
+}
+
 function renderAircraftView(){
   initRenderer();
   const canvas=document.getElementById('cv');
@@ -736,82 +992,95 @@ function renderAircraftView(){
   const lowerPals=allPallets.filter(p=>p.deck==='lower'||p.deck==='bulk');
   const mainPals=allPallets.filter(p=>p.deck==='main');
 
-  // Layout constants
   const LOWER_Y=0;
-  const FLOOR_GAP=20;
-  const MAIN_Y=(mainSpec?lowerSpec.h+FLOOR_GAP:0);
-  const lowerLen=lowerPos.length*lowerSpec.l;
-  const mainLen=mainPos.length*(mainSpec?.l||318);
-  const totalLen=Math.max(lowerLen,mainLen,300);
+  const lowerLayouts=buildDeckLayouts(lowerPos,lowerPals,lowerSpec,'lower');
+  const lowerLen=lowerLayouts.length?Math.max(...lowerLayouts.map(l=>l.x+l.l)):360;
+  const mainStart=lowerLen*.08;
+  const mainLayouts=mainSpec?buildDeckLayouts(mainPos,mainPals,mainSpec,'main').map(l=>({...l,x:l.x+mainStart})):[];
+  const mainLen=mainLayouts.length?Math.max(...mainLayouts.map(l=>l.x+l.l)):0;
+  const totalLen=Math.max(lowerLen,mainLen,420);
+  const lowerMaxH=Math.max(lowerSpec.h,...lowerPals.map(p=>p.spec.h));
+  const lowerMaxW=Math.max(lowerSpec.w,...lowerPals.map(p=>p.spec.w));
+  const MAIN_Y=mainSpec?lowerMaxH+44:lowerMaxH+130;
+  const mainMaxH=mainSpec?mainSpec.h:0;
+  const mainMaxW=mainSpec?mainSpec.w:0;
+  const fuseRy=(MAIN_Y+mainMaxH+120)/2;
+  const fuseCy=fuseRy-42;
+  const fuseRz=Math.max(lowerMaxW,mainMaxW,244)/2+95;
+  const x0=-80,x1=totalLen+80;
 
-  // Fuselage
-  const fuseH=MAIN_Y+(mainSpec?.h||0)+80;
-  const fuseW=Math.max(mainSpec?.w||244,lowerSpec.w)+120;
-  const fuseEg=new THREE.EdgesGeometry(new THREE.BoxGeometry(totalLen+200,fuseH,fuseW));
-  const fuseLn=new THREE.LineSegments(fuseEg,new THREE.LineBasicMaterial({color:0x378ADD,transparent:true,opacity:.12}));
-  fuseLn.position.set(totalLen/2,fuseH/2-40,0);scene.add(fuseLn);
-
-  // Floor
-  const flrMesh=new THREE.Mesh(new THREE.PlaneGeometry(totalLen+200,fuseW),new THREE.MeshBasicMaterial({color:0x378ADD,transparent:true,opacity:.03,side:THREE.DoubleSide}));
-  flrMesh.rotation.x=-Math.PI/2;flrMesh.position.set(totalLen/2,LOWER_Y-2,0);scene.add(flrMesh);
-
-  // Add ambient + directional light
-  const dlA=new THREE.DirectionalLight(0xffffff,.9);dlA.position.set(totalLen,fuseH*2,fuseW*2);scene.add(dlA);
+  const dlA=new THREE.DirectionalLight(0xffffff,.95);dlA.position.set(totalLen,fuseRy*3,fuseRz*2);scene.add(dlA);
   scene.add(new THREE.AmbientLight(0xffffff,.6));
+  addAircraftSolidModel(x0,x1,fuseCy,fuseRy,fuseRz,totalLen);
+  addFuselageWire(x0,x1,fuseCy,fuseRy,fuseRz,0x378ADD);
 
-  // LOWER DECK positions
-  lowerPos.forEach((posId,i)=>{
-    const x=i*lowerSpec.l;
-    const pal=lowerPals[i]||null;
-    const col=pal?parseInt(pal.color.replace('#',''),16):0x333333;
-    const geo=new THREE.BoxGeometry(lowerSpec.l-4,lowerSpec.h-4,lowerSpec.w-4);
-    if(pal){
-      const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.75});
-      const mesh=new THREE.Mesh(geo,mat);mesh.position.set(x+lowerSpec.l/2,LOWER_Y+lowerSpec.h/2,0);scene.add(mesh);
-      // Util bar on top
-      const utilW=(pal.util/100)*(lowerSpec.l-8);
-      const utilGeo=new THREE.BoxGeometry(utilW,4,lowerSpec.w-8);
-      const utilMat=new THREE.MeshBasicMaterial({color:pal.util>=80?0x22c55e:pal.util>=60?0xEAB308:0xf97316});
-      const utilMesh=new THREE.Mesh(utilGeo,utilMat);
-      utilMesh.position.set(x+4+utilW/2,LOWER_Y+lowerSpec.h+2,0);scene.add(utilMesh);
-    } else {
-      const eg=new THREE.EdgesGeometry(geo);
-      const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0x2a2a2a,transparent:true,opacity:.8}));
-      ln.position.set(x+lowerSpec.l/2,LOWER_Y+lowerSpec.h/2,0);scene.add(ln);
-    }
-    const eg2=new THREE.EdgesGeometry(geo);
-    const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:0x333333,transparent:true,opacity:pal?.25:.4}));
-    ln2.position.set(x+lowerSpec.l/2,LOWER_Y+lowerSpec.h/2,0);scene.add(ln2);
+  const lowerW=lowerMaxW+42;
+  const lowerRanges=holdRanges(lowerLayouts);
+  lowerRanges.forEach(g=>{
+    const col=holdColor(g.hold);
+    const pad=g.hold==='BULK'?18:26;
+    addWireBox((g.x0+g.x1)/2,LOWER_Y+lowerMaxH/2,-2,g.x1-g.x0+pad*2,lowerMaxH+18,lowerW,col,.34);
+    addLabel3D(g.hold==='FWD'?'FORWARD HOLD':g.hold==='AFT'?'AFT HOLD':'BULK HOLD',(g.x0+g.x1)/2,LOWER_Y+lowerMaxH+68,0,`#${col.toString(16).padStart(6,'0')}`,360,72);
+    addBar(g.x0-pad,LOWER_Y-4,-lowerW/2,g.x1+pad,LOWER_Y-4,-lowerW/2,col,2,.55);
+    addBar(g.x0-pad,LOWER_Y-4, lowerW/2,g.x1+pad,LOWER_Y-4, lowerW/2,col,2,.55);
+    addBar(g.x0-pad,LOWER_Y+lowerMaxH+10,-lowerW/2,g.x0-pad,LOWER_Y+lowerMaxH+10,lowerW/2,col,2,.45);
+    addBar(g.x1+pad,LOWER_Y+lowerMaxH+10,-lowerW/2,g.x1+pad,LOWER_Y+lowerMaxH+10,lowerW/2,col,2,.45);
   });
 
-  // MAIN DECK positions (freighters)
+  lowerLayouts.forEach(slot=>{
+    const pal=slot.pal;
+    const spec=slot.spec||lowerSpec;
+    const col=pal?parseInt(pal.color.replace('#',''),16):holdColor(slot.hold);
+    const geo=new THREE.BoxGeometry(slot.l-6,spec.h-6,spec.w-6);
+    if(pal){
+      const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.72,emissive:col,emissiveIntensity:.04});
+      const mesh=new THREE.Mesh(geo,mat);mesh.position.set(slot.x+slot.l/2,LOWER_Y+spec.h/2,0);scene.add(mesh);
+      const utilW=(pal.util/100)*(slot.l-10);
+      const utilGeo=new THREE.BoxGeometry(utilW,4,spec.w-10);
+      const utilMat=new THREE.MeshBasicMaterial({color:pal.util>=80?0x22c55e:pal.util>=60?0xEAB308:0xf97316});
+      const utilMesh=new THREE.Mesh(utilGeo,utilMat);
+      utilMesh.position.set(slot.x+5+utilW/2,LOWER_Y+spec.h+3,0);scene.add(utilMesh);
+    } else {
+      const eg=new THREE.EdgesGeometry(geo);
+      const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:.24}));
+      ln.position.set(slot.x+slot.l/2,LOWER_Y+spec.h/2,0);scene.add(ln);
+    }
+    const eg2=new THREE.EdgesGeometry(geo);
+    const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:col,transparent:true,opacity:pal?.38:.22}));
+    ln2.position.set(slot.x+slot.l/2,LOWER_Y+spec.h/2,0);scene.add(ln2);
+  });
+
   if(mainSpec){
-    mainPos.forEach((posId,i)=>{
-      const x=i*mainSpec.l;
-      const pal=mainPals[i]||null;
+    const mainW=mainSpec.w+60;
+    addWireBox(totalLen/2,MAIN_Y+mainSpec.h/2,0,totalLen*.92,mainSpec.h+20,mainW,0xffffff,.16);
+    addLabel3D('MAIN DECK',totalLen/2,MAIN_Y+mainSpec.h+72,0,'#ffffff',360,72);
+    addBar(mainStart,MAIN_Y-5,-mainW/2,totalLen-60,MAIN_Y-5,-mainW/2,0xffffff,2,.25);
+    addBar(mainStart,MAIN_Y-5, mainW/2,totalLen-60,MAIN_Y-5, mainW/2,0xffffff,2,.25);
+    mainLayouts.forEach(slot=>{
+      const pal=slot.pal;
       const col=pal?parseInt(pal.color.replace('#',''),16):0x333333;
-      const geo=new THREE.BoxGeometry(mainSpec.l-4,mainSpec.h-4,mainSpec.w-4);
+      const geo=new THREE.BoxGeometry(slot.l-5,mainSpec.h-5,mainSpec.w-5);
       if(pal){
-        const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.75});
-        const mesh=new THREE.Mesh(geo,mat);mesh.position.set(x+mainSpec.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(mesh);
-        const utilW=(pal.util/100)*(mainSpec.l-8);
+        const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.55});
+        const mesh=new THREE.Mesh(geo,mat);mesh.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(mesh);
+        const utilW=(pal.util/100)*(slot.l-8);
         const utilGeo=new THREE.BoxGeometry(utilW,5,mainSpec.w-8);
         const utilMat=new THREE.MeshBasicMaterial({color:pal.util>=80?0x22c55e:pal.util>=60?0xEAB308:0xf97316});
         const utilMesh=new THREE.Mesh(utilGeo,utilMat);
-        utilMesh.position.set(x+4+utilW/2,MAIN_Y+mainSpec.h+3,0);scene.add(utilMesh);
+        utilMesh.position.set(slot.x+4+utilW/2,MAIN_Y+mainSpec.h+3,0);scene.add(utilMesh);
       } else {
         const eg=new THREE.EdgesGeometry(geo);
         const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0x2a2a2a,transparent:true,opacity:.8}));
-        ln.position.set(x+mainSpec.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(ln);
+        ln.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(ln);
       }
       const eg2=new THREE.EdgesGeometry(geo);
-      const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:0x333333,transparent:true,opacity:pal?.22:.35}));
-      ln2.position.set(x+mainSpec.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(ln2);
+      const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:0x333333,transparent:true,opacity:pal?.22:.2}));
+      ln2.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,0);scene.add(ln2);
     });
   }
 
-  const cx=totalLen/2, cy=fuseH/2, cz=0;
-  rot={x:.45,y:-.4};zoom=1;
+  const cx=totalLen/2, cy=fuseCy, cz=0;
+  rot={x:.38,y:-.55};zoom=.62;
   updateCam(cx,cy,cz);setupMouse(canvas,cx,cy,cz);
 }
 
@@ -912,7 +1181,6 @@ function addManual(){
   const wt=parseFloat(document.getElementById('fwt').value);
   const pcs=parseInt(document.getElementById('fpcs').value)||1;
   const tilt=document.getElementById('ftilt').checked;shipments.push({id:Date.now()+Math.random(),desc,l,w,h,wt,pcs,tiltable:tilt,color:COLORS[shipments.length%COLORS.length]});
-  shipments.push({id:Date.now()+Math.random(),desc,l,w,h,wt,pcs,color:COLORS[shipments.length%COLORS.length]});
   renderList();
   document.getElementById('fdesc').value='';
   ['fl','fw','fh','fwt'].forEach(id=>document.getElementById(id).value='');
