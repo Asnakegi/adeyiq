@@ -343,7 +343,7 @@ const PAL_COL=['#EAB308','#22c55e','#60a5fa','#f97316','#a78bfa'];
 const DIM_DIV=6000;
 
 /*  STATE  */
-let selAC='B788', selULD='AKE', customULDs={};
+let selAC='B788', selULD='AKE', selectedULDs=['AKE'], customULDs={};
 let shipments=[], allPallets=[], activePal=0, viewMode='uld';
 let scene,camera,renderer,isDrag=false,prev={x:0,y:0},rot={x:.4,y:.5},zoom=1;
 
@@ -359,24 +359,27 @@ function buildAcGrid(){
 function buildULDList(){
   const ac=AIRCRAFT[selAC];
   const allCodes=[...new Set([...ac.mainUlds,...ac.lowerUlds,...Object.keys(customULDs)])];
+  const selected=getSelectedULDs();
   document.getElementById('uldDeckNote').textContent=
-    ac.type==='freighter'?'(main + lower deck)':'(lower deck only)';
+    ac.type==='freighter'?`(${selected.length} selected - main + lower deck)`:`(${selected.length} selected - lower deck only)`;
   const rec=getRecULD();
   document.getElementById('uldList').innerHTML=allCodes.map(code=>{
     const u=ULD_DB[code]||customULDs[code];
     if(!u)return'';
-    const isSel=selULD===code;
+    const isSel=selected.includes(code);
+    const isFocus=selULD===code;
     const isRec=rec?.uldCode===code;
     const deckBg=u.deck==='main'?'rgba(239,159,39,.15)':'rgba(56,189,248,.12)';
     const deckCol=u.deck==='main'?'#EF9F27':'#38bdf8';
     const isCustom=!!customULDs[code];
     return`<button class="uld-btn ${isSel?'active':''} ${isRec&&!isSel?'rec-uld':''}" onclick="selectULD('${code}')">
       <div>
-        <div class="uld-code">${u.code}${isCustom?' <span style="font-size:9px;color:#555">(custom)</span>':''}</div>
+        <div class="uld-code">${isSel?'[x] ':''}${u.code}${isCustom?' <span style="font-size:9px;color:#555">(custom)</span>':''}</div>
         <div class="uld-meta">${u.l}x${u.w}x${u.h}cm - ${u.vol||((u.l*u.w*u.h/1e6).toFixed(2))}m3</div>
       </div>
       <div style="text-align:right">
         <span style="font-size:9px;padding:1px 5px;border-radius:99px;background:${deckBg};color:${deckCol}">${u.deck}</span>
+        ${isFocus?'<div style="font-size:9px;color:#888;margin-top:2px"> preview</div>':''}
         ${isRec?'<div style="font-size:9px;color:#22c55e;margin-top:2px"> AI pick</div>':''}
       </div>
     </button>`;
@@ -410,7 +413,7 @@ function updateRec(){
   const rec=getRecULD();
   const uld=ULD_DB[rec.uldCode]||ULD_DB.AKE;
   const posNeeded=Math.ceil(totalVol/uld.vol);
-  document.getElementById('recCombo').textContent=`Use ${selULD}  -  ~${posNeeded} position${posNeeded!==1?'s':''} needed`;
+  document.getElementById('recCombo').textContent=`Use ${selectedUldText()}  -  ~${posNeeded} position${posNeeded!==1?'s':''} needed`;
   document.getElementById('recReason').textContent=rec.reason;
   document.getElementById('recKpis').innerHTML=`
     <div class="rk"><div class="rk-v">${totalVol.toFixed(1)}</div><div class="rk-l">m3 total</div></div>
@@ -557,23 +560,95 @@ function packBin(boxes,spec,useOH){
   return{placed,rem};
 }
 
+function getSelectedULDs(){
+  const valid=[...new Set((selectedULDs&&selectedULDs.length?selectedULDs:[selULD]).filter(code=>ULD_DB[code]||customULDs[code]))];
+  if(!valid.length&&selULD)valid.push(selULD);
+  selectedULDs=valid;
+  return valid;
+}
+
+function selectedUldText(){
+  const s=getSelectedULDs();
+  return s.length>2?`${s.slice(0,2).join(' + ')} +${s.length-2}`:s.join(' + ');
+}
+
+function balancedPositionOrder(positions){
+  const mid=(positions.length-1)/2;
+  return [...positions].map((pos,i)=>({pos,i,d:Math.abs(i-mid)})).sort((a,b)=>a.d-b.d||a.i-b.i).map(x=>x.pos);
+}
+
+function balancedMainPositionOrder(positions){
+  const groups=[];
+  positions.forEach(pos=>{
+    const part=mainDeckPositionParts(pos);
+    let g=groups.find(x=>x.station===part.station);
+    if(!g){g={station:part.station,items:[]};groups.push(g);}
+    g.items.push(pos);
+  });
+  const mid=(groups.length-1)/2;
+  return groups.map((g,i)=>({...g,i,d:Math.abs(i-mid)})).sort((a,b)=>a.d-b.d||a.i-b.i).flatMap(g=>{
+    const order={L:0,R:1,C:2};
+    return g.items.sort((a,b)=>order[mainDeckPositionParts(a).side]-order[mainDeckPositionParts(b).side]);
+  });
+}
+
+function uldFitsSlot(code,slotDeck,ac){
+  const u=ULD_DB[code]||customULDs[code];
+  if(!u)return false;
+  if(slotDeck==='main')return u.deck==='main'&&ac.mainUlds.includes(code);
+  if(slotDeck==='bulk')return u.deck==='bulk'&&ac.lowerUlds.includes(code);
+  return u.deck==='lower'&&ac.lowerUlds.includes(code);
+}
+
+function buildAircraftSlots(ac,selectedCodes){
+  const slots=[];
+  const lowerOrder=balancedPositionOrder(ac.lower?.pos||[]);
+  lowerOrder.forEach(posId=>{
+    const slotDeck=lowerHoldForPosition(posId)==='BULK'?'bulk':'lower';
+    const allowed=selectedCodes.filter(code=>uldFitsSlot(code,slotDeck,ac));
+    if(allowed.length)slots.push({posId,deck:slotDeck,allowed});
+  });
+  const mainOrder=balancedMainPositionOrder(ac.main?.pos||[]);
+  mainOrder.forEach(posId=>{
+    const allowed=selectedCodes.filter(code=>uldFitsSlot(code,'main',ac));
+    if(allowed.length)slots.push({posId,deck:'main',allowed});
+  });
+  return slots;
+}
+
+function chooseBestULDForSlot(rem,codes){
+  let best=null;
+  for(const code of codes){
+    const spec=ULD_DB[code]||customULDs[code];
+    const out=packBin(rem,spec,false);
+    if(!out.placed.length)continue;
+    const vol=out.placed.reduce((s,b)=>s+b.bl*b.bh*b.bw,0);
+    const util=Math.round(vol/(spec.l*spec.h*spec.w)*100);
+    const wt=out.placed.reduce((s,b)=>s+b.wt,0);
+    const score=out.placed.length*100000+util*100+Math.min(wt,9999);
+    if(!best||score>best.score)best={code,spec,placed:out.placed,rem:out.rem,util,score};
+  }
+  return best;
+}
+
 function optimize(){
   if(!shipments.length){alert('Add shipments first.');return;}
-  const u=ULD_DB[selULD]||customULDs[selULD];
-  if(!u){alert('Select a valid ULD type.');return;}
+  const selectedCodes=getSelectedULDs();
+  if(!selectedCodes.length){alert('Select at least one ULD type.');return;}
   let boxes=shipments.flatMap(s=>Array.from({length:s.pcs},(_,i)=>({...s,piece:i+1})));
   boxes.sort((a,b)=>(b.l*b.w*b.h)-(a.l*a.w*a.h));
   allPallets=[];
   const ac=AIRCRAFT[selAC];
-  const positions=u.deck==='bulk'?['BULK']:(u.deck==='main'?(ac.mainUlds.includes(selULD)?ac.main?.pos||[]:Array.from({length:12},(_,i)=>`P${i+1}`)):ac.lower?.pos||Array.from({length:20},(_,i)=>i<10?`F${i+1}`:`A${i-9}`));
+  const positions=buildAircraftSlots(ac,selectedCodes);
   let rem=[...boxes];
-  for(let i=0;i<positions.length&&rem.length;i++){
-    const{placed,rem:r}=packBin(rem,u,false);
-    if(!placed.length)break;
-    const vol=placed.reduce((s,b)=>s+b.bl*b.bh*b.bw,0);
-    allPallets.push({posId:positions[i],deck:u.deck,spec:u,placed,util:Math.round(vol/(u.l*u.h*u.w)*100),totalWt:placed.reduce((s,b)=>s+b.wt,0),hasOH:placed.some(b=>b.overhang),color:PAL_COL[allPallets.length%PAL_COL.length]});
-    rem=r;
+  for(const slot of positions){
+    if(!rem.length)break;
+    const best=chooseBestULDForSlot(rem,slot.allowed);
+    if(!best)continue;
+    allPallets.push({posId:slot.posId,deck:best.spec.deck,spec:best.spec,placed:best.placed,util:best.util,totalWt:best.placed.reduce((s,b)=>s+b.wt,0),hasOH:best.placed.some(b=>b.overhang),color:PAL_COL[allPallets.length%PAL_COL.length]});
+    rem=best.rem;
   }
+  if(rem.length)alert(`${rem.length} piece(s) could not be packed with selected ULDs/aircraft positions.`);
   activePal=0;
   setStage(2);
   setView('uld');
@@ -1138,12 +1213,12 @@ function switchPal(i){
 }
 
 function updateKPIs(){
-  const u=ULD_DB[selULD]||customULDs[selULD];
   const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
   const dimWt=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h)/DIM_DIV*sh.pcs,0);
+  const totalSlots=buildAircraftSlots(AIRCRAFT[selAC],getSelectedULDs()).length||AIRCRAFT[selAC].lower?.pos.length||'?';
   document.getElementById('kv1').textContent=selAC;
-  document.getElementById('kv2').textContent=selULD;
-  document.getElementById('kv3').textContent=allPallets.length>0?`${allPallets.length}/${AIRCRAFT[selAC].lower?.pos.length||'?'}`:' - ';
+  document.getElementById('kv2').textContent=selectedUldText();
+  document.getElementById('kv3').textContent=allPallets.length>0?`${allPallets.length}/${totalSlots}`:' - ';
   document.getElementById('kv4').textContent=Math.max(totalWt,dimWt)>0?Math.round(Math.max(totalWt,dimWt))+' kg':' - ';
   document.getElementById('kv3').style.color=allPallets.length>0?'#22c55e':'#EAB308';
 }
@@ -1187,8 +1262,18 @@ document.getElementById('runOptBtn').disabled=shipments.length===0;document.getE
 function removeShipment(id){shipments=shipments.filter(s=>s.id!==id);renderList();}
 function clearAll(){shipments=[];allPallets=[];renderList();buildPalTabs();document.getElementById('runAcBtn').disabled=true;updateKPIs();document.getElementById('tblBody').innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Select aircraft  -  add cargo  -  run ULD buildup</td></tr>';setStage(1);if(renderer)renderULDView();}
 
-function selectAC(k){selAC=k;const ac=AIRCRAFT[k];selULD=ac.lowerUlds[0]||ac.mainUlds[0]||'AKE';buildAcGrid();buildULDList();allPallets=[];buildPalTabs();updateKPIs();setStage(1);document.getElementById('runAcBtn').disabled=true;if(renderer){if(viewMode==='aircraft')renderAircraftView();else renderULDView();}}
-function selectULD(code){selULD=code;buildULDList();if(renderer&&viewMode==='uld')renderULDView();}
+function selectAC(k){selAC=k;const ac=AIRCRAFT[k];selULD=ac.lowerUlds[0]||ac.mainUlds[0]||'AKE';selectedULDs=[selULD];buildAcGrid();buildULDList();allPallets=[];buildPalTabs();updateKPIs();setStage(1);document.getElementById('runAcBtn').disabled=true;if(renderer){if(viewMode==='aircraft')renderAircraftView();else renderULDView();}}
+function selectULD(code){
+  selULD=code;
+  const set=new Set(getSelectedULDs());
+  if(set.has(code)&&set.size>1)set.delete(code);
+  else set.add(code);
+  selectedULDs=[...set];
+  allPallets=[];activePal=0;buildPalTabs();updateKPIs();updateTable();
+  document.getElementById('runAcBtn').disabled=true;
+  buildULDList();
+  if(renderer&&viewMode==='uld')renderULDView();
+}
 
 /*  CUSTOM ULD  */
 function toggleCustomForm(){
@@ -1205,7 +1290,7 @@ function addCustomULD(){
   if(!code||!l||!w||!h||!maxWt){alert('Fill in all custom ULD fields.');return;}
   customULDs[code]={code,name:'Custom ULD',deck,l,w,h,tare:0,vol:+(l*w*h/1e6).toFixed(3),maxWt};
   AIRCRAFT[selAC].lowerUlds.push(code);
-  selULD=code;buildULDList();
+  selULD=code;selectedULDs=[...new Set([...getSelectedULDs(),code])];buildULDList();updateKPIs();
   document.getElementById('customForm').style.display='none';
   ['cuCode','cuL','cuW','cuH','cuWt'].forEach(id=>document.getElementById(id).value='');
 }
@@ -1306,7 +1391,7 @@ function exportCSV(){
       csv+=`${p.deck},${p.posId},${p.spec.code},"${b.desc}",${grp.length},${aw},${dw},${+(Math.max(aw,dw)).toFixed(1)},${Math.round(grp[0].px)},${Math.round(grp[0].pz)},${Math.round(grp[0].py)},${grp.some(x=>x.overhang)?'Yes':'No'}\n`;
     }
   }
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`AdeyIQ_LoadPlan_${selAC}_${selULD}.csv`;a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`AdeyIQ_LoadPlan_${selAC}_${selectedUldText().replace(/[^A-Za-z0-9]+/g,'_')}.csv`;a.click();
 }
 
 
