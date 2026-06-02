@@ -26,6 +26,9 @@ body{font-family:system-ui,sans-serif;font-size:13px}
 .ac-btn.active .ac-lbl{color:var(--y)}
 .ac-type{font-size:9px;color:#555;margin-top:1px}
 .uld-list{display:flex;flex-direction:column;gap:3px}
+.deck-filter{display:flex;gap:4px;margin:-2px 0 8px}
+.deck-filter button{flex:1;border:0.5px solid rgba(255,255,255,.08);background:#1a1a1a;color:#666;border-radius:999px;padding:4px 5px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer}
+.deck-filter button.active{border-color:rgba(234,179,8,.55);background:rgba(234,179,8,.1);color:var(--y)}
 .uld-btn{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;border:0.5px solid rgba(255,255,255,.07);background:#1a1a1a;cursor:pointer;transition:all .12s;color:#aaa}
 .uld-btn:hover{border-color:rgba(255,255,255,.15)}
 .uld-btn.active{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.07);color:var(--y)}
@@ -97,6 +100,11 @@ canvas#cv{width:100%;height:clamp(390px,52vh,560px);display:block;position:relat
 .ptab:hover{border-color:rgba(255,255,255,.2);color:#aaa}
 .ptab.active{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.08);color:var(--y);font-weight:600}
 .tbl-area{flex:1;overflow-y:auto;min-height:0}
+.plan-summary{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 12px;border-top:0.5px solid rgba(255,255,255,.06);border-bottom:0.5px solid rgba(255,255,255,.05);background:#101010;flex-shrink:0}
+.plan-pill{font-size:10px;font-weight:800;border-radius:999px;padding:4px 8px;background:rgba(255,255,255,.05);color:#777;border:0.5px solid rgba(255,255,255,.08)}
+.plan-pill.good{color:#22c55e;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.25)}
+.plan-pill.warn{color:#EAB308;background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.3)}
+.plan-pill.bad{color:#ef4444;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.3)}
 table{width:100%;border-collapse:collapse;font-size:11px}
 th{padding:6px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#444;border-bottom:0.5px solid rgba(255,255,255,.07);white-space:nowrap;position:sticky;top:0;background:#111}
 td{padding:6px 10px;border-bottom:0.5px solid rgba(255,255,255,.04);color:#888;vertical-align:middle;white-space:nowrap}
@@ -149,6 +157,12 @@ tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
   <!-- ULD -->
   <div class="sec">
     <div class="sec-lbl">ULD type <span id="uldDeckNote" style="color:#555;text-transform:none;font-weight:400;font-size:9px"></span></div>
+    <div class="deck-filter" id="deckFilter">
+      <button class="active" onclick="setUldDeckFilter('all',this)">All</button>
+      <button onclick="setUldDeckFilter('main',this)">MD</button>
+      <button onclick="setUldDeckFilter('lower',this)">LD</button>
+      <button onclick="setUldDeckFilter('bulk',this)">Bulk</button>
+    </div>
     <div class="uld-list" id="uldList"></div>
     <!-- Custom ULD toggle -->
     <button onclick="toggleCustomForm()" id="customToggle" style="width:100%;background:transparent;border:0.5px dashed rgba(255,255,255,.12);border-radius:7px;color:#555;font-size:10px;padding:6px;cursor:pointer;margin-top:6px">+ Add custom ULD</button>
@@ -259,6 +273,11 @@ tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
   </div>
 
   <!-- Table -->
+  <div class="plan-summary" id="planSummary">
+    <span class="plan-pill">Manifest pcs: 0</span>
+    <span class="plan-pill">Loaded pcs: -</span>
+    <span class="plan-pill">Overflow: -</span>
+  </div>
   <div class="tbl-area">
     <table>
       <thead><tr><th>Position</th><th>ULD</th><th>AWB / Description</th><th>Pcs</th><th>Actual wt</th><th>DIM wt</th><th>Chargeable</th><th>Overhang</th><th>Status</th></tr></thead>
@@ -281,6 +300,7 @@ tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
 /*  DATA  */
 const ULD_DB={
   PMC: {code:'PMC',name:'Main deck pallet',deck:'main', l:317.5,w:243.8,h:243.8,tare:130,vol:17.16,maxWt:6804},
+  PGA: {code:'PGA',name:'20 ft main deck pallet',deck:'main', l:605.8,w:243.8,h:243.8,tare:240,vol:35.98,maxWt:11340,positionSpan:2},
   PAJ: {code:'PAJ',name:'Main deck pallet (88in)',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
   P1P: {code:'P1P',name:'Main deck pallet',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
   AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:148,w:192,h:158,tare:64,vol:5.20,maxWt:1588,profile:{baseW:143,upperW:192,breakH:50,doorW:138,doorH:153}},
@@ -309,7 +329,7 @@ const AIRCRAFT={
     main:{uld:'PMC',pos:['AL','AR','BL','BR','CL','CR','DL','DR','EL','ER','FL','FR','GL','GR','HL','HR','JL','JR','KL','KR','LL','LR','ML','MR','PL','PR','R'],maxPay:82100,door:{w:305,h:261}},
     lower:{uld:'AKE',pos:['25L','25R','31P','32L','32R','33L','33R','41L','41R','BULK'],maxPay:28000,door:{w:183,h:170}},
     notes:'B777F AHM560: 37-pallet cargo configuration. Main deck M-size positions AL/AR through PL/PR plus R. Position R pallets only. ANA guide confirms B777F bulk package table and 17 m3 bulk compartment.',
-    mainUlds:['PMC','PAJ','P1P','HMJ','AAX','AMA'],lowerUlds:['LD6','AKE','AKH','DKN','DLP','DLF','DAP','AMF','PLA','BULK777']},
+    mainUlds:['PMC','PGA','PAJ','P1P','HMJ','AAX','AMA'],lowerUlds:['LD6','AKE','AKH','DKN','DLP','DLF','DAP','AMF','PLA','BULK777']},
   B777_300:{label:'B777-300',name:'Boeing 777-300',type:'pax',
     main:null,
     lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','A1','A2','A3','A4','A5','A6','A7','A8','A9','A10','A11','A12','A13','A14'],maxPay:45000,door:{w:183,h:170}},
@@ -343,8 +363,8 @@ const PAL_COL=['#EAB308','#22c55e','#60a5fa','#f97316','#a78bfa'];
 const DIM_DIV=6000;
 
 /*  STATE  */
-let selAC='B788', selULD='AKE', selectedULDs=['AKE'], customULDs={};
-let shipments=[], allPallets=[], activePal=0, viewMode='uld';
+let selAC='B788', selULD='AKE', selectedULDs=['AKE'], customULDs={}, uldDeckFilter='all';
+let shipments=[], allPallets=[], overflowPieces=[], activePal=0, viewMode='uld';
 let scene,camera,renderer,isDrag=false,prev={x:0,y:0},rot={x:.4,y:.5},zoom=1;
 
 /*  AIRCRAFT & ULD BUILDERS  */
@@ -358,10 +378,17 @@ function buildAcGrid(){
 
 function buildULDList(){
   const ac=AIRCRAFT[selAC];
-  const allCodes=[...new Set([...ac.mainUlds,...ac.lowerUlds,...Object.keys(customULDs)])];
+  let allCodes=[...new Set([...ac.mainUlds,...ac.lowerUlds,...Object.keys(customULDs)])];
+  if(uldDeckFilter!=='all'){
+    allCodes=allCodes.filter(code=>{
+      const u=ULD_DB[code]||customULDs[code];
+      return u&&u.deck===uldDeckFilter;
+    });
+  }
   const selected=getSelectedULDs();
+  const deckText=ac.type==='freighter'?`MD ${ac.main?.pos.length||0} / LD ${ac.lower?.pos.length||0}`:`LD ${ac.lower?.pos.length||0}`;
   document.getElementById('uldDeckNote').textContent=
-    ac.type==='freighter'?`(${selected.length} selected - main + lower deck)`:`(${selected.length} selected - lower deck only)`;
+    `(${selected.length} selected - ${deckText})`;
   const rec=getRecULD();
   document.getElementById('uldList').innerHTML=allCodes.map(code=>{
     const u=ULD_DB[code]||customULDs[code];
@@ -384,6 +411,13 @@ function buildULDList(){
       </div>
     </button>`;
   }).join('');
+}
+
+function setUldDeckFilter(deck,btn){
+  uldDeckFilter=deck;
+  document.querySelectorAll('#deckFilter button').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  buildULDList();
 }
 
 /*  AI RECOMMENDATION  */
@@ -631,24 +665,46 @@ function chooseBestULDForSlot(rem,codes){
   return best;
 }
 
+function availableMainSpan(slots,start,used){
+  let n=0;
+  for(let i=start;i<slots.length;i++){
+    if(used.has(i)||slots[i].deck!=='main')break;
+    n++;
+  }
+  return n;
+}
+
 function optimize(){
   if(!shipments.length){alert('Add shipments first.');return;}
   const selectedCodes=getSelectedULDs();
   if(!selectedCodes.length){alert('Select at least one ULD type.');return;}
   let boxes=shipments.flatMap(s=>Array.from({length:s.pcs},(_,i)=>({...s,piece:i+1})));
   boxes.sort((a,b)=>(b.l*b.w*b.h)-(a.l*a.w*a.h));
-  allPallets=[];
+  allPallets=[];overflowPieces=[];
   const ac=AIRCRAFT[selAC];
   const positions=buildAircraftSlots(ac,selectedCodes);
   let rem=[...boxes];
-  for(const slot of positions){
+  const usedSlots=new Set();
+  for(let si=0;si<positions.length;si++){
+    if(usedSlots.has(si))continue;
+    const slot=positions[si];
     if(!rem.length)break;
-    const best=chooseBestULDForSlot(rem,slot.allowed);
+    const spanAvail=slot.deck==='main'?availableMainSpan(positions,si,usedSlots):1;
+    const allowed=slot.allowed.filter(code=>{
+      const spec=ULD_DB[code]||customULDs[code];
+      return (spec?.positionSpan||1)<=spanAvail;
+    });
+    const best=chooseBestULDForSlot(rem,allowed);
     if(!best)continue;
-    allPallets.push({posId:slot.posId,deck:best.spec.deck,spec:best.spec,placed:best.placed,util:best.util,totalWt:best.placed.reduce((s,b)=>s+b.wt,0),hasOH:best.placed.some(b=>b.overhang),color:PAL_COL[allPallets.length%PAL_COL.length]});
+    const span=slot.deck==='main'?(best.spec.positionSpan||1):1;
+    const spanned=positions.slice(si,si+span).filter((s,idx)=>idx===0||s.deck==='main');
+    for(let j=0;j<span;j++)usedSlots.add(si+j);
+    const posId=spanned.map(s=>s.posId).join('+');
+    allPallets.push({posId,deck:best.spec.deck,spec:best.spec,placed:best.placed,util:best.util,totalWt:best.placed.reduce((s,b)=>s+b.wt,0),hasOH:best.placed.some(b=>b.overhang),color:PAL_COL[allPallets.length%PAL_COL.length]});
     rem=best.rem;
   }
-  if(rem.length)alert(`${rem.length} piece(s) could not be packed with selected ULDs/aircraft positions.`);
+  overflowPieces=rem;
+  if(rem.length)alert(`${rem.length} piece(s) exceed selected ULDs / available aircraft positions.`);
   activePal=0;
   setStage(2);
   setView('uld');
@@ -1216,16 +1272,23 @@ function updateKPIs(){
   const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
   const dimWt=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h)/DIM_DIV*sh.pcs,0);
   const totalSlots=buildAircraftSlots(AIRCRAFT[selAC],getSelectedULDs()).length||AIRCRAFT[selAC].lower?.pos.length||'?';
+  const manifestPcs=shipments.reduce((s,sh)=>s+sh.pcs,0);
+  const loadedPcs=allPallets.reduce((s,p)=>s+p.placed.length,0);
   document.getElementById('kv1').textContent=selAC;
   document.getElementById('kv2').textContent=selectedUldText();
   document.getElementById('kv3').textContent=allPallets.length>0?`${allPallets.length}/${totalSlots}`:' - ';
   document.getElementById('kv4').textContent=Math.max(totalWt,dimWt)>0?Math.round(Math.max(totalWt,dimWt))+' kg':' - ';
   document.getElementById('kv3').style.color=allPallets.length>0?'#22c55e':'#EAB308';
+  const ps=document.getElementById('planSummary');
+  if(ps)ps.innerHTML=`
+    <span class="plan-pill">Manifest pcs: ${manifestPcs}</span>
+    <span class="plan-pill ${loadedPcs&&loadedPcs===manifestPcs?'good':loadedPcs?'warn':''}">Loaded pcs: ${loadedPcs||'-'}${loadedPcs?`/${manifestPcs}`:''}</span>
+    <span class="plan-pill ${overflowPieces.length?'bad':'good'}">Overflow: ${overflowPieces.length||0}</span>`;
 }
 
 function updateTable(){
   const tbody=document.getElementById('tblBody');
-  if(!allPallets.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Run ULD buildup to generate load plan</td></tr>';return;}
+  if(!allPallets.length&&!overflowPieces.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Run ULD buildup to generate load plan</td></tr>';return;}
   let rows='';
   for(const p of allPallets){
     const grps={};
@@ -1247,6 +1310,24 @@ function updateTable(){
       </tr>`;
     }
   }
+  if(overflowPieces.length){
+    const grps={};
+    overflowPieces.forEach(b=>{if(!grps[b.id])grps[b.id]=[];grps[b.id].push(b);});
+    for(const grp of Object.values(grps)){
+      const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1),cw=+(Math.max(aw,dw)).toFixed(1);
+      rows+=`<tr>
+        <td><span class="bt btr">Overflow</span></td>
+        <td style="color:#666;font-size:10px">No slot</td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;color:#888">${b.desc}</td>
+        <td style="text-align:center">${grp.length}</td>
+        <td style="font-family:monospace">${aw}kg</td>
+        <td style="font-family:monospace">${dw}kg</td>
+        <td style="font-weight:700;font-family:monospace;color:#ef4444">${cw}kg</td>
+        <td><span style="color:#333"> - </span></td>
+        <td><span class="bt btr">Not loaded</span></td>
+      </tr>`;
+    }
+  }
   tbody.innerHTML=rows;
 }
 
@@ -1260,16 +1341,16 @@ document.getElementById('runOptBtn').disabled=shipments.length===0;document.getE
 }
 
 function removeShipment(id){shipments=shipments.filter(s=>s.id!==id);renderList();}
-function clearAll(){shipments=[];allPallets=[];renderList();buildPalTabs();document.getElementById('runAcBtn').disabled=true;updateKPIs();document.getElementById('tblBody').innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Select aircraft  -  add cargo  -  run ULD buildup</td></tr>';setStage(1);if(renderer)renderULDView();}
+function clearAll(){shipments=[];allPallets=[];overflowPieces=[];renderList();buildPalTabs();document.getElementById('runAcBtn').disabled=true;updateKPIs();document.getElementById('tblBody').innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Select aircraft  -  add cargo  -  run ULD buildup</td></tr>';setStage(1);if(renderer)renderULDView();}
 
-function selectAC(k){selAC=k;const ac=AIRCRAFT[k];selULD=ac.lowerUlds[0]||ac.mainUlds[0]||'AKE';selectedULDs=[selULD];buildAcGrid();buildULDList();allPallets=[];buildPalTabs();updateKPIs();setStage(1);document.getElementById('runAcBtn').disabled=true;if(renderer){if(viewMode==='aircraft')renderAircraftView();else renderULDView();}}
+function selectAC(k){selAC=k;const ac=AIRCRAFT[k];selULD=ac.lowerUlds[0]||ac.mainUlds[0]||'AKE';selectedULDs=[selULD];uldDeckFilter='all';document.querySelectorAll('#deckFilter button').forEach((b,i)=>b.classList.toggle('active',i===0));buildAcGrid();buildULDList();allPallets=[];overflowPieces=[];buildPalTabs();updateKPIs();setStage(1);document.getElementById('runAcBtn').disabled=true;if(renderer){if(viewMode==='aircraft')renderAircraftView();else renderULDView();}}
 function selectULD(code){
   selULD=code;
   const set=new Set(getSelectedULDs());
   if(set.has(code)&&set.size>1)set.delete(code);
   else set.add(code);
   selectedULDs=[...set];
-  allPallets=[];activePal=0;buildPalTabs();updateKPIs();updateTable();
+  allPallets=[];overflowPieces=[];activePal=0;buildPalTabs();updateKPIs();updateTable();
   document.getElementById('runAcBtn').disabled=true;
   buildULDList();
   if(renderer&&viewMode==='uld')renderULDView();
@@ -1362,7 +1443,7 @@ async function handleFile(file){
     });
     if(!imp){setStat('err',`No valid shipments found (${skipped} skipped)`);return;}
     shipments=shipments.concat(added);
-    allPallets=[];activePal=0;buildPalTabs();document.getElementById('runAcBtn').disabled=true;setStage(1);
+    allPallets=[];overflowPieces=[];activePal=0;buildPalTabs();document.getElementById('runAcBtn').disabled=true;setStage(1);
     renderList();updateKPIs();updateTable();if(renderer)renderULDView();
     setStat('ok',`${imp} shipment${imp!==1?'s':''} imported${skipped?`, ${skipped} skipped`:''} from "${file.name}"`);
   }catch(err){
