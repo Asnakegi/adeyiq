@@ -39,7 +39,95 @@ const PACK_RULES = {
     lower: { length: 0,  width: 0 },   // LD6/PAJ5 use their own lower-deck build-out
     bulk:  { length: 0,  width: 0 },
   },
+  // Centre load: one base pallet on the main-deck centreline, the piece may
+  // overhang in length and width up to the edges of 2 adjacent stations
+  // (4 PMC positions: e.g. DL+DR+EL+ER), which are then blocked.
+  // !! Placeholder values - set from your AHM / WBM before production use.
+  centerLoad: {
+    bases: ['PMC', 'PGA'],     // base pallets to try, in this order
+    minBaseSupport: 0.5,       // share of the piece footprint that must be on the base pallet
+    clearance: 5,              // cm kept free from the 4-position envelope edges
+  },
 };
+
+/* Envelope of a centre load on this aircraft: 2 stations long, L+R wide. */
+function centerLoadEnvelope(ac, ulds) {
+  if (!ac || !ac.main) return null;
+  const pos = ulds[ac.main.uld] || ulds.PMC;
+  return {
+    l: pos.l * 2,
+    w: pos.w * 2,
+    h: ac.main.centerH || pos.h,   // centreline height (B777F: 300 cm / 118 in)
+  };
+}
+
+/* Try to place one piece as a centre load. Returns the built "pallet"
+   ({ spec, placed, base }) or null with .reason. Coordinates are inside
+   the 4-position envelope (x along the aircraft, z across, 0 = left edge). */
+function centerLoadFit(box, ac, ulds) {
+  const env = centerLoadEnvelope(ac, ulds);
+  if (!env) return { fit: null, reason: 'aircraft has no main deck' };
+  const rules = PACK_RULES.centerLoad, c = rules.clearance;
+  const orients = [
+    { bl: box.l, bh: box.h, bw: box.w, tilted: false, rot: 'LxW' },
+    { bl: box.w, bh: box.h, bw: box.l, tilted: false, rot: 'WxL' },
+  ];
+  if (box.tiltable) orients.push(
+    { bl: box.l, bh: box.w, bw: box.h, tilted: true, rot: 'LxH' },
+    { bl: box.h, bh: box.w, bw: box.l, tilted: true, rot: 'HxL' });
+  let reason = 'bigger than the 4-position centre-load envelope';
+  for (const code of rules.bases) {
+    const base = ulds[code];
+    if (!base || !(ac.mainUlds || []).includes(code)) continue;
+    if (base.l > env.l || base.w > env.w) continue;
+    const payload = (base.maxWt || Infinity) - (base.tare || 0);
+    for (const r of orients) {
+      if (r.bl > env.l - 2 * c || r.bw > env.w - 2 * c) continue;
+      if (r.bh > env.h) { reason = `${Math.round(r.bh)} cm high > centreline height ${env.h} cm`; continue; }
+      if (box.wt > payload) { reason = `${box.wt} kg > ${code} base limit ${payload} kg`; continue; }
+      const sup = Math.min(r.bl, base.l) * Math.min(r.bw, base.w) / (r.bl * r.bw);
+      if (sup < rules.minBaseSupport) { reason = `only ${Math.round(sup * 100)}% of the piece on a ${code} base`; continue; }
+      const bx = (env.l - base.l) / 2, bz = (env.w - base.w) / 2;
+      const px = (env.l - r.bl) / 2, pz = (env.w - r.bw) / 2;
+      const ovDetail = {
+        front: Math.max(0, Math.round(bx - px)), back: Math.max(0, Math.round(px + r.bl - bx - base.l)),
+        left: Math.max(0, Math.round(bz - pz)), right: Math.max(0, Math.round(pz + r.bw - bz - base.w)),
+      };
+      const ovCm = Math.max(ovDetail.front, ovDetail.back, ovDetail.left, ovDetail.right);
+      const spec = {
+        code: `CTR-${code}`, name: `Centre load on ${code} (4 positions)`, deck: 'main', centerLoad: true,
+        l: env.l, w: env.w, h: env.h, tare: base.tare, maxWt: base.maxWt,
+        base: { code, l: base.l, w: base.w, x: bx, z: bz },
+      };
+      const placed = [{ ...box, px, py: 0, pz, bl: r.bl, bh: r.bh, bw: r.bw, rot: r.rot, tilted: r.tilted,
+        overhang: ovCm > 0, ovCm, ovDetail, centerLoad: true, balancedExt: false }];
+      return { fit: { spec, placed, base: code }, reason: null };
+    }
+  }
+  return { fit: null, reason };
+}
+
+/* Pick 2 adjacent stations that both have L and R free, closest to the
+   middle of the main deck. Returns the 4 position ids or null. */
+function pickCenterLoadPositions(mainPos, usedPos) {
+  const stations = [];
+  for (const p of mainPos) {
+    const m = String(p).toUpperCase().match(/^(.*?)([LR])$/);
+    if (!m || !m[1]) continue;
+    let s = stations.find(x => x.id === m[1]);
+    if (!s) { s = { id: m[1], L: null, R: null }; stations.push(s); }
+    s[m[2]] = p;
+  }
+  const full = s => s.L && s.R && !usedPos.has(s.L) && !usedPos.has(s.R);
+  const mid = (stations.length - 1) / 2;
+  let best = null;
+  for (let i = 0; i + 1 < stations.length; i++) {
+    if (!full(stations[i]) || !full(stations[i + 1])) continue;
+    const d = Math.abs(i + 0.5 - mid);
+    if (!best || d < best.d) best = { d, ids: [stations[i].L, stations[i].R, stations[i + 1].L, stations[i + 1].R] };
+  }
+  return best ? best.ids : null;
+}
 
 /* Can this piece go through a cargo door?  door = { w, h } in cm.
    The piece goes in length-first, so its cross-section (across x high)
@@ -428,4 +516,4 @@ function checkBuild(placed, spec) {
   return issues;
 }
 
-if (typeof module !== 'undefined') module.exports = { packBin, buildStats, checkBuild, dgConflict, doorFitReason, PACK_RULES };
+if (typeof module !== 'undefined') module.exports = { packBin, buildStats, checkBuild, dgConflict, doorFitReason, centerLoadFit, centerLoadEnvelope, pickCenterLoadPositions, PACK_RULES };

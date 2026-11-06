@@ -9,8 +9,8 @@ const v3 = lines.slice(s, e).join('\n').replace('function packBin(', 'function p
 const v2 = fs.readFileSync(path.join(root, 'packer-v2.js'), 'utf8').replace(/if \(typeof module[\s\S]*$/, '');
 const ctx = { console, Math, Set, Map, document: {} };
 vm.createContext(ctx);
-vm.runInContext(v3 + '\n' + v2 + '\nthis.API={ULD_DB,packBin,checkBuild,doorFitReason};', ctx);
-const { ULD_DB, packBin, checkBuild, doorFitReason } = ctx.API;
+vm.runInContext(v3 + '\n' + v2 + '\nthis.API={ULD_DB,AIRCRAFT,packBin,checkBuild,doorFitReason,centerLoadFit,pickCenterLoadPositions};', ctx);
+const { ULD_DB, AIRCRAFT, packBin, checkBuild, doorFitReason, centerLoadFit, pickCenterLoadPositions } = ctx.API;
 
 const DOOR_777F_MAIN = { w: 360, h: 305 };   // 142 in x 120 in side cargo door
 let fails = 0;
@@ -56,6 +56,25 @@ expect(checkBuild(out.placed, pmc).length === 0, 'mixed build passes all checks'
 console.log('\nContainers never overhang');
 out = packBin([{ desc: 'Wide box', l: 100, w: 160, h: 100, wt: 100, piece: 1 }], ULD_DB.AKE, false);
 expect(out.placed.length === 0, 'piece wider than AKE base is not loaded in an AKE');
+
+console.log('\nCentre load on B777F (4 PMC positions, envelope 635 x 487.6 x 300 cm)');
+const b777 = { ...AIRCRAFT.B777F, main: { ...AIRCRAFT.B777F.main, door: DOOR_777F_MAIN, centerH: 300 } };
+let c = centerLoadFit({ desc: 'Engine on stand', l: 380, w: 300, h: 150, wt: 3000 }, b777, ULD_DB).fit;
+expect(c && c.base === 'PMC', 'engine 380 x 300 on a PMC base');
+expect(c && c.placed[0].ovDetail.front === 31 && c.placed[0].ovDetail.back === 31 && c.placed[0].ovDetail.left === 28 && c.placed[0].ovDetail.right === 28,
+  'overhang in length AND width: ' + JSON.stringify(c && c.placed[0].ovDetail));
+c = centerLoadFit({ desc: 'Big engine', l: 520, w: 340, h: 280, wt: 7000 }, b777, ULD_DB).fit;
+expect(c && c.base === 'PGA', 'big engine moves to a 20 ft PGA base (too little of it on a PMC, and 7000 kg > PMC limit)');
+expect(c && c.placed[0].ovDetail.left === 48 && c.placed[0].ovDetail.right === 48, 'big engine overhangs 48 cm each side');
+let r = centerLoadFit({ desc: 'Too long', l: 700, w: 200, h: 150, wt: 3000 }, b777, ULD_DB);
+expect(!r.fit, 'piece longer than 2 stations rejected: ' + r.reason);
+r = centerLoadFit({ desc: 'Too tall', l: 400, w: 300, h: 302, wt: 3000 }, b777, ULD_DB);
+expect(!r.fit && /centreline height/.test(r.reason), 'piece taller than the centreline height rejected: ' + r.reason);
+const used = new Set();
+const p1 = pickCenterLoadPositions(b777.main.pos, used); p1.forEach(x => used.add(x));
+const p2 = pickCenterLoadPositions(b777.main.pos, used);
+expect(p1 && p1.length === 4 && /L$/.test(p1[0]) && /R$/.test(p1[1]), 'first centre load takes 4 positions near the middle: ' + p1.join(' '));
+expect(p2 && !p2.some(x => p1.includes(x)), 'second centre load takes 4 different positions: ' + p2.join(' '));
 
 console.log(fails ? `\n${fails} FAILED` : '\nAll oversize checks passed');
 process.exit(fails ? 1 : 0);

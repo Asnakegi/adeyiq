@@ -345,7 +345,7 @@ const ULD_DB={
 };
 const AIRCRAFT={
   B777F:{label:'B777F',name:'Boeing 777F',type:'freighter',
-    main:{uld:'PMC',pos:['AL','AR','BL','BR','CL','CR','DL','DR','EL','ER','FL','FR','GL','GR','HL','HR','JL','JR','KL','KR','LL','LR','ML','MR','PL','PR','R'],maxPay:82100,door:{w:360,h:305}},
+    main:{uld:'PMC',pos:['AL','AR','BL','BR','CL','CR','DL','DR','EL','ER','FL','FR','GL','GR','HL','HR','JL','JR','KL','KR','LL','LR','ML','MR','PL','PR','R'],maxPay:82100,door:{w:360,h:305},centerH:300},
     lower:{uld:'AKE',pos:['21L','21R','22L','22R','31L','31R','32L','32R','41L','41R','BULK'],maxPay:28000,door:{w:183,h:170}},
     notes:'B777F AHM560: 37-pallet cargo configuration. Main deck M-size positions AL/AR through PL/PR plus R. Position R pallets only. ANA guide confirms B777F bulk package table and 17 m3 bulk compartment.',
     mainUlds:['PMC','PGA','PAJ','P1P','HMJ','AAX','AMA'],lowerUlds:['LD6','AKE','AKH','DKN','DLP','DLF','DAP','AMF','PLA','BULK777']},
@@ -579,7 +579,95 @@ const PACK_RULES = {
     lower: { length: 0,  width: 0 },   // LD6/PAJ5 use their own lower-deck build-out
     bulk:  { length: 0,  width: 0 },
   },
+  // Centre load: one base pallet on the main-deck centreline, the piece may
+  // overhang in length and width up to the edges of 2 adjacent stations
+  // (4 PMC positions: e.g. DL+DR+EL+ER), which are then blocked.
+  // !! Placeholder values - set from your AHM / WBM before production use.
+  centerLoad: {
+    bases: ['PMC', 'PGA'],     // base pallets to try, in this order
+    minBaseSupport: 0.5,       // share of the piece footprint that must be on the base pallet
+    clearance: 5,              // cm kept free from the 4-position envelope edges
+  },
 };
+
+/* Envelope of a centre load on this aircraft: 2 stations long, L+R wide. */
+function centerLoadEnvelope(ac, ulds) {
+  if (!ac || !ac.main) return null;
+  const pos = ulds[ac.main.uld] || ulds.PMC;
+  return {
+    l: pos.l * 2,
+    w: pos.w * 2,
+    h: ac.main.centerH || pos.h,   // centreline height (B777F: 300 cm / 118 in)
+  };
+}
+
+/* Try to place one piece as a centre load. Returns the built "pallet"
+   ({ spec, placed, base }) or null with .reason. Coordinates are inside
+   the 4-position envelope (x along the aircraft, z across, 0 = left edge). */
+function centerLoadFit(box, ac, ulds) {
+  const env = centerLoadEnvelope(ac, ulds);
+  if (!env) return { fit: null, reason: 'aircraft has no main deck' };
+  const rules = PACK_RULES.centerLoad, c = rules.clearance;
+  const orients = [
+    { bl: box.l, bh: box.h, bw: box.w, tilted: false, rot: 'LxW' },
+    { bl: box.w, bh: box.h, bw: box.l, tilted: false, rot: 'WxL' },
+  ];
+  if (box.tiltable) orients.push(
+    { bl: box.l, bh: box.w, bw: box.h, tilted: true, rot: 'LxH' },
+    { bl: box.h, bh: box.w, bw: box.l, tilted: true, rot: 'HxL' });
+  let reason = 'bigger than the 4-position centre-load envelope';
+  for (const code of rules.bases) {
+    const base = ulds[code];
+    if (!base || !(ac.mainUlds || []).includes(code)) continue;
+    if (base.l > env.l || base.w > env.w) continue;
+    const payload = (base.maxWt || Infinity) - (base.tare || 0);
+    for (const r of orients) {
+      if (r.bl > env.l - 2 * c || r.bw > env.w - 2 * c) continue;
+      if (r.bh > env.h) { reason = `${Math.round(r.bh)} cm high > centreline height ${env.h} cm`; continue; }
+      if (box.wt > payload) { reason = `${box.wt} kg > ${code} base limit ${payload} kg`; continue; }
+      const sup = Math.min(r.bl, base.l) * Math.min(r.bw, base.w) / (r.bl * r.bw);
+      if (sup < rules.minBaseSupport) { reason = `only ${Math.round(sup * 100)}% of the piece on a ${code} base`; continue; }
+      const bx = (env.l - base.l) / 2, bz = (env.w - base.w) / 2;
+      const px = (env.l - r.bl) / 2, pz = (env.w - r.bw) / 2;
+      const ovDetail = {
+        front: Math.max(0, Math.round(bx - px)), back: Math.max(0, Math.round(px + r.bl - bx - base.l)),
+        left: Math.max(0, Math.round(bz - pz)), right: Math.max(0, Math.round(pz + r.bw - bz - base.w)),
+      };
+      const ovCm = Math.max(ovDetail.front, ovDetail.back, ovDetail.left, ovDetail.right);
+      const spec = {
+        code: `CTR-${code}`, name: `Centre load on ${code} (4 positions)`, deck: 'main', centerLoad: true,
+        l: env.l, w: env.w, h: env.h, tare: base.tare, maxWt: base.maxWt,
+        base: { code, l: base.l, w: base.w, x: bx, z: bz },
+      };
+      const placed = [{ ...box, px, py: 0, pz, bl: r.bl, bh: r.bh, bw: r.bw, rot: r.rot, tilted: r.tilted,
+        overhang: ovCm > 0, ovCm, ovDetail, centerLoad: true, balancedExt: false }];
+      return { fit: { spec, placed, base: code }, reason: null };
+    }
+  }
+  return { fit: null, reason };
+}
+
+/* Pick 2 adjacent stations that both have L and R free, closest to the
+   middle of the main deck. Returns the 4 position ids or null. */
+function pickCenterLoadPositions(mainPos, usedPos) {
+  const stations = [];
+  for (const p of mainPos) {
+    const m = String(p).toUpperCase().match(/^(.*?)([LR])$/);
+    if (!m || !m[1]) continue;
+    let s = stations.find(x => x.id === m[1]);
+    if (!s) { s = { id: m[1], L: null, R: null }; stations.push(s); }
+    s[m[2]] = p;
+  }
+  const full = s => s.L && s.R && !usedPos.has(s.L) && !usedPos.has(s.R);
+  const mid = (stations.length - 1) / 2;
+  let best = null;
+  for (let i = 0; i + 1 < stations.length; i++) {
+    if (!full(stations[i]) || !full(stations[i + 1])) continue;
+    const d = Math.abs(i + 0.5 - mid);
+    if (!best || d < best.d) best = { d, ids: [stations[i].L, stations[i].R, stations[i + 1].L, stations[i + 1].R] };
+  }
+  return best ? best.ids : null;
+}
 
 /* Can this piece go through a cargo door?  door = { w, h } in cm.
    The piece goes in length-first, so its cross-section (across x high)
@@ -1068,6 +1156,31 @@ function optimize(){
   blocked.forEach(b=>{b.reason=ac.main?`Too big for ${ac.label} main deck door: ${b.doorMain}`:`Too big for ${ac.label} cargo door: ${b.doorLower}`;});
   let rem=boxes.filter(b=>!b.reason);
   const usedSlots=new Set();
+  // Centre loads: pieces that fit no selected ULD (even with normal overhang)
+  // go on one base pallet on the centreline and block 4 main-deck positions.
+  if(ac.main){
+    const usedPos=new Set();
+    const ctrBoxes=rem.filter(b=>!b.doorMain&&!selectedCodes.some(code=>{
+      const spec=ULD_DB[code]||customULDs[code];
+      if(!spec)return false;
+      if(spec.deck==='main'?b.doorMain:b.doorLower)return false;
+      return packBin([{...b}],spec,false).placed.length>0;
+    }));
+    ctrBoxes.sort((a,b)=>b.wt-a.wt);
+    for(const b of ctrBoxes){
+      const r=centerLoadFit(b,ac,ULD_DB);
+      if(!r.fit){b.ctrReason=r.reason;continue;}
+      const ids=pickCenterLoadPositions(ac.main.pos,usedPos);
+      if(!ids){b.ctrReason='no 4 free adjacent main-deck positions for a centre load';continue;}
+      ids.forEach(id=>usedPos.add(id));
+      positions.forEach((s,i)=>{if(s.deck==='main'&&ids.includes(s.posId))usedSlots.add(i);});
+      const sp=r.fit.spec;
+      allPallets.push({posId:ids.join('+'),positions:ids,deck:'main',spec:sp,placed:r.fit.placed,centerLoad:true,
+        util:Math.round(b.l*b.w*b.h/(sp.l*sp.w*sp.h)*100),totalWt:b.wt,stats:buildStats(r.fit.placed,sp),checks:[],
+        hasOH:r.fit.placed[0].overhang,color:'#f43f5e'});
+      rem=rem.filter(x=>x!==b);
+    }
+  }
   for(let si=0;si<positions.length;si++){
     if(usedSlots.has(si))continue;
     const slot=positions[si];
@@ -1100,7 +1213,7 @@ function optimize(){
     });
     if(fitsSomeULD){b.reason='No free aircraft position left';return;}
     const tryCodes=[...ac.mainUlds,...ac.lowerUlds].filter(c=>!selectedCodes.includes(c)&&ULD_DB[c]&&!(ULD_DB[c].deck==='main'?b.doorMain:b.doorLower)&&packBin([{...b}],ULD_DB[c],false).placed.length>0);
-    b.reason=`Bigger than selected ULDs (incl. allowed overhang)${tryCodes.length?' - try '+tryCodes.slice(0,3).join(' / '):' - needs special load plan'}`;
+    b.reason=`Bigger than selected ULDs (incl. allowed overhang)${tryCodes.length?' - try '+tryCodes.slice(0,3).join(' / '):''}${b.ctrReason?' - centre load not possible: '+b.ctrReason:(!tryCodes.length?' - needs special load plan':'')}`;
   });
   overflowPieces=[...blocked,...rem];
   if(overflowPieces.length){
@@ -1291,6 +1404,15 @@ function renderULDView(){
   const dl2=new THREE.DirectionalLight(0xffffff,.3);dl2.position.set(-md,-md,-md);scene.add(dl2);
   const pc=parseInt((pallet?.color||'#EAB308').replace('#',''),16);
   addULDStructure(spec,pc);
+  if(pallet&&pallet.centerLoad&&spec.base){
+    const bs=spec.base;
+    const plate=new THREE.Mesh(new THREE.BoxGeometry(bs.l,3,bs.w),new THREE.MeshLambertMaterial({color:0x94a3b8}));
+    plate.position.set(bs.x+bs.l/2,-1.5,bs.z+bs.w/2);scene.add(plate);
+    // station / side split lines of the 4 positions
+    addLine([[spec.l/2,0,0],[spec.l/2,0,spec.w]],0x64748b,.8);
+    addLine([[0,0,spec.w/2],[spec.l,0,spec.w/2]],0x64748b,.8);
+    addLabel3D(`CENTRE LOAD - ${pallet.positions.join(' ')}`,spec.l/2,spec.h+40,spec.w/2,'#f43f5e',420,64);
+  }
   if(pallet){
   for(const b of pallet.placed){
       const col=parseInt(b.color.replace('#',''),16);
@@ -1648,6 +1770,19 @@ function renderAircraftView(){
       const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:0x333333,transparent:true,opacity:pal?.22:.2}));
       ln2.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,slot.z||0);scene.add(ln2);
     });
+    mainPals.filter(p=>p.centerLoad).forEach(p=>{
+      const ls=mainLayouts.filter(l=>p.positions.includes(l.posId));
+      if(!ls.length)return;
+      const xa=Math.min(...ls.map(l=>l.x)),xb=Math.max(...ls.map(l=>l.x+l.l));
+      const za=Math.min(...ls.map(l=>l.z-l.w/2)),zb=Math.max(...ls.map(l=>l.z+l.w/2));
+      const col=parseInt(p.color.replace('#',''),16);
+      const env=new THREE.Mesh(new THREE.BoxGeometry(xb-xa-6,mainSpec.h-5,zb-za-6),new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.22}));
+      env.position.set((xa+xb)/2,MAIN_Y+mainSpec.h/2,(za+zb)/2);scene.add(env);
+      const b=p.placed[0],sx=(xb-xa)/p.spec.l,sz=(zb-za)/p.spec.w;
+      const piece=new THREE.Mesh(new THREE.BoxGeometry(b.bl*sx,Math.min(b.bh,mainSpec.h*1.3),b.bw*sz),new THREE.MeshLambertMaterial({color:col}));
+      piece.position.set(xa+(b.px+b.bl/2)*sx,MAIN_Y+Math.min(b.bh,mainSpec.h*1.3)/2,za+(b.pz+b.bw/2)*sz);scene.add(piece);
+      addLabel3D('CENTRE LOAD',(xa+xb)/2,MAIN_Y+mainSpec.h+40,(za+zb)/2,'#f43f5e',300,60);
+    });
   }
 
   const cx=totalLen/2, cy=fuseCy, cz=0;
@@ -1678,7 +1813,8 @@ function updateKPIs(){
   const loadedPcs=allPallets.reduce((s,p)=>s+p.placed.length,0);
   document.getElementById('kv1').textContent=selAC;
   document.getElementById('kv2').textContent=selectedUldText();
-  document.getElementById('kv3').textContent=allPallets.length>0?`${allPallets.length}/${totalSlots}`:' - ';
+  const posUsed=allPallets.reduce((s,p)=>s+(p.positions?p.positions.length:String(p.posId).split('+').length),0);
+  document.getElementById('kv3').textContent=allPallets.length>0?`${posUsed}/${totalSlots}`:' - ';
   document.getElementById('kv4').textContent=Math.max(totalWt,dimWt)>0?Math.round(Math.max(totalWt,dimWt))+' kg':' - ';
   document.getElementById('kv3').style.color=allPallets.length>0?'#22c55e':'#EAB308';
   const ps=document.getElementById('planSummary');
@@ -1708,7 +1844,7 @@ function updateTable(){
         <td style="font-family:monospace">${dw}kg</td>
         <td style="font-weight:700;font-family:monospace;color:${cw===aw?'#22c55e':'#EAB308'}">${cw}kg</td>
         <td>${oh?`<span class="bt bty">+${grp[0].ovCm}cm</span>`:'<span style="color:#333"> - </span>'}</td>
-        <td><span class="bt ${tilted?'bty':'btg'}">${tilted?'Tilted':'Placed'}</span>${b.noStack?' <span class="bt bty">No stack</span>':''}${b.dg?` <span class="bt btr">DG ${b.dg}</span>`:''}</td>
+        <td><span class="bt ${tilted?'bty':'btg'}">${tilted?'Tilted':'Placed'}</span>${p.centerLoad?' <span class="bt btr">Centre load</span>':''}${b.noStack?' <span class="bt bty">No stack</span>':''}${b.dg?` <span class="bt btr">DG ${b.dg}</span>`:''}</td>
       </tr>`;
     }
   }
