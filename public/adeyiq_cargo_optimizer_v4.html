@@ -1,0 +1,2043 @@
+﻿
+<h2 class="sr-only">AdeyIQ cargo load optimizer  -  select aircraft, choose ULD type, add shipments via Excel or manual entry, get AI recommendation, view cargo packed in ULD then ULDs loaded into aircraft interior in 3D</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:13px}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+:root{--y:#EAB308;--g:#22c55e;--b:#378ADD;--r:#ef4444;--o:#f97316;--pu:#a78bfa}
+.wrap{background:#111;color:#fff;border-radius:12px;padding:0;overflow:hidden;min-height:700px;display:flex;flex-direction:column}
+.top-bar{padding:12px 16px;border-bottom:0.5px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.top-title{font-size:14px;font-weight:600;color:#fff}
+.top-sub{font-size:11px;color:#555;margin-top:1px}
+.stage-row{display:flex;align-items:center;gap:6px;font-size:11px}
+.stage{display:flex;align-items:center;gap:4px;color:#555}
+.stage.done{color:var(--g)}.stage.active{color:var(--y)}
+.stage-num{width:18px;height:18px;border-radius:50%;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.stage-arrow{color:#333;font-size:10px}
+.main{display:grid;grid-template-columns:240px 1fr;flex:1;min-height:0;overflow:hidden}
+.left{background:#141414;border-right:0.5px solid rgba(255,255,255,.07);overflow-y:auto;display:flex;flex-direction:column;gap:0}
+.sec{border-bottom:0.5px solid rgba(255,255,255,.06);padding:10px 12px}
+.sec-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#444;margin-bottom:8px}
+.ac-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.ac-btn{border:0.5px solid rgba(255,255,255,.08);border-radius:8px;padding:7px 8px;cursor:pointer;background:#1a1a1a;text-align:left;transition:all .12s}
+.ac-btn:hover{border-color:rgba(255,255,255,.18)}
+.ac-btn.active{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.08)}
+.ac-lbl{font-size:12px;font-weight:700;color:#ddd}
+.ac-btn.active .ac-lbl{color:var(--y)}
+.ac-type{font-size:9px;color:#555;margin-top:1px}
+.uld-list{display:flex;flex-direction:column;gap:3px}
+.deck-filter{display:flex;gap:4px;margin:-2px 0 8px}
+.deck-filter button{flex:1;border:0.5px solid rgba(255,255,255,.08);background:#1a1a1a;color:#666;border-radius:999px;padding:4px 5px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer}
+.deck-filter button.active{border-color:rgba(234,179,8,.55);background:rgba(234,179,8,.1);color:var(--y)}
+.uld-current{display:flex;align-items:center;justify-content:space-between;gap:8px;border:0.5px solid rgba(234,179,8,.28);background:rgba(234,179,8,.06);border-radius:8px;padding:7px 8px;margin-bottom:8px}
+.uld-current-title{font-size:12px;font-weight:800;color:var(--y);line-height:1.15}
+.uld-current-sub{font-size:9px;color:#666;margin-top:2px;line-height:1.2}
+.uld-expand-btn{flex-shrink:0;border:0.5px solid rgba(255,255,255,.12);background:#1a1a1a;color:#bbb;border-radius:999px;padding:4px 9px;font-size:10px;font-weight:800;cursor:pointer}
+.uld-expand-btn:hover{border-color:rgba(234,179,8,.45);color:var(--y)}
+.uld-picker.collapsed .deck-filter,.uld-picker.collapsed .uld-list,.uld-picker.collapsed #customToggle,.uld-picker.collapsed .custom-form{display:none!important}
+.uld-btn{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;border:0.5px solid rgba(255,255,255,.07);background:#1a1a1a;cursor:pointer;transition:all .12s;color:#aaa}
+.uld-btn:hover{border-color:rgba(255,255,255,.15)}
+.uld-btn.active{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.07);color:var(--y)}
+.uld-btn.rec-uld{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.06)}
+.uld-code{font-size:12px;font-weight:700}
+.uld-meta{font-size:10px;color:#555;margin-top:0px}
+.uld-btn.active .uld-meta,.uld-btn.rec-uld .uld-meta{color:rgba(234,179,8,.5)}
+.uld-badge{margin-left:auto;font-size:9px;padding:1px 5px;border-radius:99px}
+.custom-form{background:#1a1a1a;border-radius:8px;padding:8px;border:0.5px solid rgba(255,255,255,.07);margin-top:6px}
+.custom-form input,.custom-form select{font-size:11px;padding:4px 7px;background:#222;border:0.5px solid rgba(255,255,255,.1);border-radius:6px;color:#ddd;outline:none;width:100%;margin-bottom:4px}
+.custom-form .r2{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.add-custom-btn{width:100%;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:#aaa;font-size:11px;padding:5px;border-radius:6px;cursor:pointer;margin-top:2px}
+.add-custom-btn:hover{background:rgba(255,255,255,.09)}
+.tabs{display:flex;border-bottom:0.5px solid rgba(255,255,255,.07)}
+.tab{flex:1;padding:7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;color:#555;transition:all .12s}
+.tab.active{color:var(--y);border-bottom-color:var(--y)}
+.tp{display:none}.tp.active{display:block;padding:8px}
+.f-row{margin-bottom:6px}
+.f-lbl{font-size:10px;color:#666;display:block;margin-bottom:2px}
+.f-row input{font-size:11px;padding:5px 7px;background:#222;border:0.5px solid rgba(255,255,255,.1);border-radius:6px;color:#ddd;outline:none;width:100%}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.tp .r3>div,.tp .r2>div{min-width:0}
+.tp .r3 input:not([type=checkbox]),.tp .r2 input:not([type=checkbox]){font-size:11px;padding:5px 6px;background:#222;border:0.5px solid rgba(255,255,255,.1);border-radius:6px;color:#ddd;outline:none;width:100%;min-width:0}
+.dz{border:1px dashed rgba(255,255,255,.15);border-radius:8px;padding:14px;text-align:center;cursor:pointer;position:relative;transition:border-color .15s}
+.dz:hover{border-color:rgba(234,179,8,.4)}
+.dz input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{font-size:20px;margin-bottom:4px;color:#555}
+.dz-title{font-size:11px;font-weight:600;color:#bbb}
+.dz-sub{font-size:10px;color:#555;margin-top:1px}
+.slist{max-height:90px;overflow-y:auto;margin:6px 0;display:flex;flex-direction:column;gap:2px}
+.s-row{display:flex;align-items:center;gap:6px;padding:4px 6px;background:#1a1a1a;border-radius:5px;font-size:10px;color:#888}
+.s-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.s-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-rm{cursor:pointer;color:#444;font-size:14px;line-height:1}
+.s-rm:hover{color:var(--r)}
+.run-btn{width:100%;padding:10px;font-size:13px;font-weight:700;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .12s}
+.run-opt{background:var(--y);color:#111;border:none}
+.run-opt:hover{background:#f5c400}
+.run-opt:disabled{background:#333;color:#666;cursor:not-allowed}
+.run-ac{background:rgba(56,189,248,.1);border:0.5px solid rgba(56,189,248,.3);color:#38bdf8}
+.run-ac:hover{background:rgba(56,189,248,.15)}
+.run-ac:disabled{opacity:.35;cursor:not-allowed}
+.right{display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.rec-bar{padding:8px 14px;border-bottom:0.5px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px;flex-shrink:0;background:#0d0d0d}
+.rec-icon{font-size:16px;flex-shrink:0}
+.rec-text{flex:1;min-width:0}
+.rec-combo{font-size:14px;font-weight:700;color:var(--y)}
+.rec-reason{font-size:11px;color:#666;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-kpi{display:flex;gap:8px;flex-shrink:0}
+.rk{text-align:center}
+.rk-v{font-size:14px;font-weight:700;color:#ddd}
+.rk-l{font-size:9px;color:#555}
+.view-tabs{display:flex;border-bottom:0.5px solid rgba(255,255,255,.07);flex-shrink:0}
+.vt{flex:1;padding:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;color:#555;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .12s}
+.vt.active{color:var(--y);border-bottom-color:var(--y);background:rgba(234,179,8,.04)}
+.canvas-area{position:relative;flex-shrink:0;overflow:hidden;background:#f4f8fb;border-bottom:0.5px solid rgba(15,23,42,.1)}
+.canvas-area::before{content:"";position:absolute;inset:0;z-index:0;background:
+  linear-gradient(rgba(76,111,145,.12) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(76,111,145,.12) 1px,transparent 1px),
+  linear-gradient(135deg,rgba(76,111,145,.08) 0 1px,transparent 1px 44px);
+  background-size:44px 44px,44px 44px,88px 88px}
+canvas#cv{width:100%;height:clamp(390px,52vh,560px);display:block;position:relative;z-index:1}
+.c-hint{position:absolute;bottom:8px;right:12px;font-size:10px;color:rgba(15,23,42,.45);pointer-events:none;z-index:2}
+.stage-hint{position:absolute;bottom:8px;left:12px;font-size:10px;padding:4px 9px;border-radius:99px;z-index:2;box-shadow:0 4px 14px rgba(15,23,42,.12)}
+.hold-legend{position:absolute;top:8px;left:10px;display:none;gap:6px;z-index:2;pointer-events:none}
+.hold-chip{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border:1px solid currentColor;background:rgba(0,0,0,.55);padding:4px 7px;border-radius:999px}
+.pal-tabs{display:flex;gap:4px;padding:6px 12px;flex-shrink:0;overflow-x:auto;border-bottom:0.5px solid rgba(255,255,255,.06)}
+.pal-tabs::-webkit-scrollbar{height:3px}.pal-tabs::-webkit-scrollbar-thumb{background:#333}
+.ptab{padding:4px 10px;border-radius:99px;border:0.5px solid rgba(255,255,255,.1);font-size:10px;cursor:pointer;background:transparent;color:#666;display:flex;align-items:center;gap:4px;white-space:nowrap;transition:all .12s}
+.ptab:hover{border-color:rgba(255,255,255,.2);color:#aaa}
+.ptab.active{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.08);color:var(--y);font-weight:600}
+.tbl-area{flex:1;overflow-y:auto;min-height:0}
+.plan-summary{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 12px;border-top:0.5px solid rgba(255,255,255,.06);border-bottom:0.5px solid rgba(255,255,255,.05);background:#101010;flex-shrink:0}
+.plan-pill{font-size:10px;font-weight:800;border-radius:999px;padding:4px 8px;background:rgba(255,255,255,.05);color:#777;border:0.5px solid rgba(255,255,255,.08)}
+.plan-pill.good{color:#22c55e;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.25)}
+.plan-pill.warn{color:#EAB308;background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.3)}
+.plan-pill.bad{color:#ef4444;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.3)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{padding:6px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#444;border-bottom:0.5px solid rgba(255,255,255,.07);white-space:nowrap;position:sticky;top:0;background:#111}
+td{padding:6px 10px;border-bottom:0.5px solid rgba(255,255,255,.04);color:#888;vertical-align:middle;white-space:nowrap}
+tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
+.bt{font-size:9px;padding:2px 6px;border-radius:99px;font-weight:700}
+.btg{background:rgba(34,197,94,.12);color:#22c55e}
+.bty{background:rgba(234,179,8,.12);color:var(--y)}
+.btr{background:rgba(239,68,68,.12);color:var(--r)}
+.btb{background:rgba(56,189,248,.12);color:#38bdf8}
+.foot{display:flex;gap:8px;padding:8px 12px;border-top:0.5px solid rgba(255,255,255,.07);flex-shrink:0}
+.foot button{flex:1;padding:8px;border-radius:9px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .12s}
+.exp-btn{background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:#888}
+.exp-btn:hover{background:rgba(255,255,255,.09)}
+.pdf-btn{background:var(--y);border:none;color:#111}
+.pdf-btn:hover{background:#f5c400}
+.stat-pill{font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600}
+.up-ok{background:rgba(34,197,94,.12);color:#22c55e}
+.up-err{background:rgba(239,68,68,.12);color:var(--r)}
+.up-info{background:rgba(56,189,248,.12);color:#38bdf8}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);border-top:0.5px solid rgba(255,255,255,.07);flex-shrink:0}
+.kpi-c{padding:8px;text-align:center;border-right:0.5px solid rgba(255,255,255,.06)}
+.kpi-c:last-child{border-right:none}
+.kpi-v{font-size:16px;font-weight:700;color:var(--y)}
+.kpi-l{font-size:9px;color:#555;margin-top:1px;text-transform:uppercase;letter-spacing:.04em}
+</style>
+
+<div class="wrap">
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div><div class="top-title">AdeyIQ - Cargo Load Optimizer</div><div class="top-sub">ULD buildup - aircraft loading - AI recommendation</div></div>
+  <div class="stage-row" id="stageRow">
+    <div class="stage active" id="st1"><span class="stage-num">1</span> Manifest</div>
+    <span class="stage-arrow">></span>
+    <div class="stage" id="st2"><span class="stage-num">2</span> ULD buildup</div>
+    <span class="stage-arrow">></span>
+    <div class="stage" id="st3"><span class="stage-num">3</span> Aircraft loading</div>
+  </div>
+</div>
+
+<div class="main">
+<!-- LEFT COLUMN -->
+<div class="left">
+
+  <!-- Aircraft -->
+  <div class="sec">
+    <div class="sec-lbl">Aircraft type</div>
+    <div class="ac-grid" id="acGrid"></div>
+  </div>
+
+  <!-- ULD -->
+  <div class="sec uld-picker collapsed" id="uldPicker">
+    <div class="sec-lbl">ULD type <span id="uldDeckNote" style="color:#555;text-transform:none;font-weight:400;font-size:9px"></span></div>
+    <div class="uld-current">
+      <div>
+        <div class="uld-current-title" id="uldSummaryTitle">AKE</div>
+        <div class="uld-current-sub" id="uldSummarySub">Selected ULD</div>
+      </div>
+      <button class="uld-expand-btn" id="uldExpandBtn" onclick="toggleUldPicker()">Expand</button>
+    </div>
+    <div class="deck-filter" id="deckFilter">
+      <button class="active" onclick="setUldDeckFilter('all',this)">All</button>
+      <button onclick="setUldDeckFilter('main',this)">MD</button>
+      <button onclick="setUldDeckFilter('lower',this)">LD</button>
+      <button onclick="setUldDeckFilter('bulk',this)">Bulk</button>
+    </div>
+    <div class="uld-list" id="uldList"></div>
+    <!-- Custom ULD toggle -->
+    <button onclick="toggleCustomForm()" id="customToggle" style="width:100%;background:transparent;border:0.5px dashed rgba(255,255,255,.12);border-radius:7px;color:#555;font-size:10px;padding:6px;cursor:pointer;margin-top:6px">+ Add custom ULD</button>
+    <div class="custom-form" id="customForm" style="display:none">
+      <div class="sec-lbl" style="margin-bottom:6px">Custom ULD dimensions</div>
+      <input id="cuCode" placeholder="Code (e.g. CUSTOM-1)">
+      <div class="r2">
+        <input id="cuL" type="number" placeholder="L (cm)">
+        <input id="cuW" type="number" placeholder="W (cm)">
+      </div>
+      <div class="r2">
+        <input id="cuH" type="number" placeholder="H (cm)">
+        <input id="cuWt" type="number" placeholder="Max wt (kg)">
+      </div>
+      <select id="cuDeck" style="font-size:11px;padding:4px 7px;background:#222;border:0.5px solid rgba(255,255,255,.1);border-radius:6px;color:#ddd;width:100%;margin-bottom:4px;outline:none">
+        <option value="lower">Lower deck</option>
+        <option value="main">Main deck</option>
+      </select>
+      <button class="add-custom-btn" onclick="addCustomULD()">Add to ULD list</button>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="sec" style="flex:1">
+    <div class="tabs" style="margin:-10px -12px 8px;border-radius:0">
+      <button class="tab active" onclick="switchTab('excel',this)">Excel</button>
+      <button class="tab" onclick="switchTab('manual',this)">Manual</button>
+    </div>
+
+    <div class="tp active" id="tp-excel" style="padding:0">
+      <div class="dz" id="dz">
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0]);this.value=''">
+        <div class="dz-icon"></div>
+        <div class="dz-title">Drop Excel / CSV here</div>
+        <div class="dz-sub">or click to browse</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+        <span class="stat-pill up-info" id="upStat">No file loaded</span>
+        <button onclick="dlTemplate()" style="font-size:10px;color:var(--y);background:none;border:none;cursor:pointer;text-decoration:underline">Template</button>
+      </div>
+    </div>
+
+    <div class="tp" id="tp-manual" style="padding:0">
+      <div class="f-row"><label class="f-lbl">AWB / Description</label><input id="fdesc" placeholder="071-10001 fresh flowers"></div>
+      <div class="r3" style="gap:4px;margin-bottom:6px">
+        <div><label class="f-lbl">L (cm)</label><input id="fl" type="number" placeholder="80"></div>
+        <div><label class="f-lbl">W (cm)</label><input id="fw" type="number" placeholder="60"></div>
+        <div><label class="f-lbl">H (cm)</label><input id="fh" type="number" placeholder="50"></div>
+      </div>
+      <div class="r2" style="margin-bottom:6px">
+        <div><label class="f-lbl">Weight (kg)</label><input id="fwt" type="number" placeholder="40"></div>
+        <div><label class="f-lbl">Pieces</label><input id="fpcs" type="number" placeholder="1" value="1"></div>
+<div style="margin-top:4px"><label class="f-lbl" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="ftilt" style="accent-color:#EAB308"> Tiltable (H can rotate)</label></div>
+      </div>
+      <div class="r2" style="margin-bottom:6px;align-items:end">
+        <div><label class="f-lbl" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="fnostack" style="accent-color:#EAB308"> No stack (nothing on top)</label></div>
+        <div><label class="f-lbl">DG class</label><select id="fdg" style="width:100%"><option value="">None</option><option>1.4S</option><option>1</option><option>2.1</option><option>2.2</option><option>2.3</option><option>3</option><option>4.1</option><option>4.2</option><option>4.3</option><option>5.1</option><option>5.2</option><option>6.1</option><option>7</option><option>8</option><option>9</option></select></div>
+      </div>
+      <button onclick="addManual()" style="width:100%;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:#aaa;font-size:11px;padding:6px;border-radius:7px;cursor:pointer">+ Add to manifest</button>
+    </div>
+  </div>
+
+  <!-- Manifest + buttons -->
+  <div class="sec">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#444">Manifest <span id="sCnt" style="color:var(--y)">0 items</span></span>
+      <button onclick="clearAll()" style="font-size:10px;color:#444;background:none;border:none;cursor:pointer">Clear all</button>
+    </div>
+    <div class="slist" id="shipList"><div style="font-size:10px;color:#444;text-align:center;padding:8px">No shipments added</div></div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
+      <button class="run-btn run-opt" id="runOptBtn" onclick="optimize()" disabled>Run ULD buildup</button>
+      <button class="run-btn run-ac" id="runAcBtn" onclick="loadIntoAircraft()" disabled>Load into aircraft</button>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT COLUMN -->
+<div class="right">
+  <!-- AI Recommendation bar -->
+  <div class="rec-bar" id="recBar">
+    <div class="rec-icon"></div>
+    <div class="rec-text">
+      <div class="rec-combo" id="recCombo">Select aircraft and add cargo to get AI recommendation</div>
+      <div class="rec-reason" id="recReason">AI will analyze dimensions and weight to suggest optimal ULD combination</div>
+    </div>
+    <div class="rec-kpi" id="recKpis"></div>
+  </div>
+
+  <!-- 3D View tabs -->
+  <div class="view-tabs">
+    <button class="vt active" id="vt1" onclick="setView('uld',this)">ULD buildup</button>
+    <button class="vt" id="vt2" onclick="setView('aircraft',this)">Aircraft interior</button>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-area">
+    <canvas id="cv"></canvas>
+    <div class="c-hint">drag  -  scroll to zoom</div>
+    <div class="stage-hint" id="stageHint" style="display:none"></div>
+    <div class="hold-legend" id="holdLegend"></div>
+  </div>
+
+  <!-- Pallet tabs -->
+  <div class="pal-tabs" id="palTabs"></div>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi-c"><div class="kpi-v" id="kv1"> - </div><div class="kpi-l">Aircraft</div></div>
+    <div class="kpi-c"><div class="kpi-v" id="kv2"> - </div><div class="kpi-l">ULD type</div></div>
+    <div class="kpi-c"><div class="kpi-v" id="kv3"> - </div><div class="kpi-l">Positions loaded</div></div>
+    <div class="kpi-c"><div class="kpi-v" id="kv4"> - </div><div class="kpi-l">Chargeable wt</div></div>
+  </div>
+
+  <!-- Table -->
+  <div class="plan-summary" id="planSummary">
+    <span class="plan-pill">Manifest pcs: 0</span>
+    <span class="plan-pill">Loaded pcs: -</span>
+    <span class="plan-pill">Overflow: -</span>
+  </div>
+  <div class="tbl-area">
+    <table>
+      <thead><tr><th>Position</th><th>ULD</th><th>AWB / Description</th><th>Pcs</th><th>Actual wt</th><th>DIM wt</th><th>Chargeable</th><th>Overhang</th><th>Status</th></tr></thead>
+      <tbody id="tblBody"><tr><td colspan="9" style="text-align:center;color:#333;padding:20px">Select aircraft  -  add cargo  -  run ULD buildup</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Footer buttons -->
+  <div class="foot">
+    <button class="exp-btn" onclick="exportCSV()"><span></span>Export CSV</button>
+    <button class="pdf-btn" onclick="generatePDF()"><span></span>Generate PDF</button>
+  </div>
+</div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/*  DATA  */
+const ULD_DB={
+  PMC: {code:'PMC',name:'Main deck pallet',deck:'main', l:317.5,w:243.8,h:243.8,tare:130,vol:17.16,maxWt:6804},
+  PGA: {code:'PGA',name:'20 ft main deck pallet',deck:'main', l:605.8,w:243.8,h:243.8,tare:240,vol:35.98,maxWt:11340,positionSpan:2},
+  PAJ: {code:'PAJ',name:'Main deck pallet (88in)',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
+  P1P: {code:'P1P',name:'Main deck pallet',deck:'main', l:317.5,w:223.5,h:243.8,tare:120,vol:15.66,maxWt:6350},
+  AKE: {code:'AKE',name:'LD3 container',deck:'lower', l:148,w:192,h:158,tare:64,vol:5.20,maxWt:1588,profile:{baseW:143,upperW:192,breakH:50,doorW:138,doorH:153}},
+  AKH: {code:'AKH',name:'LD3-45W container',deck:'lower',l:156,w:193,h:114,tare:95,vol:3.30,maxWt:1134,profile:{baseW:137,upperW:193,breakH:45}},
+  LD6:{code:'LD6',name:'PMC Lower deck (162cm)',deck:'lower',l:317.5,w:243.8,h:162.6,tare:130,vol:11.39,maxWt:3175,lowerDeckExtension:{maxH:125,buildL:340,l:400}},
+  PAJ5:{code:'PAJ5',name:'PAJ Lower deck (162cm)',deck:'lower',l:317.5,w:223.5,h:162.6,tare:120,vol:10.33,maxWt:3175,lowerDeckExtension:{maxH:125,buildL:340,l:400}},
+  DPE: {code:'DPE',name:'LD2 container',deck:'lower',l:153.4,w:119.4,h:162.6,tare:80,vol:3.40,maxWt:1225},
+  PLA: {code:'PLA',name:'Half-width pallet (=2AKE)',deck:'lower',l:317.5,w:153.4,h:162.6,tare:91,vol:6.94,maxWt:2500},
+  BULK777:{code:'BULK777',name:'B777F bulk compartment',deck:'bulk',l:429.3,w:84.3,h:101.6,tare:0,vol:17.0,maxWt:3233},
+  BULK787:{code:'BULK787',name:'B787 bulk compartment',deck:'bulk',l:317,w:88,h:111,tare:0,vol:7.0,maxWt:1497},
+  BULK737:{code:'BULK737',name:'B737 bulk compartment',deck:'bulk',l:396,w:127,h:112,tare:0,vol:18.4,maxWt:3818},
+  DKN: {code:'DKN',name:'LD3F container',deck:'lower',l:156,w:153,h:163,tare:130,vol:3.8,maxWt:1587},
+  DLP: {code:'DLP',name:'LD11F container',deck:'lower',l:318,w:153,h:163,tare:245,vol:6.8,maxWt:3175},
+  DLF: {code:'DLF',name:'LD6F container',deck:'lower',l:318,w:244,h:163,tare:275,vol:8.7,maxWt:5102},
+  DAP: {code:'DAP',name:'LD9F container',deck:'lower',l:318,w:224,h:163,tare:365,vol:10.3,maxWt:4676},
+  AMF: {code:'AMF',name:'LD36 container',deck:'lower',l:318,w:244,h:163,tare:280,vol:12.5,maxWt:5102},
+  HMJ: {code:'HMJ',name:'B777F main deck container',deck:'main',l:318,w:244,h:224,tare:1150,vol:16.0,maxWt:6804},
+  AAX: {code:'AAX',name:'Main deck container 88x96',deck:'main',l:318,w:224,h:243,tare:309,vol:13.7,maxWt:6803},
+  AMA: {code:'AMA',name:'Main deck container 96x96',deck:'main',l:318,w:244,h:244,tare:287,vol:17.1,maxWt:6803},
+  LD4: {code:'LD4',name:'B767 lower deck container',deck:'lower',l:243.8,w:153.4,h:162.6,tare:100,vol:6.08,maxWt:2449},
+  LD8: {code:'LD8',name:'B767 lower deck container',deck:'lower',l:243.8,w:153.4,h:162.6,tare:120,vol:6.08,maxWt:2449},
+  BULK767:{code:'BULK767',name:'B767 bulk compartment',deck:'bulk',l:300,w:120,h:100,tare:0,vol:7.0,maxWt:664},
+};
+const AIRCRAFT={
+  B777F:{label:'B777F',name:'Boeing 777F',type:'freighter',
+    main:{uld:'PMC',pos:['AL','AR','BL','BR','CL','CR','DL','DR','EL','ER','FL','FR','GL','GR','HL','HR','JL','JR','KL','KR','LL','LR','ML','MR','PL','PR','R'],maxPay:82100,door:{w:360,h:305}},
+    lower:{uld:'AKE',pos:['21L','21R','22L','22R','31L','31R','32L','32R','41L','41R','BULK'],maxPay:28000,door:{w:183,h:170}},
+    notes:'B777F AHM560: 37-pallet cargo configuration. Main deck M-size positions AL/AR through PL/PR plus R. Position R pallets only. ANA guide confirms B777F bulk package table and 17 m3 bulk compartment.',
+    mainUlds:['PMC','PGA','PAJ','P1P','HMJ','AAX','AMA'],lowerUlds:['LD6','AKE','AKH','DKN','DLP','DLF','DAP','AMF','PLA','BULK777']},
+  B777_300:{label:'B777-300',name:'Boeing 777-300',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','A1','A2','A3','A4','A5','A6','A7','A8','A9','A10','A11','A12','A13','A14'],maxPay:45000,door:{w:183,h:170}},
+    mainUlds:[],lowerUlds:['AKE','AKH','PAJ5','LD6','PLA']},
+  A350:{label:'A350-900',name:'Airbus A350-900',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','AFT1','AFT2','AFT3','AFT4','AFT5'],maxPay:15000,door:{w:182,h:174}},
+    mainUlds:[],lowerUlds:['AKE','AKH','PAJ5','LD6','PLA']},
+  B789:{label:'B789-900',name:'Boeing 787-9',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','F5','F6','A1','A2','A3','A4','A5','A6'],maxPay:18000,door:{w:175,h:127}},
+    mainUlds:['PMC','PAJ','P1P'],lowerUlds:['AKE','AKH','PAJ5','LD6','PLA']},
+  B788:{label:'B788',name:'Boeing 787-8',type:'pax',
+    main:null,
+    lower:{uld:'AKE',pos:['F1','F2','F3','F4','A1','A2','A3','A4','A5','A6'],maxPay:14000,door:{w:175,h:127}},
+    notes:'ANA guide: B787 bulk package table uses approx 317x88x111 cm envelope depending on piece height/width.',
+    mainUlds:[],lowerUlds:['AKE','AKH','DKN','DLP','DLF','LD6','DAP','AMF','PAJ5','PLA','BULK787']},
+  B737:{label:'B737-800',name:'Boeing 737-800',type:'pax',
+    main:null,
+    lower:{uld:'BULK737',pos:['FWD1','FWD2','AFT1','AFT2'],maxPay:8061,door:{w:121,h:88}},
+    notes:'ANA guide: B737-800 is bulk loaded. FWD door 121x88 cm, AFT door 121x78-88 cm. FWD/AFT compartment limits are not ULD positions.',
+    mainUlds:[],lowerUlds:['BULK737']},
+  B767:{label:'B767-300SF',name:'Boeing 767-300SF',type:'freighter',
+    main:{uld:'PMC',pos:['A','BL','BR','CL','CR','DL','DR','EL','ER','FL','FR','GL','GR','HL','HR','JL','JR','KL','KR','LL','LR','ML','MR','P'],maxPay:62000,door:{w:340,h:259}},
+    lower:{uld:'DPE',pos:['P11','11L','11R','12L','12R','P12','13L','13R','14L','14R','P21','21L','21R','22L','22R','P22','23L','23R','24L','24R','31L','31R','32L','32R','33L','33R','34L','34R','41L','41R','42L','42R','43L','43R','BULK'],maxPay:18000,door:{w:178,h:122}},
+    notes:'B767-300SF AHM560: 24 pallets cargo configuration. ANA guide: 767-300 F/BCF main door 340x262 cm, FWD/AFT doors 340x170 cm, bulk door 97x114 cm. ANA lists 300F total 15 containers / 29 pallets; Ethiopian AHM positions remain primary for ET.',
+    mainUlds:['PMC','PAJ','P1P','AAX','AMA'],lowerUlds:['DPE','AKE','AKH','DKN','LD4','LD8','DLP','DLF','DAP','PLA','BULK767']},
+};
+const COLORS=['#EAB308','#22c55e','#60a5fa','#f97316','#a78bfa','#f43f5e','#14b8a6','#fb923c','#818cf8','#34d399','#fbbf24','#c084fc'];
+const PAL_COL=['#EAB308','#22c55e','#60a5fa','#f97316','#a78bfa'];
+const DIM_DIV=6000;
+
+/*  STATE  */
+let selAC='B788', selULD='AKE', selectedULDs=['AKE'], customULDs={}, uldDeckFilter='all', uldPickerOpen=false;
+let shipments=[], allPallets=[], overflowPieces=[], activePal=0, viewMode='uld';
+let scene,camera,renderer,isDrag=false,prev={x:0,y:0},rot={x:.4,y:.5},zoom=1;
+
+/*  AIRCRAFT & ULD BUILDERS  */
+function buildAcGrid(){
+  document.getElementById('acGrid').innerHTML=Object.entries(AIRCRAFT).map(([k,v])=>`
+    <button class="ac-btn ${k===selAC?'active':''}" onclick="selectAC('${k}')">
+      <div class="ac-lbl">${v.label}</div>
+      <div class="ac-type">${v.type==='freighter'?' Cargo':' PAX'}</div>
+    </button>`).join('');
+}
+
+function toggleUldPicker(force){
+  uldPickerOpen=typeof force==='boolean'?force:!uldPickerOpen;
+  const picker=document.getElementById('uldPicker');
+  if(picker)picker.classList.toggle('collapsed',!uldPickerOpen);
+  const btn=document.getElementById('uldExpandBtn');
+  if(btn)btn.textContent=uldPickerOpen?'Hide':'Expand';
+}
+
+function buildULDList(){
+  const ac=AIRCRAFT[selAC];
+  let allCodes=[...new Set([...ac.mainUlds,...ac.lowerUlds,...Object.keys(customULDs)])];
+  if(uldDeckFilter!=='all'){
+    allCodes=allCodes.filter(code=>{
+      const u=ULD_DB[code]||customULDs[code];
+      return u&&u.deck===uldDeckFilter;
+    });
+  }
+  const selected=getSelectedULDs();
+  const ldCount=(ac.lower?.pos||[]).filter(pos=>lowerHoldForPosition(pos)!=='BULK').length;
+  const deckText=ac.type==='freighter'?`MD ${ac.main?.pos.length||0} / LD ${ldCount}`:`LD ${ldCount}`;
+  document.getElementById('uldDeckNote').textContent=
+    `(${selected.length} selected - ${deckText})`;
+  const rec=getRecULD();
+  toggleUldPicker(uldPickerOpen);
+  document.getElementById('uldSummaryTitle').textContent=selectedUldText()||'Select ULD';
+  document.getElementById('uldSummarySub').textContent=
+    `${deckText}${rec?` - AI pick: ${rec.uldCode}`:''}`;
+  document.getElementById('uldList').innerHTML=allCodes.map(code=>{
+    const u=ULD_DB[code]||customULDs[code];
+    if(!u)return'';
+    const isSel=selected.includes(code);
+    const isFocus=selULD===code;
+    const isRec=rec?.uldCode===code;
+    const deckBg=u.deck==='main'?'rgba(239,159,39,.15)':'rgba(56,189,248,.12)';
+    const deckCol=u.deck==='main'?'#EF9F27':'#38bdf8';
+    const isCustom=!!customULDs[code];
+    return`<button class="uld-btn ${isSel?'active':''} ${isRec&&!isSel?'rec-uld':''}" onclick="selectULD('${code}')">
+      <div>
+        <div class="uld-code">${isSel?'[x] ':''}${u.code}${isCustom?' <span style="font-size:9px;color:#555">(custom)</span>':''}</div>
+        <div class="uld-meta">${u.l}x${u.w}x${u.h}cm - ${u.vol||((u.l*u.w*u.h/1e6).toFixed(2))}m3</div>
+      </div>
+      <div style="text-align:right">
+        <span style="font-size:9px;padding:1px 5px;border-radius:99px;background:${deckBg};color:${deckCol}">${u.deck}</span>
+        ${isFocus?'<div style="font-size:9px;color:#888;margin-top:2px"> preview</div>':''}
+        ${isRec?'<div style="font-size:9px;color:#22c55e;margin-top:2px"> AI pick</div>':''}
+      </div>
+    </button>`;
+  }).join('');
+}
+
+function setUldDeckFilter(deck,btn){
+  uldDeckFilter=deck;
+  document.querySelectorAll('#deckFilter button').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  buildULDList();
+}
+
+/*  AI RECOMMENDATION  */
+function getRecULD(){
+  if(!shipments.length)return null;
+  const totalVol=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h*sh.pcs)/1e6,0);
+  const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
+  const bigPcs=shipments.filter(sh=>sh.l>200||sh.w>200||sh.h>200);
+  if(bigPcs.length>0) return{uldCode:'PMC',reason:`${bigPcs.length} oversized item(s) need main deck PMC`};
+  const akeVol=ULD_DB.AKE.vol, akeCap=28*akeVol;
+  if(totalVol<=akeCap*0.5) return{uldCode:'AKE',reason:`Low volume (${totalVol.toFixed(1)}m3)  -  pure AKE is most efficient`};
+  if(totalVol>akeCap*0.7) return{uldCode:'LD6',reason:`High volume (${totalVol.toFixed(1)}m3)  -  use LD6 for more capacity per slot`};
+  return{uldCode:'AKE',reason:`Balanced load  -  AKE provides good utilization`};
+}
+
+function updateRec(){
+  if(!shipments.length){
+    document.getElementById('recCombo').textContent='Add cargo to get AI recommendation';
+    document.getElementById('recReason').textContent='AI analyses dimensions and weight to recommend optimal ULD';
+    document.getElementById('recKpis').innerHTML='';
+    return;
+  }
+  const totalVol=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h*sh.pcs)/1e6,0);
+  const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
+  const dimWt=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h)/DIM_DIV*sh.pcs,0);
+  const chargeWt=Math.max(totalWt,dimWt);
+  const rec=getRecULD();
+  const uld=ULD_DB[rec.uldCode]||ULD_DB.AKE;
+  const posNeeded=Math.ceil(totalVol/uld.vol);
+  document.getElementById('recCombo').textContent=`Use ${selectedUldText()}  -  ~${posNeeded} position${posNeeded!==1?'s':''} needed`;
+  document.getElementById('recReason').textContent=rec.reason;
+  document.getElementById('recKpis').innerHTML=`
+    <div class="rk"><div class="rk-v">${totalVol.toFixed(1)}</div><div class="rk-l">m3 total</div></div>
+    <div class="rk" style="margin-left:12px"><div class="rk-v">${Math.round(chargeWt)}</div><div class="rk-l">kg chargeable</div></div>
+    <div class="rk" style="margin-left:12px"><div class="rk-v">${posNeeded}</div><div class="rk-l">ULDs needed</div></div>`;
+  buildULDList();
+}
+
+/*  BIN PACKING  */
+const MIN_PALLET_SUPPORT=0.7;
+
+function isLD3Spec(spec){
+  return ['AKE','AKH','DKN','MKN','RKN'].includes(spec.code);
+}
+
+function ld3UsableWidthAtY(spec,y){
+  if(spec.profile){
+    return y<spec.profile.breakH?spec.profile.baseW:spec.profile.upperW;
+  }
+  return spec.w;
+}
+
+function usableLengthAtHeight(spec,y,h,useOH,neededL=0){
+  const baseL=spec.l*(useOH?1.25:1);
+  const ext=spec.lowerDeckExtension;
+  if(ext&&y+h<=ext.maxH){
+    const buildL=ext.buildL||ext.l;
+    const maxL=ext.l;
+    const extL=neededL>buildL?maxL:buildL;
+    return Math.max(baseL,extL);
+  }
+  return baseL;
+}
+
+function centeredLengthOffset(spec,y,h,useOH,neededL=0){
+  return Math.max(0,(usableLengthAtHeight(spec,y,h,useOH,neededL)-spec.l)/2);
+}
+
+function minSupportedX(spec,y,h,l,useOH){
+  const offset=centeredLengthOffset(spec,y,h,useOH,l);
+  return Math.max(0,offset-l*(1-MIN_PALLET_SUPPORT));
+}
+
+function maxSupportedX(spec,y,h,l,useOH){
+  const offset=centeredLengthOffset(spec,y,h,useOH,l);
+  const effL=usableLengthAtHeight(spec,y,h,useOH,l);
+  return Math.min(effL-l,offset+spec.l-l*MIN_PALLET_SUPPORT);
+}
+
+function fitsContour(spec,x,y,z,l,h,w){
+  if(!isLD3Spec(spec))return true;
+  const ys=[y,y+h*.5,y+h];
+  for(const yy of ys){
+    if(z<0||z+w>ld3UsableWidthAtY(spec,yy))return false;
+  }
+  return x>=0&&x+l<=spec.l&&y>=0&&y+h<=spec.h;
+}
+
+/* =====================================================================
+   AdeyIQ packing engine v2  -  drop-in replacement for packBin()
+   ---------------------------------------------------------------------
+   Same call and same output as the v3 packBin:
+       packBin(boxes, spec, useOH)  ->  { placed, rem, stats }
+   Each placed box keeps the v3 fields
+       px, py, pz, bl, bh, bw, rot, tilted, overhang, ovCm, balancedExt
+   so renderULDView(), the aircraft view, the table and CSV keep working.
+
+   Uses these v3 helpers (already defined in the optimizer page):
+       isLD3Spec, ld3UsableWidthAtY, usableLengthAtHeight,
+       centeredLengthOffset, fitsContour, MIN_PALLET_SUPPORT
+
+   Axes (same as v3):  x = ULD length (spec.l), y = height, z = width.
+
+   New, optional shipment fields (old data without them still works):
+       noStack : true  -> nothing may be placed on top of this piece
+       dg      : '3', '5.1', '8' ...  -> DG class for segregation
+   ===================================================================== */
+
+const PACK_RULES = {
+  minSupport: 0.8,        // share of a box's base that must rest on the floor / other boxes
+  heavyOnLightRatio: 2,   // a piece may not sit on a piece less than 1/2 its weight
+  useNetWeight: true,     // max payload = spec.maxWt - spec.tare
+  // Simplified DG segregation pairs (IATA DGR Table 9.3.A style).
+  // Pieces of these classes are never put in the same ULD.
+  // !! Check this table against your current IATA DGR edition before production use.
+  dgSegregation: [
+    ['1', '*'],           // explosives (except 1.4S) apart from all other DG
+    ['3', '5.1'],
+    ['4.2', '5.1'],
+    ['4.3', '8'],
+  ],
+  // Overhang allowed PER SIDE (cm), only for pieces bigger than the ULD base.
+  // Normal pieces always stay inside the base. Containers never overhang.
+  // !! Set these from your AHM / WBM per aircraft position before production use.
+  overhang: {
+    main:  { length: 25, width: 15 },
+    lower: { length: 0,  width: 0 },   // LD6/PAJ5 use their own lower-deck build-out
+    bulk:  { length: 0,  width: 0 },
+  },
+};
+
+/* Can this piece go through a cargo door?  door = { w, h } in cm.
+   The piece goes in length-first, so its cross-section (across x high)
+   must fit the opening. Non-tiltable pieces must stay upright.
+   Returns null if it fits, or a reason string if it does not. */
+function doorFitReason(box, door) {
+  if (!door) return 'no door data';
+  const faces = [[box.w, box.h], [box.l, box.h]];
+  if (box.tiltable) faces.push([box.h, box.w], [box.h, box.l], [box.l, box.w], [box.w, box.l]);
+  if (faces.some(([across, high]) => across <= door.w && high <= door.h)) return null;
+  const minHigh = Math.min(...faces.map(f => f[1]));
+  const minAcross = Math.min(...faces.map(f => f[0]));
+  if (minHigh > door.h) return `${Math.round(minHigh)} cm high > door ${door.h} cm`;
+  if (minAcross > door.w) return `${Math.round(minAcross)} cm wide > door ${door.w} cm`;
+  return `does not fit door ${door.w}×${door.h} cm in any allowed orientation`;
+}
+
+function overhangLimits(spec) {
+  if (isLD3Spec(spec) || spec.profile) return { length: 0, width: 0 };
+  return PACK_RULES.overhang[spec.deck] || { length: 0, width: 0 };
+}
+
+function dgClassOf(box) {
+  if (!box.dg) return null;
+  const c = String(box.dg).trim().toUpperCase();
+  if (!c || c === '0' || c === 'NO' || c === 'N') return null;
+  if (c === '1.4S') return '1.4S';
+  return c;
+}
+
+function dgConflict(a, b) {
+  if (!a || !b) return false;
+  const major = c => c.split('.')[0];
+  const match = (rule, c) => rule === '*' || rule === c || (!rule.includes('.') && rule === major(c));
+  for (const [p, q] of PACK_RULES.dgSegregation) {
+    // class 1 rule: 1.4S is exempt, and class 1 vs class 1 is handled by compatibility groups
+    if ((p === '1' && (a === '1.4S' || b === '1.4S'))) continue;
+    if (p === '1' && major(a) === '1' && major(b) === '1') continue;
+    if ((match(p, a) && match(q, b) && a !== b) || (match(p, b) && match(q, a) && a !== b)) return true;
+  }
+  return false;
+}
+
+// Try a few loading orders and keep the best valid build
+// (most cargo volume loaded, then most pieces). Every order obeys the same rules.
+const PACK_ORDERS = {
+  heavyFirst: (a, b) => b.wt - a.wt || vol(b) - vol(a),
+  bigFirst:   (a, b) => vol(b) - vol(a) || b.wt - a.wt,
+  floorFirst: (a, b) => (b.l * b.w) - (a.l * a.w) || b.wt - a.wt,
+};
+const vol = b => b.l * b.w * b.h;
+
+function packBin(boxes, spec, useOH) {
+  let best = null;
+  for (const cmp of Object.values(PACK_ORDERS)) {
+    const out = packBinOnce(boxes, spec, useOH, cmp);
+    const v = out.placed.reduce((s, b) => s + vol(b), 0);
+    if (!best || v > best.v + 1e-6 || (Math.abs(v - best.v) <= 1e-6 && out.placed.length > best.out.placed.length))
+      best = { out, v };
+  }
+  centerBuild(best.out.placed, spec, useOH);
+  best.out.stats = buildStats(best.out.placed, spec);
+  return best.out;
+}
+
+// Slide the whole build (all pieces together, so support is unchanged)
+// toward the middle of the ULD floor to bring the centre of gravity in.
+function centerBuild(placed, spec, useOH) {
+  if (!placed.length) return;
+  if (placed.some(p => p.ovDetail)) return;   // oversize pieces are already centred
+  const ld3 = isLD3Spec(spec);
+  const widthAt = y => (ld3 ? ld3UsableWidthAtY(spec, y) : spec.w) * (useOH ? 1.1 : 1);
+  let wt = 0, cx = 0, cz = 0, dxMin = -Infinity, dxMax = Infinity, dzMin = -Infinity, dzMax = Infinity;
+  for (const p of placed) {
+    wt += p.wt; cx += p.wt * (p.px + p.bl / 2); cz += p.wt * (p.pz + p.bw / 2);
+    const off = centeredLengthOffset(spec, p.py, p.bh, useOH, p.bl);
+    const effL = usableLengthAtHeight(spec, p.py, p.bh, useOH, p.bl);
+    const minPx = Math.max(-off, -p.bl * (1 - MIN_PALLET_SUPPORT));
+    const maxPx = Math.min(effL - p.bl - off, spec.l - p.bl * MIN_PALLET_SUPPORT);
+    dxMin = Math.max(dxMin, minPx - p.px);
+    dxMax = Math.min(dxMax, maxPx - p.px);
+    const w = Math.min(widthAt(p.py), widthAt(p.py + p.bh * 0.5), widthAt(Math.min(p.py + p.bh, spec.h)));
+    dzMin = Math.max(dzMin, -p.pz);
+    dzMax = Math.min(dzMax, w - (p.pz + p.bw));
+  }
+  const refW = ld3 && spec.profile ? spec.profile.baseW : spec.w;
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+  const dx = clamp(spec.l / 2 - cx / wt, Math.min(0, dxMin), Math.max(0, dxMax));
+  const dz = clamp(refW / 2 - cz / wt, Math.min(0, dzMin), Math.max(0, dzMax));
+  for (const p of placed) {
+    p.px += dx; p.pz += dz;
+    p.balancedExt = p.px < -0.5 || p.px + p.bl > spec.l + 0.5;
+  }
+}
+
+function packBinOnce(boxes, spec, useOH, cmp) {
+  const EPS = 0.5;
+  const effH = spec.h;
+  const ld3 = isLD3Spec(spec);
+  const maxWAt = y => (ld3 ? ld3UsableWidthAtY(spec, y) : spec.w) * (useOH ? 1.1 : 1);
+  const payloadLimit = spec.maxWt
+    ? spec.maxWt - (PACK_RULES.useNetWeight ? (spec.tare || 0) : 0)
+    : Infinity;
+  const volLimit = spec.l * spec.w * spec.h * (useOH ? 1.4 : 1) *
+    (spec.lowerDeckExtension ? spec.lowerDeckExtension.l / spec.l : 1);
+
+  const placed = [], rem = [];
+  let loadWt = 0, loadVol = 0;
+  const dgInBin = [];
+
+  const ovl = overhangLimits(spec);
+  const baseW = ld3 && spec.profile ? spec.profile.baseW : spec.w;
+
+  // Oversize = no orientation fits inside the ULD base. Only these may overhang.
+  const oversize = new Map();
+  const isOversize = box => {
+    if (!oversize.has(box)) oversize.set(box, !rotations(box).some(r => {
+      if (r.bh > effH + EPS || r.bw > maxWAt(0) + EPS) return false;
+      const [mn, mx] = xRange(0, r.bh, r.bl);
+      return mn <= mx + EPS;
+    }));
+    return oversize.get(box);
+  };
+
+  // ---- order: oversize first (centre of the pallet), no-stack last -------
+  const order = boxes.map((b, i) => ({ b, i })).sort((A, B) => {
+    const a = A.b, b = B.b;
+    if (isOversize(a) !== isOversize(b)) return isOversize(a) ? -1 : 1;
+    if (!!a.noStack !== !!b.noStack) return a.noStack ? 1 : -1;
+    return cmp(a, b) || A.i - B.i;
+  }).map(x => x.b);
+
+  // ---- rotations: upright first, tilt only if tiltable ------------------
+  function rotations(box) {
+    const r = [
+      { bl: box.l, bh: box.h, bw: box.w, tilted: false, rot: 'LxW' },
+      { bl: box.w, bh: box.h, bw: box.l, tilted: false, rot: 'WxL' },
+    ];
+    if (box.tiltable) r.push(
+      { bl: box.l, bh: box.w, bw: box.h, tilted: true, rot: 'LxH' },
+      { bl: box.h, bh: box.w, bw: box.l, tilted: true, rot: 'HxL' },
+      { bl: box.w, bh: box.l, bw: box.h, tilted: true, rot: 'WxH' },
+      { bl: box.h, bh: box.l, bw: box.w, tilted: true, rot: 'HxW' },
+    );
+    return r;
+  }
+
+  // Allowed px range for a box of length l at height y (handles LD6/PAJ5
+  // lower-deck build-out and keeps >= MIN_PALLET_SUPPORT on the pallet base).
+  function xRange(y, h, l) {
+    const off = centeredLengthOffset(spec, y, h, useOH, l);
+    const effL = usableLengthAtHeight(spec, y, h, useOH, l);
+    const minPx = Math.max(-off, -l * (1 - MIN_PALLET_SUPPORT));
+    const maxPx = Math.min(effL - l - off, spec.l - l * MIN_PALLET_SUPPORT);
+    return [minPx, maxPx];
+  }
+
+  const overlap1D = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+
+  function collides(x, y, z, l, h, w) {
+    for (const p of placed) {
+      if (overlap1D(x, x + l, p.px, p.px + p.bl) > EPS &&
+          overlap1D(y, y + h, p.py, p.py + p.bh) > EPS &&
+          overlap1D(z, z + w, p.pz, p.pz + p.bw) > EPS) return true;
+    }
+    return false;
+  }
+
+  // Returns supported fraction, or -1 if the box would rest on a no-stack
+  // piece or crush a much lighter piece.
+  function support(box, x, y, z, l, w) {
+    if (y <= EPS) {
+      // floor: part of the box may hang over the pallet edge on build-out ULDs
+      const onBase = overlap1D(x, x + l, 0, spec.l) * w;
+      return onBase / (l * w);
+    }
+    let area = 0;
+    for (const p of placed) {
+      if (Math.abs(p.py + p.bh - y) > EPS) continue;
+      const a = overlap1D(x, x + l, p.px, p.px + p.bl) * overlap1D(z, z + w, p.pz, p.pz + p.bw);
+      if (a <= 0) continue;
+      if (p.noStack) return -1;
+      if (box.wt > p.wt * PACK_RULES.heavyOnLightRatio) return -1;
+      area += a;
+    }
+    return area / (l * w);
+  }
+
+  // Oversize piece: on the pallet floor, inside the overhang limits, and
+  // with at least MIN_PALLET_SUPPORT of its base on the pallet.
+  function fitsOversize(box, r, x, y, z) {
+    if (y > EPS) return false;
+    if (r.bh > effH + EPS) return false;
+    if (x < -ovl.length - EPS || x + r.bl > spec.l + ovl.length + EPS) return false;
+    if (z < -ovl.width - EPS || z + r.bw > baseW + ovl.width + EPS) return false;
+    if (collides(x, y, z, r.bl, r.bh, r.bw)) return false;
+    const onBase = overlap1D(x, x + r.bl, 0, spec.l) * overlap1D(z, z + r.bw, 0, baseW);
+    return onBase / (r.bl * r.bw) >= MIN_PALLET_SUPPORT - 1e-6;
+  }
+
+  function fits(box, r, x, y, z) {
+    if (isOversize(box)) return fitsOversize(box, r, x, y, z);
+    const [minPx, maxPx] = xRange(y, r.bh, r.bl);
+    if (x < minPx - EPS || x > maxPx + EPS) return false;
+    if (y < 0 || y + r.bh > effH + EPS) return false;
+    if (z < -EPS) return false;
+    // width must fit at the bottom, middle and top of the box (LD3 slope)
+    for (const yy of [y, y + r.bh * 0.5, y + r.bh]) {
+      if (z + r.bw > maxWAt(Math.min(yy, effH)) + EPS) return false;
+    }
+    if (ld3 && !fitsContour(spec, Math.max(0, x), y, z, r.bl, r.bh, r.bw)) return false;
+    if (collides(x, y, z, r.bl, r.bh, r.bw)) return false;
+    if (!okUnder(box, x, y + r.bh, z, r.bl, r.bw)) return false;
+    return support(box, x, y, z, r.bl, r.bw) >= PACK_RULES.minSupport - 1e-6;
+  }
+
+  // A box slipped into a gap may end up UNDER pieces already placed:
+  // it must then be stackable and strong enough for them.
+  function okUnder(box, x, top, z, l, w) {
+    for (const p of placed) {
+      if (Math.abs(p.py - top) > EPS) continue;
+      if (overlap1D(x, x + l, p.px, p.px + p.bl) <= EPS || overlap1D(z, z + w, p.pz, p.pz + p.bw) <= EPS) continue;
+      if (box.noStack) return false;
+      if (p.wt > box.wt * PACK_RULES.heavyOnLightRatio) return false;
+    }
+    return true;
+  }
+
+  // ---- extreme points ----------------------------------------------------
+  let eps = [{ x: -1e6, y: 0, z: 0 }];  // x is clamped to the allowed minimum
+  const epKey = p => `${p.x.toFixed(1)}|${p.y.toFixed(1)}|${p.z.toFixed(1)}`;
+
+  function addEPs(p) {
+    const add = [
+      { x: p.px + p.bl, y: p.py, z: p.pz },
+      { x: p.px, y: p.py + p.bh, z: p.pz },
+      { x: p.px, y: p.py, z: p.pz + p.bw },
+      { x: p.px + p.bl, y: p.py, z: 0 },
+      { x: -1e6, y: p.py, z: p.pz + p.bw },
+      { x: -1e6, y: p.py + p.bh, z: p.pz },
+      { x: p.px, y: p.py + p.bh, z: 0 },
+    ];
+    const seen = new Set(eps.map(epKey));
+    for (const e of add) {
+      if (e.y >= effH - EPS) continue;
+      const k = epKey(e);
+      if (!seen.has(k)) { seen.add(k); eps.push(e); }
+    }
+  }
+
+  // Lower score is better: lowest, then most back (x), then left (z).
+  function scoreOf(r, x, y, z) {
+    return y * 1e7 + x * 1e3 + z + (r.tilted ? 5e9 : 0);
+  }
+
+  const failed = new Set();   // shape keys that failed for the current state
+  const shapeKey = b => `${b.l}|${b.w}|${b.h}|${b.wt}|${!!b.tiltable}|${!!b.noStack}|${b.dg || ''}|${placed.length}`;
+
+  for (const box of order) {
+    // weight / volume / DG quick rejections
+    if (loadWt + box.wt > payloadLimit + 1e-6) { rem.push(box); continue; }
+    if (loadVol + box.l * box.w * box.h > volLimit) { rem.push(box); continue; }
+    const dg = dgClassOf(box);
+    if (dg && dgInBin.some(c => dgConflict(c, dg))) { rem.push(box); continue; }
+    const sk = shapeKey(box);
+    if (failed.has(sk)) { rem.push(box); continue; }
+
+    let best = null;
+    if (isOversize(box)) {
+      // centred on the pallet first, then next to other oversize pieces
+      for (const r of rotations(box)) {
+        const cands = [{ x: (spec.l - r.bl) / 2, z: (baseW - r.bw) / 2 }];
+        for (const ep of eps) if (ep.y <= EPS) {
+          cands.push({ x: Math.max(ep.x, -ovl.length), z: ep.z }, { x: Math.max(ep.x, -ovl.length), z: (baseW - r.bw) / 2 });
+        }
+        for (const c of cands) {
+          if (!fitsOversize(box, r, c.x, 0, c.z)) continue;
+          const s = Math.abs(c.x + r.bl / 2 - spec.l / 2) + Math.abs(c.z + r.bw / 2 - baseW / 2) + (r.tilted ? 1e6 : 0);
+          if (!best || s < best.s) best = { r, x: c.x, y: 0, z: c.z, s };
+        }
+      }
+    } else {
+      for (const ep of eps) {
+        for (const r of rotations(box)) {
+          const [minPx] = xRange(ep.y, r.bh, r.bl);
+          const x = Math.max(ep.x, minPx);
+          if (!fits(box, r, x, ep.y, ep.z)) continue;
+          const s = scoreOf(r, x, ep.y, ep.z);
+          if (!best || s < best.s) best = { r, x, y: ep.y, z: ep.z, s };
+        }
+      }
+    }
+
+    if (!best) { failed.add(sk); rem.push(box); continue; }
+
+    const { r, x, y, z } = best;
+    const oh = isOversize(box);
+    const ovCm = oh ? Math.round(Math.max(0, -x, x + r.bl - spec.l, -z, z + r.bw - baseW)) : 0;
+    const p = {
+      ...box, px: x, py: y, pz: z, bl: r.bl, bh: r.bh, bw: r.bw,
+      rot: r.rot, tilted: r.tilted, overhang: ovCm > 0, ovCm,
+      ovDetail: oh ? {
+        front: Math.max(0, Math.round(-x)), back: Math.max(0, Math.round(x + r.bl - spec.l)),
+        left: Math.max(0, Math.round(-z)), right: Math.max(0, Math.round(z + r.bw - baseW)),
+      } : null,
+      balancedExt: !oh && (x < -EPS || x + r.bl > spec.l + EPS),
+    };
+    placed.push(p);
+    loadWt += box.wt;
+    loadVol += box.l * box.w * box.h;
+    if (dg) dgInBin.push(dg);
+    eps = eps.filter(e => !(e.x >= x - EPS && e.x < x + r.bl - EPS &&
+                            e.y >= y - EPS && e.y < y + r.bh - EPS &&
+                            e.z >= z - EPS && e.z < z + r.bw - EPS));
+    addEPs(p);
+  }
+
+  // Put the remaining pieces back in their original order for the next ULD.
+  const idx = new Map(boxes.map((b, i) => [b, i]));
+  rem.sort((a, b) => idx.get(a) - idx.get(b));
+
+  return { placed, rem, stats: buildStats(placed, spec) };
+}
+
+/* Centre of gravity and checks for one built ULD (also used by the test page). */
+function buildStats(placed, spec) {
+  let wt = 0, mx = 0, my = 0, mz = 0;
+  for (const p of placed) {
+    wt += p.wt;
+    mx += p.wt * (p.px + p.bl / 2);
+    my += p.wt * (p.py + p.bh / 2);
+    mz += p.wt * (p.pz + p.bw / 2);
+  }
+  const cg = wt ? { x: mx / wt, y: my / wt, z: mz / wt } : null;
+  const widthRef = spec.profile ? spec.profile.baseW : spec.w;
+  return {
+    weight: wt,
+    cg,
+    cgOffsetL: cg ? +(cg.x - spec.l / 2).toFixed(1) : 0,   // + = toward far end
+    cgOffsetW: cg ? +(cg.z - widthRef / 2).toFixed(1) : 0,
+    cgHeight: cg ? +cg.y.toFixed(1) : 0,
+  };
+}
+
+/* Independent checker: same rules, used to compare v3 and v2 results. */
+function checkBuild(placed, spec) {
+  const EPS = 0.5, issues = [];
+  const ov = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+  const name = p => `${p.desc || 'piece'} #${p.piece || ''}`.trim();
+  let wt = 0;
+  const lim = overhangLimits(spec);
+  const bw0 = spec.profile ? spec.profile.baseW : spec.w;
+  placed.forEach((p, i) => {
+    wt += p.wt;
+    const outL = Math.max(-p.px, p.px + p.bl - spec.l), outW = Math.max(-p.pz, p.pz + p.bw - (p.py < 1 ? bw0 : spec.w));
+    if (p.ovDetail) {
+      if (outL > lim.length + EPS || outW > lim.width + EPS)
+        issues.push({ type: 'overhang', msg: `${name(p)} overhangs ${Math.round(Math.max(outL, outW))} cm, limit ${lim.length} cm length / ${lim.width} cm width` });
+    } else if (!spec.lowerDeckExtension && (outL > EPS || outW > EPS)) {
+      issues.push({ type: 'outside', msg: `${name(p)} sticks out of the ULD by ${Math.round(Math.max(outL, outW))} cm` });
+    }
+    for (let j = i + 1; j < placed.length; j++) {
+      const q = placed[j];
+      if (ov(p.px, p.px + p.bl, q.px, q.px + q.bl) > EPS && ov(p.py, p.py + p.bh, q.py, q.py + q.bh) > EPS &&
+          ov(p.pz, p.pz + p.bw, q.pz, q.pz + q.bw) > EPS) issues.push({ type: 'overlap', msg: `${name(p)} overlaps ${name(q)}` });
+    }
+    if (p.py > EPS) {
+      let area = 0;
+      for (const q of placed) {
+        if (q === p || Math.abs(q.py + q.bh - p.py) > EPS) continue;
+        const a = ov(p.px, p.px + p.bl, q.px, q.px + q.bl) * ov(p.pz, p.pz + p.bw, q.pz, q.pz + q.bw);
+        if (a <= 0) continue;
+        area += a;
+        if (q.noStack) issues.push({ type: 'noStack', msg: `${name(p)} is loaded on no-stack ${name(q)}` });
+        if (p.wt > q.wt * PACK_RULES.heavyOnLightRatio) issues.push({ type: 'heavyOnLight', msg: `${name(p)} (${p.wt} kg) sits on ${name(q)} (${q.wt} kg)` });
+      }
+      const s = area / (p.bl * p.bw);
+      if (s < PACK_RULES.minSupport - 1e-6) issues.push({ type: 'floating', msg: `${name(p)} only ${Math.round(s * 100)}% supported` });
+    }
+  });
+  const limit = spec.maxWt ? spec.maxWt - (spec.tare || 0) : Infinity;
+  if (wt > limit + 1e-6) issues.push({ type: 'overweight', msg: `${Math.round(wt)} kg loaded, limit ${limit} kg` });
+  const dgs = placed.map(dgClassOf).filter(Boolean);
+  for (let i = 0; i < dgs.length; i++) for (let j = i + 1; j < dgs.length; j++)
+    if (dgConflict(dgs[i], dgs[j])) { issues.push({ type: 'dg', msg: `DG class ${dgs[i]} with class ${dgs[j]} in same ULD` }); i = dgs.length; break; }
+  return issues;
+}
+
+
+function getSelectedULDs(){
+  const valid=[...new Set((selectedULDs&&selectedULDs.length?selectedULDs:[selULD]).filter(code=>ULD_DB[code]||customULDs[code]))];
+  if(!valid.length&&selULD)valid.push(selULD);
+  selectedULDs=valid;
+  return valid;
+}
+
+function selectedUldText(){
+  const s=getSelectedULDs();
+  return s.length>2?`${s.slice(0,2).join(' + ')} +${s.length-2}`:s.join(' + ');
+}
+
+function balancedPositionOrder(positions){
+  const mid=(positions.length-1)/2;
+  return [...positions].map((pos,i)=>({pos,i,d:Math.abs(i-mid)})).sort((a,b)=>a.d-b.d||a.i-b.i).map(x=>x.pos);
+}
+
+function balancedMainPositionOrder(positions){
+  const groups=[];
+  positions.forEach(pos=>{
+    const part=mainDeckPositionParts(pos);
+    let g=groups.find(x=>x.station===part.station);
+    if(!g){g={station:part.station,items:[]};groups.push(g);}
+    g.items.push(pos);
+  });
+  const mid=(groups.length-1)/2;
+  return groups.map((g,i)=>({...g,i,d:Math.abs(i-mid)})).sort((a,b)=>a.d-b.d||a.i-b.i).flatMap(g=>{
+    const order={L:0,R:1,C:2};
+    return g.items.sort((a,b)=>order[mainDeckPositionParts(a).side]-order[mainDeckPositionParts(b).side]);
+  });
+}
+
+function uldFitsSlot(code,slotDeck,ac){
+  const u=ULD_DB[code]||customULDs[code];
+  if(!u)return false;
+  if(slotDeck==='main')return u.deck==='main'&&ac.mainUlds.includes(code);
+  if(slotDeck==='bulk')return u.deck==='bulk'&&ac.lowerUlds.includes(code);
+  return u.deck==='lower'&&ac.lowerUlds.includes(code);
+}
+
+function buildAircraftSlots(ac,selectedCodes){
+  const slots=[];
+  const lowerOrder=balancedPositionOrder(ac.lower?.pos||[]);
+  lowerOrder.forEach(posId=>{
+    const slotDeck=lowerHoldForPosition(posId)==='BULK'?'bulk':'lower';
+    const allowed=selectedCodes.filter(code=>uldFitsSlot(code,slotDeck,ac));
+    if(allowed.length)slots.push({posId,deck:slotDeck,allowed});
+  });
+  const mainOrder=balancedMainPositionOrder(ac.main?.pos||[]);
+  mainOrder.forEach(posId=>{
+    const allowed=selectedCodes.filter(code=>uldFitsSlot(code,'main',ac));
+    if(allowed.length)slots.push({posId,deck:'main',allowed});
+  });
+  return slots;
+}
+
+function chooseBestULDForSlot(rem,codes){
+  let best=null;
+  for(const code of codes){
+    const spec=ULD_DB[code]||customULDs[code];
+    const out=packBin(rem,spec,false);
+    if(!out.placed.length)continue;
+    const vol=out.placed.reduce((s,b)=>s+b.bl*b.bh*b.bw,0);
+    const util=Math.round(vol/(spec.l*spec.h*spec.w)*100);
+    const wt=out.placed.reduce((s,b)=>s+b.wt,0);
+    const score=out.placed.length*100000+util*100+Math.min(wt,9999);
+    if(!best||score>best.score)best={code,spec,placed:out.placed,rem:out.rem,util,score};
+  }
+  return best;
+}
+
+function availableMainSpan(slots,start,used){
+  let n=0;
+  for(let i=start;i<slots.length;i++){
+    if(used.has(i)||slots[i].deck!=='main')break;
+    n++;
+  }
+  return n;
+}
+
+function optimize(){
+  if(!shipments.length){alert('Add shipments first.');return;}
+  const selectedCodes=getSelectedULDs();
+  if(!selectedCodes.length){alert('Select at least one ULD type.');return;}
+  let boxes=shipments.flatMap(s=>Array.from({length:s.pcs},(_,i)=>({...s,piece:i+1})));
+  boxes.sort((a,b)=>(b.l*b.w*b.h)-(a.l*a.w*a.h));
+  allPallets=[];overflowPieces=[];
+  const ac=AIRCRAFT[selAC];
+  const positions=buildAircraftSlots(ac,selectedCodes);
+  // Door check: a piece can only go to a deck whose cargo door it fits through.
+  boxes.forEach(b=>{
+    b.doorMain=ac.main?doorFitReason(b,ac.main.door):'no main deck';
+    b.doorLower=ac.lower?doorFitReason(b,ac.lower.door):'no lower deck';
+    b.reason=null;
+  });
+  const blocked=boxes.filter(b=>b.doorMain&&b.doorLower);
+  blocked.forEach(b=>{b.reason=ac.main?`Too big for ${ac.label} main deck door: ${b.doorMain}`:`Too big for ${ac.label} cargo door: ${b.doorLower}`;});
+  let rem=boxes.filter(b=>!b.reason);
+  const usedSlots=new Set();
+  for(let si=0;si<positions.length;si++){
+    if(usedSlots.has(si))continue;
+    const slot=positions[si];
+    if(!rem.length)break;
+    const spanAvail=slot.deck==='main'?availableMainSpan(positions,si,usedSlots):1;
+    const allowed=slot.allowed.filter(code=>{
+      const spec=ULD_DB[code]||customULDs[code];
+      return (spec?.positionSpan||1)<=spanAvail;
+    });
+    const fitsDoor=b=>slot.deck==='main'?!b.doorMain:!b.doorLower;
+    const cand=rem.filter(fitsDoor);
+    if(!cand.length)continue;
+    const best=chooseBestULDForSlot(cand,allowed);
+    if(!best)continue;
+    const span=slot.deck==='main'?(best.spec.positionSpan||1):1;
+    const spanned=positions.slice(si,si+span).filter((s,idx)=>idx===0||s.deck==='main');
+    for(let j=0;j<span;j++)usedSlots.add(si+j);
+    const posId=spanned.map(s=>s.posId).join('+');
+    allPallets.push({posId,deck:best.spec.deck,spec:best.spec,placed:best.placed,util:best.util,totalWt:best.placed.reduce((s,b)=>s+b.wt,0),stats:buildStats(best.placed,best.spec),checks:checkBuild(best.placed,best.spec),hasOH:best.placed.some(b=>b.overhang),color:PAL_COL[allPallets.length%PAL_COL.length]});
+    const left=new Set(best.rem);
+    rem=rem.filter(b=>!fitsDoor(b)||left.has(b));
+  }
+  // Explain every piece that was not loaded.
+  rem.forEach(b=>{
+    const fitsSomeULD=selectedCodes.some(code=>{
+      const spec=ULD_DB[code]||customULDs[code];
+      if(!spec)return false;
+      if(spec.deck==='main'?b.doorMain:b.doorLower)return false;
+      return packBin([{...b}],spec,false).placed.length>0;
+    });
+    if(fitsSomeULD){b.reason='No free aircraft position left';return;}
+    const tryCodes=[...ac.mainUlds,...ac.lowerUlds].filter(c=>!selectedCodes.includes(c)&&ULD_DB[c]&&!(ULD_DB[c].deck==='main'?b.doorMain:b.doorLower)&&packBin([{...b}],ULD_DB[c],false).placed.length>0);
+    b.reason=`Bigger than selected ULDs (incl. allowed overhang)${tryCodes.length?' - try '+tryCodes.slice(0,3).join(' / '):' - needs special load plan'}`;
+  });
+  overflowPieces=[...blocked,...rem];
+  if(overflowPieces.length){
+    const why={};overflowPieces.forEach(b=>{why[b.reason]=(why[b.reason]||0)+1;});
+    alert(`${overflowPieces.length} piece(s) not loaded:\n`+Object.entries(why).map(([r,n])=>`- ${n} x ${r}`).join('\n'));
+  }
+  activePal=0;
+  setStage(2);
+  setView('uld');
+  buildPalTabs();
+  renderULDView();
+  updateKPIs();
+  updateTable();
+  document.getElementById('runAcBtn').disabled=false;
+}
+
+function loadIntoAircraft(){
+  if(!allPallets.length){alert('Run ULD buildup first.');return;}
+  setStage(3);
+  setView('aircraft');
+}
+
+/*  STAGE INDICATOR  */
+function setStage(n){
+  [1,2,3].forEach(i=>{
+    const el=document.getElementById('st'+i);
+    el.className='stage'+(i<n?' done':i===n?' active':'');
+  });
+}
+
+/*  VIEW SWITCHER  */
+function setView(mode,btn){
+  viewMode=mode;
+  document.querySelectorAll('.vt').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  else document.getElementById(mode==='uld'?'vt1':'vt2').classList.add('active');
+  const hint=document.getElementById('stageHint');
+  const legend=document.getElementById('holdLegend');
+  if(legend){
+    if(mode==='aircraft'){
+      const holds=[...new Set((AIRCRAFT[selAC].lower?.pos||[]).map(lowerHoldForPosition))];
+      const chips=holds.map(h=>`<span class="hold-chip" style="color:#${holdColor(h).toString(16).padStart(6,'0')}">${h==='FWD'?'Forward hold':h==='AFT'?'Aft hold':'Bulk hold'}</span>`);
+      if(AIRCRAFT[selAC].main)chips.push('<span class="hold-chip" style="color:#334155">Main deck L/R lanes</span>');
+      legend.innerHTML=chips.join('');
+      legend.style.display='flex';
+    }else{
+      legend.style.display='none';
+    }
+  }
+  if(mode==='uld'&&allPallets.length){
+    hint.style.display='block';
+    hint.style.background='rgba(234,179,8,.12)';hint.style.color='#EAB308';
+    hint.textContent=`Stage 1: Cargo packed into ${allPallets[activePal]?.spec?.code||selULD}`;
+  } else if(mode==='aircraft'&&allPallets.length){
+    hint.style.display='block';
+    hint.style.background='rgba(56,189,248,.12)';hint.style.color='#38bdf8';
+    hint.textContent=`Stage 2: ${allPallets.length} ULD(s) loaded into ${AIRCRAFT[selAC].label}`;
+  } else hint.style.display='none';
+  if(mode==='uld') renderULDView();
+  else renderAircraftView();
+}
+
+/*  THREE.JS  -  ULD BUILDUP VIEW  */
+function initRenderer(){
+  const canvas=document.getElementById('cv');
+  canvas.style.width='';
+  canvas.style.height='';
+  const W=canvas.clientWidth||580,H=canvas.clientHeight||420;
+  if(renderer){renderer.dispose();renderer=null;}
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(45,W/H,1,3000);
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,preserveDrawingBuffer:true});
+  renderer.setSize(W,H,false);renderer.setClearColor(0,0);
+  scene.add(new THREE.AmbientLight(0xffffff,.65));
+  return{W,H};
+}
+
+function updateCam(cx,cy,cz){
+  const md=Math.max(cx*2,cy*2,cz*2)||300,r=md*1.8*zoom;
+  camera.far=Math.max(3000,r*3);
+  camera.updateProjectionMatrix();
+  camera.position.set(cx+r*Math.sin(rot.y)*Math.cos(rot.x),cy+r*Math.sin(rot.x),cz+r*Math.cos(rot.y)*Math.cos(rot.x));
+  camera.lookAt(cx,cy,cz);
+  renderer.render(scene,camera);
+}
+
+function setupMouse(canvas,cx,cy,cz){
+  const mv=(dx,dy)=>{rot.y+=dx*.009;rot.x=Math.max(-1.2,Math.min(1.2,rot.x-dy*.009));updateCam(cx,cy,cz);};
+  canvas.onmousedown=e=>{isDrag=true;prev={x:e.clientX,y:e.clientY};};
+  canvas.onmouseup=canvas.onmouseleave=()=>isDrag=false;
+  canvas.onmousemove=e=>{if(!isDrag)return;mv(e.clientX-prev.x,e.clientY-prev.y);prev={x:e.clientX,y:e.clientY};};
+  canvas.onwheel=e=>{e.preventDefault();zoom=Math.max(.3,Math.min(3,zoom+(e.deltaY>0?.12:-.12)));updateCam(cx,cy,cz);};
+  canvas.ontouchstart=e=>{isDrag=true;prev={x:e.touches[0].clientX,y:e.touches[0].clientY};};
+  canvas.ontouchend=()=>isDrag=false;
+  canvas.ontouchmove=e=>{if(!isDrag)return;mv(e.touches[0].clientX-prev.x,e.touches[0].clientY-prev.y);prev={x:e.touches[0].clientX,y:e.touches[0].clientY};};
+}
+
+function isLD3Container(spec){
+  return ['AKE','AKH','DKN','MKN','RKN'].includes(spec.code);
+}
+
+function makeLD3Geometry(spec){
+  const l=spec.l,w=spec.w,h=spec.h;
+  const baseW=spec.profile?.baseW||w,upperW=spec.profile?.upperW||w,breakH=spec.profile?.breakH||h*.35;
+  const pts=[[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h]];
+  const n=pts.length,verts=[];
+  [0,l].forEach(x=>pts.forEach(([z,y])=>verts.push(x,y,z)));
+  const idx=[];
+  for(let i=1;i<n-1;i++)idx.push(0,i,i+1);
+  for(let i=1;i<n-1;i++)idx.push(n,n+i+1,n+i);
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    idx.push(i,j,n+j,i,n+j,n+i);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(idx);geo.computeVertexNormals();
+  return geo;
+}
+
+function addLine(points,color,opacity){
+  const geo=new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(p[0],p[1],p[2])));
+  const ln=new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color,transparent:true,opacity}));
+  scene.add(ln);return ln;
+}
+
+function addBar(x1,y1,z1,x2,y2,z2,color,thick=3,opacity=.9){
+  const dx=x2-x1,dy=y2-y1,dz=z2-z1;
+  const len=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+  const geo=new THREE.CylinderGeometry(thick,thick,len,8);
+  const mat=new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false});
+  const bar=new THREE.Mesh(geo,mat);
+  bar.position.set((x1+x2)/2,(y1+y2)/2,(z1+z2)/2);
+  bar.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(dx,dy,dz).normalize());
+  scene.add(bar);return bar;
+}
+
+function addBoldPolyline(points,color,thick=3,opacity=.9){
+  for(let i=0;i<points.length-1;i++){
+    const a=points[i],b=points[i+1];
+    addBar(a[0],a[1],a[2],b[0],b[1],b[2],color,thick,opacity);
+  }
+}
+
+function addULDStructure(spec,color){
+  if(isLD3Container(spec)){
+    const frameColor=0x334155;
+    const shell=makeLD3Geometry(spec);
+    const edges=new THREE.LineSegments(new THREE.EdgesGeometry(shell),new THREE.LineBasicMaterial({color:frameColor,transparent:true,opacity:.95}));
+    scene.add(edges);
+    const l=spec.l,w=spec.w,h=spec.h,baseW=spec.profile?.baseW||w,upperW=spec.profile?.upperW||w,breakH=spec.profile?.breakH||h*.35;
+    const prof=[[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h],[0,0]];
+    [0,l].forEach(x=>addBoldPolyline(prof.map(([z,y])=>[x,y,z]),frameColor,3.2,.95));
+    [[0,0],[baseW,0],[baseW,breakH],[upperW,breakH],[upperW,h],[0,h]].forEach(([z,y])=>addBar(0,y,z,l,y,z,frameColor,2.5,.75));
+
+    const doorW=spec.profile?.doorW||spec.profile?.baseW||spec.w*.78;
+    const doorH=spec.profile?.doorH||spec.h*.88;
+    const x=-1,z0=4,z1=Math.min(spec.w-4,z0+doorW),y0=4,y1=Math.min(spec.h-4,y0+doorH);
+    addBoldPolyline([[x,y0,z0],[x,y0,z1],[x,y1,z1],[x,y1,z0],[x,y0,z0]],frameColor,2.4,.85);
+    addBoldPolyline([[x,y0+7,z0+7],[x,y0+7,z1-7],[x,y1-7,z1-7],[x,y1-7,z0+7],[x,y0+7,z0+7]],frameColor,1.5,.45);
+    addLine([[x,(y0+y1)/2,z0+10],[x,(y0+y1)/2,z1-10],[x,y0+10,(z0+z1)/2],[x,y1-10,(z0+z1)/2]],frameColor,.28);
+
+    const roofY=spec.h+4,roofX0=spec.l*.02,roofX1=spec.l*.98,roofZ0=spec.w*.05,roofZ1=spec.w*.95;
+    addBoldPolyline([[roofX0,roofY,roofZ0],[roofX1,roofY,roofZ0],[roofX1,roofY,roofZ1],[roofX0,roofY,roofZ1],[roofX0,roofY,roofZ0]],frameColor,2.2,.65);
+    addLine([[spec.l/2,roofY,roofZ0],[spec.l/2,roofY,roofZ1],[roofX0,roofY,(roofZ0+roofZ1)/2],[roofX1,roofY,(roofZ0+roofZ1)/2]],frameColor,.35);
+
+    const railMat=new THREE.MeshBasicMaterial({color:frameColor,transparent:true,opacity:.75});
+    [spec.w*.18,spec.w*.82].forEach(z=>{
+      const rail=new THREE.Mesh(new THREE.BoxGeometry(spec.l,4,4),railMat);
+      rail.position.set(spec.l/2,2,z);scene.add(rail);
+    });
+    return;
+  }
+
+  const eg=new THREE.EdgesGeometry(new THREE.BoxGeometry(spec.l,spec.h,spec.w));
+  const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color,transparent:true,opacity:.85}));
+  ln.position.set(spec.l/2,spec.h/2,spec.w/2);scene.add(ln);
+}
+
+function renderULDView(){
+  initRenderer();
+  const canvas=document.getElementById('cv');
+  const pallet=allPallets[activePal];
+  const spec=pallet?.spec||(ULD_DB[selULD]||customULDs[selULD]);
+  if(!spec){renderer.render(scene,camera);return;}
+  const md=Math.max(spec.l,spec.w,spec.h);
+  const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(md*2,md*2,md*2);scene.add(dl);
+  const dl2=new THREE.DirectionalLight(0xffffff,.3);dl2.position.set(-md,-md,-md);scene.add(dl2);
+  const pc=parseInt((pallet?.color||'#EAB308').replace('#',''),16);
+  addULDStructure(spec,pc);
+  if(pallet){
+  for(const b of pallet.placed){
+      const col=parseInt(b.color.replace('#',''),16);
+      const geo=new THREE.BoxGeometry(b.bl-1,b.bh-1,b.bw-1);
+      const fillColor=b.overhang?0xEAB308:col;
+      const mat=new THREE.MeshLambertMaterial({color:fillColor,transparent:false,opacity:1,emissive:fillColor,emissiveIntensity:.08});
+      const mesh=new THREE.Mesh(geo,mat);
+      mesh.position.set(b.px+b.bl/2,b.py+b.bh/2,b.pz+b.bw/2);
+      scene.add(mesh);
+      const eg2=new THREE.EdgesGeometry(geo);
+      const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.55,depthWrite:false}));
+      ln2.position.copy(mesh.position);
+      scene.add(ln2);
+    }
+  }
+  rot={x:.4,y:.5};zoom=1;
+  const cx=spec.l/2,cy=spec.h/2,cz=spec.w/2;
+  updateCam(cx,cy,cz);setupMouse(canvas,cx,cy,cz);
+}
+
+/*  THREE.JS  -  AIRCRAFT INTERIOR VIEW  */
+function addThinPolyline(points,color,opacity=.6){
+  const geo=new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(p[0],p[1],p[2])));
+  const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color,transparent:true,opacity,depthWrite:false}));
+  scene.add(line);return line;
+}
+
+function addWireBox(cx,cy,cz,l,h,w,color,opacity=.45){
+  const geo=new THREE.BoxGeometry(l,h,w);
+  const ln=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color,transparent:true,opacity,depthWrite:false}));
+  ln.position.set(cx,cy,cz);scene.add(ln);return ln;
+}
+
+function addEllipseLoop(x,cy,cz,ry,rz,color,opacity=.35){
+  const pts=[];
+  for(let i=0;i<=64;i++){
+    const a=(Math.PI*2*i)/64;
+    pts.push([x,cy+Math.sin(a)*ry,cz+Math.cos(a)*rz]);
+  }
+  addThinPolyline(pts,color,opacity);
+}
+
+function addFuselageWire(x0,x1,cy,ry,rz,color=0x378ADD){
+  const stations=8;
+  for(let i=0;i<=stations;i++){
+    const x=x0+(x1-x0)*(i/stations);
+    const stationOpacity=(i===0||i===stations)?0.5:0.18;
+    addEllipseLoop(x,cy,0,ry,rz,color,stationOpacity);
+  }
+  [0,Math.PI/2,Math.PI,Math.PI*1.5].forEach(a=>{
+    const y=cy+Math.sin(a)*ry,z=Math.cos(a)*rz;
+    addThinPolyline([[x0,y,z],[x1,y,z]],color,.32);
+  });
+  const nose=x0-140,tail=x1+160;
+  [[0,1],[.25,.75],[.5,.5],[.75,.25]].forEach(([sy,sz])=>{
+    const y1=cy+ry*sy,z1=rz*sz,y2=cy-ry*sy,z2=-rz*sz;
+    addThinPolyline([[nose,cy,0],[x0,y1,z1]],color,.22);
+    addThinPolyline([[nose,cy,0],[x0,y2,z2]],color,.22);
+    addThinPolyline([[tail,cy,0],[x1,y1,z1]],color,.22);
+    addThinPolyline([[tail,cy,0],[x1,y2,z2]],color,.22);
+  });
+  const wingY=cy-ry*.12,wingX=x0+(x1-x0)*.46;
+  addThinPolyline([[wingX-80,wingY,rz*.85],[wingX+260,wingY,rz*2.2],[wingX+430,wingY,rz*.95]],color,.18);
+  addThinPolyline([[wingX-80,wingY,-rz*.85],[wingX+260,wingY,-rz*2.2],[wingX+430,wingY,-rz*.95]],color,.18);
+}
+
+function makeFuselageSkinGeometry(x0,x1,cy,ry,rz,stations=30,segments=40){
+  const verts=[],idx=[];
+  for(let i=0;i<=stations;i++){
+    const t=i/stations;
+    let scale=1;
+    if(t<.12)scale=Math.max(.08,Math.sin((t/.12)*Math.PI/2));
+    else if(t>.88)scale=Math.max(.08,Math.sin(((1-t)/.12)*Math.PI/2));
+    const x=x0+(x1-x0)*t;
+    for(let j=0;j<segments;j++){
+      const a=(Math.PI*2*j)/segments;
+      verts.push(x,cy+Math.sin(a)*ry*scale,Math.cos(a)*rz*scale);
+    }
+  }
+  for(let i=0;i<stations;i++){
+    for(let j=0;j<segments;j++){
+      const a=i*segments+j,b=i*segments+(j+1)%segments,c=(i+1)*segments+(j+1)%segments,d=(i+1)*segments+j;
+      idx.push(a,b,d,b,c,d);
+    }
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(idx);geo.computeVertexNormals();
+  return geo;
+}
+
+function addAeroPanel(points,y,thick,color,opacity=.62){
+  const verts=[],idx=[],n=points.length;
+  points.forEach(([x,z])=>verts.push(x,y+thick/2,z));
+  points.forEach(([x,z])=>verts.push(x,y-thick/2,z));
+  for(let i=1;i<n-1;i++)idx.push(0,i,i+1,n,n+i+1,n+i);
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    idx.push(i,j,n+j,i,n+j,n+i);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(idx);geo.computeVertexNormals();
+  const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false}));
+  scene.add(mesh);return mesh;
+}
+
+function addVerticalFin(points,z,thick,color,opacity=.68){
+  const verts=[],idx=[],n=points.length;
+  points.forEach(([x,y])=>verts.push(x,y,z+thick/2));
+  points.forEach(([x,y])=>verts.push(x,y,z-thick/2));
+  for(let i=1;i<n-1;i++)idx.push(0,i,i+1,n,n+i+1,n+i);
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    idx.push(i,j,n+j,i,n+j,n+i);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(idx);geo.computeVertexNormals();
+  const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false}));
+  scene.add(mesh);return mesh;
+}
+
+function addEngine(x,y,z,r,len,color){
+  const geo=new THREE.CylinderGeometry(r,r*.9,len,24,1,true);
+  const mat=new THREE.MeshLambertMaterial({color,transparent:true,opacity:.9,side:THREE.DoubleSide,depthWrite:false});
+  const eng=new THREE.Mesh(geo,mat);
+  eng.rotation.z=Math.PI/2;
+  eng.position.set(x,y,z);
+  scene.add(eng);
+  const rim=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.22}));
+  rim.rotation.copy(eng.rotation);rim.position.copy(eng.position);scene.add(rim);
+}
+
+function addAircraftSolidModel(x0,x1,cy,ry,rz,totalLen){
+  const skinColor=0xa7fff0,accent=0x46d6c6;
+  const skin=new THREE.Mesh(makeFuselageSkinGeometry(x0-130,x1+150,cy,ry*.82,rz*.68),new THREE.MeshLambertMaterial({color:skinColor,transparent:true,opacity:.38,side:THREE.DoubleSide,depthWrite:false}));
+  scene.add(skin);
+
+  const wingY=cy-ry*.22,wingX=x0+(x1-x0)*.45;
+  [1,-1].forEach(side=>{
+    addAeroPanel([
+      [wingX-150,side*rz*.42],
+      [wingX+220,side*rz*.62],
+      [wingX+520,side*rz*2.12],
+      [wingX+40,side*rz*1.55],
+    ],wingY,10,skinColor,.76);
+    addEngine(wingX+165,wingY-42,side*rz*1.05,22,70,accent);
+  });
+
+  const tailX=x1+18,tailY=cy+ry*.3;
+  [1,-1].forEach(side=>{
+    addAeroPanel([
+      [tailX-120,side*rz*.32],
+      [tailX+35,side*rz*.45],
+      [tailX+125,side*rz*1.08],
+      [tailX-40,side*rz*.85],
+    ],tailY,8,skinColor,.78);
+  });
+  addVerticalFin([[tailX-95,cy+ry*.42],[tailX+35,cy+ry*1.38],[tailX+115,cy+ry*.45]],0,14,accent,.82);
+
+  const noseX=x0-92;
+  addAeroPanel([[noseX-22,-rz*.2],[noseX+58,-rz*.18],[noseX+74,rz*.18],[noseX-18,rz*.2]],cy+ry*.2,4,0x164e63,.72);
+}
+
+function addLabel3D(text,x,y,z,color='#EAB308',w=260,h=64){
+  const canvas=document.createElement('canvas');
+  canvas.width=512;canvas.height=128;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,512,128);
+  ctx.font='700 34px Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(0,0,0,.55)';
+  ctx.fillRect(24,34,464,60);
+  ctx.strokeStyle=color;ctx.lineWidth=3;
+  ctx.strokeRect(24,34,464,60);
+  ctx.fillStyle=color;
+  ctx.fillText(text,256,64);
+  const tex=new THREE.CanvasTexture(canvas);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,depthTest:false});
+  const sprite=new THREE.Sprite(mat);
+  sprite.position.set(x,y,z);
+  sprite.scale.set(w,h,1);
+  scene.add(sprite);
+  return sprite;
+}
+
+function lowerHoldForPosition(posId){
+  const p=String(posId||'').toUpperCase();
+  if(p.includes('BULK'))return'BULK';
+  if(/^F/.test(p)||/^P?1/.test(p)||/^2/.test(p))return'FWD';
+  return'AFT';
+}
+
+function holdColor(hold){
+  return hold==='FWD'?0x60a5fa:hold==='AFT'?0xEAB308:0xf97316;
+}
+
+function buildDeckLayouts(positions,pallets,defaultSpec,deck){
+  const byPos=new Map(pallets.map(p=>[p.posId,p]));
+  const layouts=[];
+  let x=0,lastHold=null;
+  positions.forEach((posId,i)=>{
+    const hold=deck==='lower'||deck==='bulk'?lowerHoldForPosition(posId):'MAIN';
+    if(lastHold&&hold!==lastHold)x+=hold==='BULK'?85:120;
+    const pal=byPos.get(posId)||pallets[i]||null;
+    const spec=pal?.spec||defaultSpec;
+    const slotL=Math.max(spec?.l||defaultSpec.l,defaultSpec.l);
+    layouts.push({posId,i,hold,pal,spec,x,l:slotL});
+    x+=slotL;
+    lastHold=hold;
+  });
+  return layouts;
+}
+
+function mainDeckPositionParts(posId){
+  const p=String(posId||'').toUpperCase();
+  const side=/[LR]$/.test(p)&&p.length>1?p.slice(-1):'C';
+  const station=side==='C'?p:p.slice(0,-1);
+  return{station,side};
+}
+
+function buildMainDeckLayouts(positions,pallets,defaultSpec,startX=0){
+  const byPos=new Map(pallets.map(p=>[p.posId,p]));
+  const stations=[];
+  positions.forEach(posId=>{
+    const part=mainDeckPositionParts(posId);
+    if(!stations.find(s=>s.station===part.station))stations.push({station:part.station,positions:[]});
+    stations.find(s=>s.station===part.station).positions.push(posId);
+  });
+  const sideGap=Math.max(28,Math.min(54,defaultSpec.w*.16));
+  const layouts=[];
+  let x=startX;
+  stations.forEach((station,stationIndex)=>{
+    const stationSlots=station.positions.map(posId=>({posId,pal:byPos.get(posId)||null,part:mainDeckPositionParts(posId)}));
+    const stationL=Math.max(defaultSpec.l,...stationSlots.map(s=>s.pal?.spec?.l||defaultSpec.l));
+    stationSlots.forEach((s,slotIndex)=>{
+      const spec=s.pal?.spec||defaultSpec;
+      const side=s.part.side;
+      const z=side==='L'?-(spec.w/2+sideGap/2):side==='R'?(spec.w/2+sideGap/2):0;
+      layouts.push({posId:s.posId,i:slotIndex,station:station.station,stationIndex,side,hold:'MAIN',pal:s.pal,spec,x,l:stationL,z,w:spec.w});
+    });
+    x+=stationL;
+  });
+  return layouts;
+}
+
+function holdRanges(layouts){
+  const out=[];
+  layouts.forEach(l=>{
+    let g=out.find(x=>x.hold===l.hold);
+    if(!g){g={hold:l.hold,x0:l.x,x1:l.x+l.l};out.push(g);}
+    g.x0=Math.min(g.x0,l.x);g.x1=Math.max(g.x1,l.x+l.l);
+  });
+  return out;
+}
+
+function renderAircraftView(){
+  initRenderer();
+  const canvas=document.getElementById('cv');
+  const ac=AIRCRAFT[selAC];
+  if(!ac){renderer.render(scene,camera);return;}
+
+  const lowerSpec=ULD_DB[ac.lower?.uld||'AKE']||ULD_DB.AKE;
+  const mainSpec=ac.main?ULD_DB[ac.main.uld]||ULD_DB.PMC:null;
+  const lowerPos=ac.lower?.pos||[];
+  const mainPos=ac.main?.pos||[];
+  const lowerPals=allPallets.filter(p=>p.deck==='lower'||p.deck==='bulk');
+  const mainPals=allPallets.filter(p=>p.deck==='main');
+
+  const LOWER_Y=0;
+  const lowerLayouts=buildDeckLayouts(lowerPos,lowerPals,lowerSpec,'lower');
+  const lowerLen=lowerLayouts.length?Math.max(...lowerLayouts.map(l=>l.x+l.l)):360;
+  const mainStart=lowerLen*.08;
+  const mainLayouts=mainSpec?buildMainDeckLayouts(mainPos,mainPals,mainSpec,mainStart):[];
+  const mainLen=mainLayouts.length?Math.max(...mainLayouts.map(l=>l.x+l.l)):0;
+  const totalLen=Math.max(lowerLen,mainLen,420);
+  const lowerMaxH=Math.max(lowerSpec.h,...lowerPals.map(p=>p.spec.h));
+  const lowerMaxW=Math.max(lowerSpec.w,...lowerPals.map(p=>p.spec.w));
+  const MAIN_Y=mainSpec?lowerMaxH+44:lowerMaxH+130;
+  const mainMaxH=mainSpec?mainSpec.h:0;
+  const mainMaxW=mainLayouts.length?Math.max(...mainLayouts.map(l=>Math.abs(l.z)+(l.w||mainSpec.w)/2))*2:0;
+  const fuseRy=(MAIN_Y+mainMaxH+120)/2;
+  const fuseCy=fuseRy-42;
+  const fuseRz=Math.max(lowerMaxW,mainMaxW,244)/2+95;
+  const x0=-80,x1=totalLen+80;
+
+  const dlA=new THREE.DirectionalLight(0xffffff,.95);dlA.position.set(totalLen,fuseRy*3,fuseRz*2);scene.add(dlA);
+  scene.add(new THREE.AmbientLight(0xffffff,.6));
+  addAircraftSolidModel(x0,x1,fuseCy,fuseRy,fuseRz,totalLen);
+  addFuselageWire(x0,x1,fuseCy,fuseRy,fuseRz,0x378ADD);
+
+  const lowerW=lowerMaxW+42;
+  const lowerRanges=holdRanges(lowerLayouts);
+  lowerRanges.forEach(g=>{
+    const col=holdColor(g.hold);
+    const pad=g.hold==='BULK'?18:26;
+    addWireBox((g.x0+g.x1)/2,LOWER_Y+lowerMaxH/2,-2,g.x1-g.x0+pad*2,lowerMaxH+18,lowerW,col,.34);
+    addLabel3D(g.hold==='FWD'?'FORWARD HOLD':g.hold==='AFT'?'AFT HOLD':'BULK HOLD',(g.x0+g.x1)/2,LOWER_Y+lowerMaxH+68,0,`#${col.toString(16).padStart(6,'0')}`,360,72);
+    addBar(g.x0-pad,LOWER_Y-4,-lowerW/2,g.x1+pad,LOWER_Y-4,-lowerW/2,col,2,.55);
+    addBar(g.x0-pad,LOWER_Y-4, lowerW/2,g.x1+pad,LOWER_Y-4, lowerW/2,col,2,.55);
+    addBar(g.x0-pad,LOWER_Y+lowerMaxH+10,-lowerW/2,g.x0-pad,LOWER_Y+lowerMaxH+10,lowerW/2,col,2,.45);
+    addBar(g.x1+pad,LOWER_Y+lowerMaxH+10,-lowerW/2,g.x1+pad,LOWER_Y+lowerMaxH+10,lowerW/2,col,2,.45);
+  });
+
+  lowerLayouts.forEach(slot=>{
+    const pal=slot.pal;
+    const spec=slot.spec||lowerSpec;
+    const col=pal?parseInt(pal.color.replace('#',''),16):holdColor(slot.hold);
+    const geo=new THREE.BoxGeometry(slot.l-6,spec.h-6,spec.w-6);
+    if(pal){
+      const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.72,emissive:col,emissiveIntensity:.04});
+      const mesh=new THREE.Mesh(geo,mat);mesh.position.set(slot.x+slot.l/2,LOWER_Y+spec.h/2,0);scene.add(mesh);
+      const utilW=(pal.util/100)*(slot.l-10);
+      const utilGeo=new THREE.BoxGeometry(utilW,4,spec.w-10);
+      const utilMat=new THREE.MeshBasicMaterial({color:pal.util>=80?0x22c55e:pal.util>=60?0xEAB308:0xf97316});
+      const utilMesh=new THREE.Mesh(utilGeo,utilMat);
+      utilMesh.position.set(slot.x+5+utilW/2,LOWER_Y+spec.h+3,0);scene.add(utilMesh);
+    } else {
+      const eg=new THREE.EdgesGeometry(geo);
+      const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:.24}));
+      ln.position.set(slot.x+slot.l/2,LOWER_Y+spec.h/2,0);scene.add(ln);
+    }
+    const eg2=new THREE.EdgesGeometry(geo);
+    const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:col,transparent:true,opacity:pal?.38:.22}));
+    ln2.position.set(slot.x+slot.l/2,LOWER_Y+spec.h/2,0);scene.add(ln2);
+  });
+
+  if(mainSpec){
+    const mainW=Math.max(mainMaxW,mainSpec.w)+70;
+    addWireBox(totalLen/2,MAIN_Y+mainSpec.h/2,0,totalLen*.92,mainSpec.h+20,mainW,0xffffff,.16);
+    addLabel3D('MAIN DECK',totalLen/2,MAIN_Y+mainSpec.h+72,0,'#ffffff',360,72);
+    addBar(mainStart,MAIN_Y-5,-mainW/2,totalLen-60,MAIN_Y-5,-mainW/2,0xffffff,2,.25);
+    addBar(mainStart,MAIN_Y-5, mainW/2,totalLen-60,MAIN_Y-5, mainW/2,0xffffff,2,.25);
+    addBar(mainStart,MAIN_Y-3,0,totalLen-60,MAIN_Y-3,0,0x60a5fa,1.5,.22);
+    mainLayouts.forEach(slot=>{
+      const pal=slot.pal;
+      const col=pal?parseInt(pal.color.replace('#',''),16):0x333333;
+      const slotW=slot.w||mainSpec.w;
+      const geo=new THREE.BoxGeometry(slot.l-5,mainSpec.h-5,slotW-5);
+      if(pal){
+        const mat=new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:.55});
+        const mesh=new THREE.Mesh(geo,mat);mesh.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,slot.z||0);scene.add(mesh);
+        const utilW=(pal.util/100)*(slot.l-8);
+        const utilGeo=new THREE.BoxGeometry(utilW,5,slotW-8);
+        const utilMat=new THREE.MeshBasicMaterial({color:pal.util>=80?0x22c55e:pal.util>=60?0xEAB308:0xf97316});
+        const utilMesh=new THREE.Mesh(utilGeo,utilMat);
+        utilMesh.position.set(slot.x+4+utilW/2,MAIN_Y+mainSpec.h+3,slot.z||0);scene.add(utilMesh);
+      } else {
+        const eg=new THREE.EdgesGeometry(geo);
+        const ln=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0x2a2a2a,transparent:true,opacity:.8}));
+        ln.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,slot.z||0);scene.add(ln);
+      }
+      const eg2=new THREE.EdgesGeometry(geo);
+      const ln2=new THREE.LineSegments(eg2,new THREE.LineBasicMaterial({color:pal?0xffffff:0x333333,transparent:true,opacity:pal?.22:.2}));
+      ln2.position.set(slot.x+slot.l/2,MAIN_Y+mainSpec.h/2,slot.z||0);scene.add(ln2);
+    });
+  }
+
+  const cx=totalLen/2, cy=fuseCy, cz=0;
+  rot={x:.38,y:-.55};zoom=.62;
+  updateCam(cx,cy,cz);setupMouse(canvas,cx,cy,cz);
+}
+
+/*  UI HELPERS  */
+function buildPalTabs(){
+  if(!allPallets.length){document.getElementById('palTabs').innerHTML='';return;}
+  document.getElementById('palTabs').innerHTML=allPallets.map((p,i)=>`
+    <button class="ptab ${i===activePal?'active':''}" onclick="switchPal(${i})">
+      <span style="width:6px;height:6px;border-radius:2px;background:${p.color};display:inline-block"></span>
+      ${p.posId} <span style="opacity:.6">${p.util}%</span>
+    </button>`).join('');
+}
+
+function switchPal(i){
+  activePal=i;buildPalTabs();
+  if(viewMode==='uld')renderULDView();
+}
+
+function updateKPIs(){
+  const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
+  const dimWt=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h)/DIM_DIV*sh.pcs,0);
+  const totalSlots=buildAircraftSlots(AIRCRAFT[selAC],getSelectedULDs()).length||AIRCRAFT[selAC].lower?.pos.length||'?';
+  const manifestPcs=shipments.reduce((s,sh)=>s+sh.pcs,0);
+  const loadedPcs=allPallets.reduce((s,p)=>s+p.placed.length,0);
+  document.getElementById('kv1').textContent=selAC;
+  document.getElementById('kv2').textContent=selectedUldText();
+  document.getElementById('kv3').textContent=allPallets.length>0?`${allPallets.length}/${totalSlots}`:' - ';
+  document.getElementById('kv4').textContent=Math.max(totalWt,dimWt)>0?Math.round(Math.max(totalWt,dimWt))+' kg':' - ';
+  document.getElementById('kv3').style.color=allPallets.length>0?'#22c55e':'#EAB308';
+  const ps=document.getElementById('planSummary');
+  if(ps)ps.innerHTML=`
+    <span class="plan-pill">Manifest pcs: ${manifestPcs}</span>
+    <span class="plan-pill ${loadedPcs&&loadedPcs===manifestPcs?'good':loadedPcs?'warn':''}">Loaded pcs: ${loadedPcs||'-'}${loadedPcs?`/${manifestPcs}`:''}</span>
+    <span class="plan-pill ${overflowPieces.length?'bad':'good'}">Overflow: ${overflowPieces.length||0}</span>`;
+}
+
+function updateTable(){
+  const tbody=document.getElementById('tblBody');
+  if(!allPallets.length&&!overflowPieces.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Run ULD buildup to generate load plan</td></tr>';return;}
+  let rows='';
+  for(const p of allPallets){
+    const grps={};
+    for(const b of p.placed){if(!grps[b.id])grps[b.id]=[];grps[b.id].push(b);}
+    for(const grp of Object.values(grps)){
+      const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1),cw=+(Math.max(aw,dw)).toFixed(1);
+      const oh=grp.some(x=>x.overhang);
+      const tilted=grp.some(x=>x.tilted);
+      rows+=`<tr onclick="switchPal(${allPallets.indexOf(p)});if(viewMode==='aircraft')setView('uld')">
+        <td><span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:2px;background:${p.color};display:inline-block"></span><b style="color:#ddd">${p.posId}</b></span></td>
+        <td style="color:#666;font-size:10px">${p.spec.code}</td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;color:#888">${b.desc}</td>
+        <td style="text-align:center">${grp.length}</td>
+        <td style="font-family:monospace">${aw}kg</td>
+        <td style="font-family:monospace">${dw}kg</td>
+        <td style="font-weight:700;font-family:monospace;color:${cw===aw?'#22c55e':'#EAB308'}">${cw}kg</td>
+        <td>${oh?`<span class="bt bty">+${grp[0].ovCm}cm</span>`:'<span style="color:#333"> - </span>'}</td>
+        <td><span class="bt ${tilted?'bty':'btg'}">${tilted?'Tilted':'Placed'}</span>${b.noStack?' <span class="bt bty">No stack</span>':''}${b.dg?` <span class="bt btr">DG ${b.dg}</span>`:''}</td>
+      </tr>`;
+    }
+  }
+  if(overflowPieces.length){
+    const grps={};
+    overflowPieces.forEach(b=>{const k=b.id+"|"+b.reason;if(!grps[k])grps[k]=[];grps[k].push(b);});
+    for(const grp of Object.values(grps)){
+      const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1),cw=+(Math.max(aw,dw)).toFixed(1);
+      rows+=`<tr>
+        <td><span class="bt btr">Overflow</span></td>
+        <td style="color:#ef4444;font-size:10px;max-width:160px;white-space:normal">${b.reason||'No slot'}</td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;color:#888">${b.desc}</td>
+        <td style="text-align:center">${grp.length}</td>
+        <td style="font-family:monospace">${aw}kg</td>
+        <td style="font-family:monospace">${dw}kg</td>
+        <td style="font-weight:700;font-family:monospace;color:#ef4444">${cw}kg</td>
+        <td><span style="color:#333"> - </span></td>
+        <td><span class="bt btr">Not loaded</span></td>
+      </tr>`;
+    }
+  }
+  tbody.innerHTML=rows;
+}
+
+function renderList(){
+  const el=document.getElementById('shipList');
+  document.getElementById('sCnt').textContent=shipments.length+' item'+(shipments.length!==1?'s':'');
+  el.innerHTML=!shipments.length
+    ?'<div style="font-size:10px;color:#444;text-align:center;padding:8px">No shipments added</div>'
+    :shipments.map(s=>`<div class="s-row"><span class="s-dot" style="background:${s.color}"></span><span class="s-lbl">${s.desc} - ${s.l}x${s.w}x${s.h}cm ${s.wt}kg x${s.pcs}</span><span class="s-rm" onclick="removeShipment(${s.id})">x</span></div>`).join('');
+document.getElementById('runOptBtn').disabled=shipments.length===0;document.getElementById('runUldBtn')&&(document.getElementById('runUldBtn').disabled=shipments.length===0);  updateRec();
+}
+
+function removeShipment(id){shipments=shipments.filter(s=>s.id!==id);renderList();}
+function clearAll(){shipments=[];allPallets=[];overflowPieces=[];renderList();buildPalTabs();document.getElementById('runAcBtn').disabled=true;updateKPIs();document.getElementById('tblBody').innerHTML='<tr><td colspan="9" style="text-align:center;color:#333;padding:16px">Select aircraft  -  add cargo  -  run ULD buildup</td></tr>';setStage(1);if(renderer)renderULDView();}
+
+function selectAC(k){selAC=k;const ac=AIRCRAFT[k];selULD=ac.lowerUlds[0]||ac.mainUlds[0]||'AKE';selectedULDs=[selULD];uldDeckFilter='all';uldPickerOpen=false;document.querySelectorAll('#deckFilter button').forEach((b,i)=>b.classList.toggle('active',i===0));buildAcGrid();buildULDList();allPallets=[];overflowPieces=[];buildPalTabs();updateKPIs();setStage(1);document.getElementById('runAcBtn').disabled=true;if(renderer){if(viewMode==='aircraft')renderAircraftView();else renderULDView();}}
+function selectULD(code){
+  selULD=code;
+  const set=new Set(getSelectedULDs());
+  if(set.has(code)&&set.size>1)set.delete(code);
+  else set.add(code);
+  selectedULDs=[...set];
+  allPallets=[];overflowPieces=[];activePal=0;buildPalTabs();updateKPIs();updateTable();
+  document.getElementById('runAcBtn').disabled=true;
+  buildULDList();
+  if(renderer&&viewMode==='uld')renderULDView();
+}
+
+/*  CUSTOM ULD  */
+function toggleCustomForm(){
+  const f=document.getElementById('customForm');
+  f.style.display=f.style.display==='none'?'block':'none';
+}
+function addCustomULD(){
+  const code=document.getElementById('cuCode').value.trim();
+  const l=parseFloat(document.getElementById('cuL').value);
+  const w=parseFloat(document.getElementById('cuW').value);
+  const h=parseFloat(document.getElementById('cuH').value);
+  const maxWt=parseFloat(document.getElementById('cuWt').value);
+  const deck=document.getElementById('cuDeck').value;
+  if(!code||!l||!w||!h||!maxWt){alert('Fill in all custom ULD fields.');return;}
+  customULDs[code]={code,name:'Custom ULD',deck,l,w,h,tare:0,vol:+(l*w*h/1e6).toFixed(3),maxWt};
+  AIRCRAFT[selAC].lowerUlds.push(code);
+  selULD=code;selectedULDs=[...new Set([...getSelectedULDs(),code])];buildULDList();updateKPIs();
+  document.getElementById('customForm').style.display='none';
+  ['cuCode','cuL','cuW','cuH','cuWt'].forEach(id=>document.getElementById(id).value='');
+}
+
+/*  MANUAL ENTRY  */
+function addManual(){
+  const desc=document.getElementById('fdesc').value||'Cargo item';
+  const l=parseFloat(document.getElementById('fl').value);
+  const w=parseFloat(document.getElementById('fw').value);
+  const h=parseFloat(document.getElementById('fh').value);
+  const wt=parseFloat(document.getElementById('fwt').value);
+  const pcs=parseInt(document.getElementById('fpcs').value)||1;
+  const tilt=document.getElementById('ftilt').checked;
+  const noStack=document.getElementById('fnostack').checked;
+  const dg=document.getElementById('fdg').value||null;
+  shipments.push({id:Date.now()+Math.random(),desc,l,w,h,wt,pcs,tiltable:tilt,noStack,dg,color:COLORS[shipments.length%COLORS.length]});
+  document.getElementById('fnostack').checked=false;document.getElementById('fdg').value='';
+  renderList();
+  document.getElementById('fdesc').value='';
+  ['fl','fw','fh','fwt'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fpcs').value='1';
+}
+
+/*  EXCEL  */
+function switchTab(id,btn){
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tp').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');document.getElementById('tp-'+id).classList.add('active');
+}
+
+async function handleFile(file){
+  if(!file)return;
+  try{
+    const ab=await file.arrayBuffer();
+    const wb=XLSX.read(new Uint8Array(ab),{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+    const data=json.filter(r=>Array.isArray(r)&&r.some(c=>String(c).trim()!==''));
+    if(data.length<2){setStat('err','File empty');return;}
+
+    const norm=v=>String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'').trim();
+    const num=v=>{
+      const n=parseFloat(String(v||'').replace(/,/g,'').replace(/[^\d.-]/g,''));
+      return Number.isFinite(n)?n:0;
+    };
+    const intVal=v=>Math.max(1,parseInt(num(v))||1);
+    const findHeaderRow=()=>data.findIndex(row=>row.map(norm).some(h=>['lengthcm','length','lcm','l'].includes(h))&&row.map(norm).some(h=>['widthcm','width','wcm','w'].includes(h)));
+    const hi=Math.max(0,findHeaderRow());
+    const hdrs=data[hi].map(norm);
+    const rows=data.slice(hi+1);
+    const aliases={
+      desc:['description','desc','awbdescription','awbnumber','awb','name','item','cargo','shipment','shipmentnameid'],
+      l:['lengthcm','length','lcm','l','len'],
+      w:['widthcm','width','wcm','w','wid'],
+      h:['heightcm','height','hcm','h','hgt'],
+      wt:['weightkg','weight','grossweight','actualweight','wt','kg'],
+      pcs:['pieces','pcs','qty','quantity','noofpieces','piece'],
+      stackable:['stackable','stack'],
+      nostack:['nostack','donotstack','nonstackable'],
+      tilt:['tiltable','tilt','canrotate'],
+      dg:['dgclass','dg','imoclass','hazardclass','dangerousgoods']
+    };
+    const yes=v=>['y','yes','true','1','x'].includes(String(v||'').trim().toLowerCase());
+    const no=v=>['n','no','false','0'].includes(String(v||'').trim().toLowerCase());
+    const dgVal=v=>{const s=String(v||'').trim().toUpperCase().replace(/^CLASS\s*/,'');return s&&!no(s)&&s!=='NONE'&&s!=='-'?s:null;};
+    const cm={};
+    Object.entries(aliases).forEach(([key,als])=>{cm[key]=hdrs.findIndex(h=>als.includes(h));});
+    if(cm.l<0||cm.w<0||cm.h<0||cm.wt<0){setStat('err','Could not detect L/W/H/Weight columns - use template');return;}
+
+    let imp=0,skipped=0;
+    const added=[];
+    rows.forEach((row,ri)=>{
+      if(!row.some(c=>String(c).trim()!==''))return;
+      const l=num(row[cm.l]),w=num(row[cm.w]),h=num(row[cm.h]),wt=num(row[cm.wt]);
+      const pcs=cm.pcs>=0?intVal(row[cm.pcs]):1;
+      if(l<=0||w<=0||h<=0||wt<=0||pcs<=0){skipped++;return;}
+      const desc=cm.desc>=0&&String(row[cm.desc]).trim()?String(row[cm.desc]).trim():`Row ${hi+ri+2}`;
+      const noStack=(cm.nostack>=0&&yes(row[cm.nostack]))||(cm.stackable>=0&&no(row[cm.stackable]));
+      const tiltable=cm.tilt>=0&&yes(row[cm.tilt]);
+      const dg=cm.dg>=0?dgVal(row[cm.dg]):null;
+      added.push({id:Date.now()+Math.random()+imp,desc,l,w,h,wt,pcs,noStack,tiltable,dg,color:COLORS[(shipments.length+imp)%COLORS.length]});
+      imp++;
+    });
+    if(!imp){setStat('err',`No valid shipments found (${skipped} skipped)`);return;}
+    shipments=shipments.concat(added);
+    allPallets=[];overflowPieces=[];activePal=0;buildPalTabs();document.getElementById('runAcBtn').disabled=true;setStage(1);
+    renderList();updateKPIs();updateTable();if(renderer)renderULDView();
+    setStat('ok',`${imp} shipment${imp!==1?'s':''} imported${skipped?`, ${skipped} skipped`:''} from "${file.name}"`);
+  }catch(err){
+    setStat('err','Could not read file - use .xlsx/.csv template');
+    console.error(err);
+  }
+}
+
+function setStat(t,msg){const el=document.getElementById('upStat');el.className='stat-pill '+(t==='ok'?'up-ok':t==='err'?'up-err':'up-info');el.textContent=msg;}
+
+async function dlTemplate(){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([['AWB Number','Description','Length (cm)','Width (cm)','Height (cm)','Weight (kg)','Pieces','Stackable','Tiltable','DG Class'],['071-10001','Fresh flowers','80','60','50','40','2','Y','N',''],['071-10002','Auto parts','120','100','80','180','1','Y','N',''],['071-10003','Pharma','60','50','40','25','3','N','N',''],['071-10005','Paint','60','40','40','30','2','Y','N','3']]);
+  ws['!cols']=[{wch:14},{wch:22},{wch:12},{wch:11},{wch:12},{wch:12},{wch:8},{wch:10},{wch:9},{wch:9}];
+  XLSX.utils.book_append_sheet(wb,ws,'Manifest');XLSX.writeFile(wb,'AdeyIQ_Manifest_Template.xlsx');
+}
+
+function exportCSV(){
+  if(!allPallets.length){alert('Run optimization first.');return;}
+  let csv='Deck,Position,ULD,AWB/Desc,Pcs,Actual Wt,DIM Wt,Chargeable,Pos-L,Pos-W,Pos-H,Overhang\n';
+  for(const p of allPallets){
+    const grps={};
+    for(const b of p.placed){if(!grps[b.id])grps[b.id]=[];grps[b.id].push(b);}
+    for(const grp of Object.values(grps)){
+      const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1);
+      csv+=`${p.deck},${p.posId},${p.spec.code},"${b.desc}",${grp.length},${aw},${dw},${+(Math.max(aw,dw)).toFixed(1)},${Math.round(grp[0].px)},${Math.round(grp[0].pz)},${Math.round(grp[0].py)},${grp.some(x=>x.overhang)?'Yes':'No'}\n`;
+    }
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`AdeyIQ_LoadPlan_${selAC}_${selectedUldText().replace(/[^A-Za-z0-9]+/g,'_')}.csv`;a.click();
+}
+
+
+function generatePDF(){
+  if(!allPallets.length){alert('Run ULD buildup first.');return;}
+  if(viewMode!=='uld')setView('uld');
+  setTimeout(()=>{
+    const canvas=document.getElementById('cv');
+    let img='';
+    try{img=canvas.toDataURL('image/png');}catch(e){img='';}
+    const totalWt=shipments.reduce((s,sh)=>s+sh.wt*sh.pcs,0);
+    const dimWt=shipments.reduce((s,sh)=>s+(sh.l*sh.w*sh.h)/DIM_DIV*sh.pcs,0);
+    const chargeWt=Math.max(totalWt,dimWt);
+    const ac=AIRCRAFT[selAC];
+    const loadedUldTypes=[...new Set(allPallets.map(p=>p.spec.code))].join(', ');
+    const loadSequence=allPallets.map(p=>p.posId).join(' -> ');
+    const rows=[];
+    const cards=[];
+    for(const p of allPallets){
+      const grps={};
+      for(const b of p.placed){if(!grps[b.id])grps[b.id]=[];grps[b.id].push(b);}
+      const groupRows=[];
+      for(const grp of Object.values(grps)){
+        const b=grp[0],aw=+(b.wt*grp.length).toFixed(1),dw=+((b.l*b.w*b.h)/DIM_DIV*grp.length).toFixed(1);
+        const cw=+(Math.max(aw,dw)).toFixed(1);
+        const dims=`${b.l}x${b.w}x${b.h} cm`;
+        const location=`L ${Math.round(grp[0].px)} / W ${Math.round(grp[0].pz)} / H ${Math.round(grp[0].py)}`;
+        rows.push(`<tr>
+          <td>${p.deck}</td><td>${p.posId}</td><td>${p.spec.code}</td><td>${b.desc}</td>
+          <td>${grp.length}</td><td>${dims}</td><td>${aw} kg</td><td>${dw} kg</td><td>${cw} kg</td>
+          <td>${location}</td>
+          <td>${grp.some(x=>x.overhang)?'Yes':'No'}</td>
+        </tr>`);
+        groupRows.push(`<tr>
+          <td>${b.desc}</td><td>${grp.length}</td><td>${dims}</td><td>${aw} kg</td><td>${cw} kg</td><td>${location}</td>
+        </tr>`);
+      }
+      cards.push(`<section class="build-card">
+        <div class="build-head">
+          <div><span class="pos">${p.posId}</span><span class="deck">${p.deck.toUpperCase()} DECK</span></div>
+          <div class="badge">${p.spec.code}</div>
+        </div>
+        <div class="build-meta">
+          <div><b>${p.util}%</b><span>ULD utilization</span></div>
+          <div><b>${p.placed.length}</b><span>pieces</span></div>
+          <div><b>${Math.round(p.totalWt)} kg</b><span>actual weight</span></div>
+          <div><b>${p.hasOH?'YES':'NO'}</b><span>overhang</span></div>
+        </div>
+        <table class="mini"><thead><tr><th>Cargo</th><th>Pcs</th><th>Dims</th><th>Actual</th><th>Chargeable</th><th>Build location</th></tr></thead><tbody>${groupRows.join('')}</tbody></table>
+        <div class="instruction">Build instruction: place heavy/large pieces first, keep labels visible, secure cargo inside ${p.spec.code}, then stage ULD at aircraft position ${p.posId}.</div>
+      </section>`);
+    }
+    const report=window.open('','_blank');
+    if(!report){alert('Allow pop-ups to generate the PDF report.');return;}
+    report.document.write(`<!doctype html><html><head><title>AdeyIQ Load Plan ${selAC}</title>
+      <style>
+        *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111;background:#f3f4f6}
+        .page{max-width:1180px;margin:0 auto;background:#fff;min-height:100vh}
+        .hero{background:#0b0b0b;color:#fff;padding:24px 28px 18px;border-bottom:5px solid #EAB308}
+        .hero-top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.brand{display:flex;gap:12px;align-items:center}
+        .logo{width:42px;height:42px;border-radius:8px;background:#EAB308;color:#111;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px}
+        h1{font-size:25px;margin:0 0 4px}.muted{color:#8b949e;font-size:12px}.docno{text-align:right;font-size:11px;color:#c9d1d9}
+        .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:18px}
+        .k{background:#171717;border:1px solid #2e2e2e;border-radius:8px;padding:12px}.k b{display:block;font-size:20px;color:#fff}.k span{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:.08em}
+        .content{padding:20px 24px 28px}.section-title{display:flex;align-items:center;gap:8px;margin:18px 0 10px;font-weight:800;text-transform:uppercase;font-size:12px;letter-spacing:.08em;color:#111}
+        .section-title:before{content:'';width:7px;height:18px;background:#EAB308;border-radius:2px}
+        .view{display:grid;grid-template-columns:1.7fr .9fr;gap:14px;align-items:stretch}
+        .view-img{border-radius:10px;overflow:hidden;background:#080808;border:1px solid #151515;min-height:330px;display:flex;align-items:center;justify-content:center}
+        .view-img img{width:100%;height:360px;object-fit:contain;background:#080808}
+        .ops-box{border:1px solid #ddd;border-radius:10px;padding:14px;background:#fafafa}.ops-box h3{margin:0 0 10px;font-size:14px}
+        .ops-box ol{padding-left:18px;margin:0;font-size:12px;line-height:1.65}.ops-box li{margin-bottom:6px}
+        .build-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .build-card{border:1px solid #d8d8d8;border-radius:10px;overflow:hidden;background:#fff;break-inside:avoid}
+        .build-head{display:flex;justify-content:space-between;align-items:center;background:#111;color:#fff;padding:10px 12px}.pos{font-size:18px;font-weight:900;color:#EAB308;margin-right:8px}.deck{font-size:10px;color:#aaa}
+        .badge{background:#EAB308;color:#111;border-radius:99px;padding:5px 10px;font-weight:900;font-size:12px}
+        .build-meta{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #eee}.build-meta div{padding:9px 10px;border-right:1px solid #eee}.build-meta div:last-child{border-right:0}.build-meta b{display:block;font-size:14px}.build-meta span{font-size:9px;color:#666;text-transform:uppercase}
+        table{width:100%;border-collapse:collapse;font-size:10.5px}th,td{border-bottom:1px solid #e5e5e5;text-align:left;padding:7px 6px;vertical-align:top}
+        th{background:#202020;color:#fff;text-transform:uppercase;font-size:8.5px;letter-spacing:.04em}.mini th{background:#f1f1f1;color:#333}.mini td{font-size:10px}
+        .instruction{background:#fff8d8;border-top:1px solid #f3df85;padding:9px 11px;font-size:11px;line-height:1.4}
+        .full-table{border:1px solid #ddd;border-radius:10px;overflow:hidden}
+        .sign{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}.sig{border:1px solid #d8d8d8;border-radius:8px;padding:12px;height:74px}.sig b{display:block;font-size:11px;margin-bottom:28px}.sig span{font-size:10px;color:#666}
+        .footer{margin-top:16px;font-size:10px;color:#666;display:flex;justify-content:space-between}.no-print{padding:18px 24px;background:#fff;border-top:1px solid #eee}
+        .print-btn{padding:12px 22px;background:#EAB308;border:0;border-radius:8px;font-weight:900;cursor:pointer}
+        @page{size:A4 landscape;margin:10mm}@media print{body{background:#fff}.page{max-width:none}.no-print{display:none}.content{padding:12px}.hero{padding:16px 18px}.view-img img{height:250px}.build-grid{grid-template-columns:1fr 1fr}.build-card{page-break-inside:avoid}.section-title{margin-top:12px}}
+      </style></head><body>
+      <div class="page">
+        <div class="hero">
+          <div class="hero-top">
+            <div class="brand"><div class="logo">A</div><div><h1>AdeyIQ Cargo Load Instruction</h1><div class="muted">Operational build plan for warehouse, ramp and load control</div></div></div>
+            <div class="docno">Generated: ${new Date().toLocaleString()}<br>Route page: Optimizer<br>Status: Ready for build</div>
+          </div>
+          <div class="summary">
+            <div class="k"><b>${ac.label}</b><span>Aircraft type</span></div>
+            <div class="k"><b>${loadedUldTypes}</b><span>ULD types loaded</span></div>
+            <div class="k"><b>${allPallets.length}</b><span>ULD positions</span></div>
+            <div class="k"><b>${Math.round(totalWt)} kg</b><span>Actual weight</span></div>
+            <div class="k"><b>${Math.round(chargeWt)} kg</b><span>Chargeable weight</span></div>
+          </div>
+        </div>
+        <div class="content">
+          <div class="section-title">ULD Build Overview</div>
+          <div class="view">
+            <div class="view-img">${img?`<img src="${img}" alt="3D ULD buildup view">`:'<p style="color:#fff">3D image could not be captured.</p>'}</div>
+            <div class="ops-box">
+              <h3>Operations notes</h3>
+              <ol>
+                <li>Build ULDs exactly by the position cards below.</li>
+                <li>Load sequence follows position order: ${loadSequence}.</li>
+                <li>Verify ULD code, deck, piece count and weight before aircraft acceptance.</li>
+                <li>Any overhang marked YES must be approved before dispatch.</li>
+                ${ac.notes?`<li>${ac.notes}</li>`:''}
+                <li>After loading, sign the handover section and attach this PDF to the flight file.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="section-title">ULD Build Cards</div>
+          <div class="build-grid">${cards.join('')}</div>
+          <div class="section-title">Complete Cargo Detail</div>
+          <div class="full-table"><table><thead><tr><th>Deck</th><th>Position</th><th>ULD</th><th>AWB / Description</th><th>Pcs</th><th>Dims</th><th>Actual wt</th><th>DIM wt</th><th>Chargeable</th><th>Build location</th><th>Overhang</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+          <div class="sign">
+            <div class="sig"><b>Warehouse build completed by</b><span>Name / Time / Signature</span></div>
+            <div class="sig"><b>Ramp loading checked by</b><span>Name / Time / Signature</span></div>
+            <div class="sig"><b>Load control accepted by</b><span>Name / Time / Signature</span></div>
+          </div>
+          <div class="footer"><span>Generated by AdeyIQ Cargo Load Optimizer</span><span>Use latest approved flight manifest for final dispatch.</span></div>
+        </div>
+        <div class="no-print"><button class="print-btn" onclick="window.print()">Save as PDF</button></div>
+      </div>
+      <script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script>
+      </body></html>`);
+    report.document.close();
+  },250);
+}
+/*  INIT  */
+window.addEventListener('load',()=>{
+  buildAcGrid();buildULDList();renderList();updateKPIs();
+  renderULDView();
+  // Load demo shipments
+  const demo=[
+    {desc:'071-10001 Fresh flowers',l:80,w:60,h:50,wt:40,pcs:3},
+    {desc:'071-10002 Auto parts',l:120,w:100,h:80,wt:180,pcs:2},
+    {desc:'071-10003 Pharma',l:60,w:50,h:40,wt:25,pcs:4,noStack:true},
+    {desc:'071-10004 Electronics',l:90,w:70,h:60,wt:60,pcs:2},
+  ];
+  demo.forEach(d=>shipments.push({...d,id:Date.now()+Math.random(),color:COLORS[shipments.length%COLORS.length]}));
+  renderList();
+  setTimeout(()=>{optimize();},800);
+});
+</script>
+
+
+
