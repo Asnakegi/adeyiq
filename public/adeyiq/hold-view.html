@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AdeyIQ Hold View</title>
+<meta name="description" content="See ULDs inside the aircraft holds, with contours and loading.">
+<link rel="icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: ramp-side planning screen — aircraft picker, full-width aircraft stage, ULD build-up bench, then section / position / load panels. */
+/* Palette: Adey Abeba petal yellow and amber centre for the brand; Stripe-style white, cloud grey, navy and slate; blurple for doors, links and focus. */
+:root{
+  --bg:#F6F9FC;--panel:#FFFFFF;--panel2:#F0F4F8;--line:#E3E8EE;--fg:#0A2540;--muted:#425466;
+  --accent:#FFD21F;--accent-ink:#0A2540;--contour:#D99A00;--accent-text:#9A6700;--link:#635BFF;--door:#635BFF;
+  --skin:#FFFFFF;--stroke:#8792A2;--cut:#E9EEF4;--win:#A3ACB9;--glass:#0A2540;
+  --ok:#0E8A5F;--ok-bg:rgba(14,138,95,.10);--dgline:#DF1B41;--cold:#0570DE;
+  --gen:#8CC152;--gen-ink:#1f3a0a;--dg:#F5A623;--dg-ink:#3d2400;--per:#6FB1F0;--per-ink:#0b2b4d;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A2540;--panel:#0F2F50;--panel2:#16395E;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;
+  --accent:#FFD21F;--accent-ink:#0A2540;--contour:#FFD21F;--accent-text:#FFD21F;--link:#A29BFF;--door:#A29BFF;
+  --skin:#16395E;--stroke:#8FA3B8;--cut:#0B2742;--win:#4F6B88;--glass:#061727;
+  --ok:#3ECF8E;--ok-bg:rgba(62,207,142,.14);--dgline:#FF6B81;--cold:#4DB8FF;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A2540;--panel:#0F2F50;--panel2:#16395E;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;
+  --accent:#FFD21F;--accent-ink:#0A2540;--contour:#FFD21F;--accent-text:#FFD21F;--link:#A29BFF;--door:#A29BFF;
+  --skin:#16395E;--stroke:#8FA3B8;--cut:#0B2742;--win:#4F6B88;--glass:#061727;
+  --ok:#3ECF8E;--ok-bg:rgba(62,207,142,.14);--dgline:#FF6B81;--cold:#4DB8FF;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 32px}
+.wrap{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:32px;height:32px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:20px;flex:none}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(24px,3vw,32px);letter-spacing:.01em;margin:0;line-height:1.1;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.chip{font-family:var(--mono);font-size:12px;padding:4px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);white-space:nowrap}
+.chip.ok{border-color:transparent;background:var(--ok-bg);color:var(--ok)}
+.picker{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:720px){.picker{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pick{font:inherit;color:inherit;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pick:hover{border-color:var(--stroke)}
+.pick[aria-pressed="true"]{border-color:var(--link);box-shadow:inset 0 0 0 1px var(--link),0 6px 16px -6px rgba(99,91,255,.35)}
+.pick,.stage,.card{box-shadow:0 2px 5px -1px rgba(50,50,93,.10),0 1px 3px -1px rgba(0,0,0,.08)}
+.pick b{font-family:var(--display);font-weight:600;font-size:20px;line-height:1.1;letter-spacing:.01em}
+.pick span{font-size:12px;color:var(--muted)}
+.stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px 6px}
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.sw{width:11px;height:11px;border-radius:2px;display:inline-block;flex:none}
+.facts{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.tools{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:12px;padding:6px 11px;background:transparent;color:var(--muted);border:0;cursor:pointer;min-width:32px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:500}
+button:focus-visible,.slot:focus-visible,#iso:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.scroll{overflow-x:auto}
+#ac{display:block;width:100%;min-width:640px;height:auto;touch-action:pan-y;cursor:grab}
+#ac.dragging{cursor:grabbing}
+.slot{cursor:pointer;outline:none}
+.hint{font-size:12px;color:var(--muted)}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.35);max-width:280px;z-index:5}
+.tip b{font-weight:500}
+.shc{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);white-space:nowrap}
+.shc.dg{border-color:var(--dgline);color:var(--dgline)}
+.shc.cold{border-color:var(--cold);color:var(--cold)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.1fr);gap:14px}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.grid>.load{grid-column:1/-1}}
+@media (max-width:640px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.lab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+h2{font-family:var(--display);font-weight:600;font-size:22px;margin:0 0 6px;letter-spacing:.01em}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.side{padding:9px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.side:first-of-type{border-top:0}
+.tag{font-size:11px;padding:2px 7px;border-radius:5px;font-weight:500;white-space:nowrap}
+.empty{color:var(--muted)}
+.uld{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;background:transparent;width:100%;text-align:left;font:inherit;color:inherit}
+.uld:hover{background:var(--panel2)}
+.uld[aria-current="true"]{border-color:var(--link)}
+.stack{display:flex;flex-direction:column;width:14px;height:30px;border-radius:3px;overflow:hidden;flex:none}
+.list{max-height:320px;overflow-y:auto}
+.meter{height:10px;border-radius:5px;background:var(--panel2);overflow:hidden;margin:6px 0 2px}
+.meter i{display:block;height:100%;background:var(--gen)}
+.cg{position:relative;height:16px;background:var(--panel2);border-radius:5px;margin-top:6px}
+.cg .env{position:absolute;top:0;bottom:0;background:var(--ok-bg);border-left:2px solid var(--ok);border-right:2px solid var(--ok)}
+.cg .pt{position:absolute;top:-4px;width:3px;height:24px;background:var(--fg);border-radius:2px;transform:translateX(-1px)}
+.cgl{position:relative;height:16px;font-size:11px;color:var(--muted);margin-top:4px}
+.cgl span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 12px}
+.stat{background:var(--panel2);border-radius:8px;padding:8px 10px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:22px;font-weight:600;line-height:1.1}
+.stat span{font-size:11px;color:var(--muted)}
+.build{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.build{grid-template-columns:minmax(0,1fr)}}
+.isoWrap{position:relative}
+#iso{display:block;width:100%;height:auto;max-height:460px;background:var(--panel2);border-radius:10px;touch-action:pan-y;cursor:grab;outline:none}
+#iso.dragging{cursor:grabbing}
+.isoBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+.steps{display:flex;gap:4px;flex-wrap:wrap;margin:10px 0 12px;padding:0;list-style:none}
+.steps li{font-size:12px;padding:4px 8px;border-radius:6px;background:var(--panel2);color:var(--muted)}
+.steps li.done{color:var(--ok)}
+.steps li.now{background:var(--accent);color:var(--accent-ink);font-weight:500}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn{font:inherit;font-size:13px;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:500}
+.btn:disabled{opacity:.45;cursor:default}
+.check{display:flex;gap:8px;align-items:center;font-size:13px;padding:7px 0;border-top:1px solid var(--line)}
+.check b{color:var(--ok);font-weight:500}
+.awbs{display:flex;flex-direction:column;gap:4px;margin-top:12px}
+.awb{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
+.awb:hover{background:var(--panel2)}
+.awb[aria-pressed="true"]{border-color:var(--link);background:var(--panel2)}
+.awb .sw{width:14px;height:14px;border-radius:3px}
+.shcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+footer{font-size:12px;color:var(--muted);max-width:80ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+<header>
+  <a class="logo" href="/" aria-label="AdeyIQ home" style="text-decoration:none">A</a>
+  <div>
+    <h1 id="h1">Your flight · B787-8</h1>
+    <div class="sub" id="sub">ADD → FRA</div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div style="display:flex;gap:8px;align-items:center;width:100%;flex-wrap:wrap">
+    <span class="chip" style="border-color:transparent;background:var(--ok-bg);color:var(--ok)">Module 1 · Build your cargo virtually · Free</span>
+    <a href="/#access" style="font-size:13px;font-weight:500;color:var(--link);text-decoration:none">Unlock Optimize revenue and Bid your space →</a>
+  </div>
+</header>
+
+<nav class="picker" id="picker" aria-label="Aircraft type"></nav>
+
+<section class="stage" aria-label="Aircraft side view">
+  <div class="bar">
+    <span class="lg"><i class="sw" style="background:linear-gradient(90deg,#8CC152 0 33%,#6FB1F0 33% 66%,#E58FA6 66%)"></i>Each colour = one AWB</span>
+    <span class="lg"><i class="sw" style="border:2px solid var(--dgline)"></i>DG on board</span>
+    <span class="lg"><i class="sw" style="border:2px solid var(--cold)"></i>Cold chain</span>
+    <span class="lg"><i class="sw" style="border:1px dashed var(--stroke)"></i>Empty</span>
+    <span class="lg"><i class="sw" style="background:var(--door);height:4px"></i>Cargo door</span>
+    <div class="tools">
+      <div class="seg" role="group" aria-label="Zoom">
+        <button id="zOut" type="button" aria-label="Zoom out">−</button>
+        <button id="zIn" type="button" aria-label="Zoom in">+</button>
+      </div>
+      <div class="seg" role="group" aria-label="View">
+        <button id="vAll" aria-pressed="true" type="button">Whole aircraft</button>
+        <button id="vHold" aria-pressed="false" type="button">Cargo decks only</button>
+      </div>
+    </div>
+  </div>
+  <div class="scroll"><svg id="ac" viewBox="0 0 680 262" role="img" aria-labelledby="acT"><title id="acT">Aircraft side view</title></svg></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between">
+    <div class="facts" id="facts"></div>
+    <div class="hint">Drag to move · hover a ULD to see its AWBs and SHC codes</div>
+  </div>
+  <div class="tip" id="tip2" hidden></div>
+</section>
+
+<section class="card" aria-label="ULD build-up">
+  <div class="build">
+    <div>
+      <p class="lab" id="bT">Build-up</p>
+      <div class="isoWrap">
+        <svg id="iso" viewBox="0 0 360 300" tabindex="0" role="img" aria-label="3D view of the ULD being built inside its contour. Drag or use the arrow keys to turn it."></svg>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+      <div class="isoBar">
+        <div class="seg" role="group" aria-label="Bench view">
+          <button type="button" id="mU" aria-pressed="true">ULD</button>
+          <button type="button" id="mH" aria-pressed="false">Inside the hold</button>
+        </div>
+        <div class="seg" role="group" aria-label="Turn the ULD" id="rotSeg">
+          <button type="button" id="rL" aria-label="Turn left">⟲</button>
+          <button type="button" id="rSpin" aria-pressed="true">Auto-rotate</button>
+          <button type="button" id="rR" aria-label="Turn right">⟳</button>
+        </div>
+        <span class="hint" id="isoHint">Drag to turn · hover a box for AWB and SHC · click to highlight one AWB</span>
+      </div>
+    </div>
+    <div id="bPanel" aria-live="polite"></div>
+  </div>
+</section>
+
+<div class="grid">
+  <section class="card" aria-label="Cross-section">
+    <p class="lab" id="xsT">Cross-section</p>
+    <svg id="xs" viewBox="0 0 300 175" width="100%" role="img" aria-label="Fuselage cross-section at the selected row"></svg>
+  </section>
+  <section class="card" aria-label="Selected position" aria-live="polite">
+    <p class="lab">Selected position</p>
+    <div id="det"></div>
+  </section>
+  <section class="card load" aria-label="Load summary">
+    <p class="lab">Load summary</p>
+    <div class="stats" id="stats"></div>
+    <div class="list" id="ulds"></div>
+    <p class="lab" style="margin-top:14px">Centre of gravity · <span id="cgT" style="color:var(--ok);text-transform:none;letter-spacing:0"></span></p>
+    <div class="cg" id="cg" role="img"><div class="env"></div><div class="pt"></div></div>
+    <div class="cgl" id="cgl"></div>
+  </section>
+</div>
+
+<footer>Aircraft drawings are AdeyIQ's own, drawn to true proportions from the manufacturers' public airport-planning dimensions. No Boeing or Airbus artwork or logos are used. Flights, AWBs and pieces are sample data. Position codes, capacities and CG limits are illustrative placeholders; replace them with the operating airline's weight and balance manual before operational use.</footer>
+</div>
+
+<script>
+(function(){
+const NS='http://www.w3.org/2000/svg';
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const C={
+  g:{fill:'var(--gen)',ink:'var(--gen-ink)',name:'General'},
+  d:{fill:'var(--dg)',ink:'var(--dg-ink)',name:'Dangerous goods'},
+  p:{fill:'var(--per)',ink:'var(--per-ink)',name:'Perishable'}
+};
+const PAL=[['#8CC152','#1f3a0a'],['#6FB1F0','#0b2b4d'],['#F5A623','#3d2400'],['#E58FA6','#4a1426'],['#B39DF0','#2a1d5c'],['#5CC8BE','#073b36'],['#E8D44D','#3b3200'],['#F08A5D','#4a1d07']];
+const SHCMAP={'Fresh flowers':['PEF','PER'],'Pharmaceuticals':['PIL','COL'],'Chilled meat':['PEM','COL'],'Lithium batteries in equipment':['RLI'],'Paint':['RFL'],'Dry ice shipment':['ICE'],
+  'Coffee':['EAT'],'Mail':['MAL'],'E-commerce parcels':['ECC'],'Machinery':['HEA'],'Building materials':['HEA'],'Electronics':['VUN']};
+const POOL={
+  g:[{what:'Spare parts',shc:['GEN']},{what:'Courier shipments',shc:['COU']},{what:'Printed matter',shc:['GEN']},{what:'Medical supplies',shc:['GEN']},{what:'Mobile phones',shc:['ELI']},{what:'Household goods',shc:['GEN']}],
+  p:[{what:'Fresh vegetables',shc:['PER','EAT']},{what:'Fruit',shc:['PER','EAT']},{what:'Fresh fish',shc:['PES','PER']},{what:'Vaccines',shc:['PIL','COL']}],
+  d:[{what:'Spare parts',shc:['GEN']},{what:'Printed matter',shc:['GEN']},{what:'Household goods',shc:['GEN']}]
+};
+const U=(id,k,what,kg,awb,note)=>({id,k,what,kg,awb,note:note||''});
+const AC={
+ 'B787-8':{flight:'Your flight',route:'Tonight',std:'23:45',maker:'Boeing',role:'Passenger · lower deck',len:56.7,dia:5.77,kind:'pax',wing:.47,
+   lower:[{name:'Forward hold',a:.20,b:.42,rows:8,start:11},{name:'Aft hold',a:.53,b:.70,rows:6,start:31}],bulk:{a:.71,b:.76},doors:[.23,.58],pdoors:[.07,.33,.62,.88],cg:[14,36,27.4],
+   load:{L11:{L:U('A1','g','Auto parts',1180,'071-10002'),R:U('A2','g','Electronics',960,'071-10004')},L12:{L:U('A3','g','Textiles',1240,'071-10011'),R:U('A4','g','Machinery parts',1420,'071-10015')},L13:{L:U('D1','d','Lithium batteries in equipment',410,'071-10020','UN3481 · class 9')},L31:{L:U('F4','p','Fresh flowers',820,'071-10001','Keep 2–8 °C'),R:U('F5','p','Fresh flowers',790,'071-10007','Keep 2–8 °C')},L32:{L:U('F6','p','Pharmaceuticals',540,'071-10031','Keep 2–8 °C')}}},
+ 'B777F':{flight:'Your flight',route:'Tonight',std:'23:45',maker:'Boeing',role:'Freighter · main and lower deck',len:63.7,dia:6.2,kind:'freighter',wing:.475,
+   main:{name:'Main deck',a:.13,b:.80,rows:14},
+   lower:[{name:'Forward hold',a:.17,b:.42,rows:9,start:11},{name:'Aft hold',a:.53,b:.71,rows:7,start:31}],bulk:{a:.72,b:.77},doors:[.2,.57],mainDoor:.765,pdoors:[.07],cg:[14,34,24.8],
+   load:{M0:{L:U('P1','g','Machinery',6200,'071-20001'),R:U('P2','g','Machinery',5900,'071-20002')},M1:{L:U('P3','g','Vehicle parts',5600,'071-20005'),R:U('P4','g','Electronics',4800,'071-20009')},M2:{L:U('P5','p','Fresh flowers',4300,'071-20012','Keep 2–8 °C'),R:U('P6','p','Fresh flowers',4100,'071-20013','Keep 2–8 °C')},M3:{L:U('P7','g','Textiles',3900,'071-20017')},M4:{L:U('P8','d','Dry ice shipment',2100,'071-20021','UN1845 · class 9'),R:U('P9','g','Garments',4400,'071-20022')},M5:{L:U('P10','g','Tyres',5200,'071-20026'),R:U('P11','g','Building materials',6100,'071-20030')}}},
+ 'A350-900':{flight:'Your flight',route:'Tonight',std:'23:45',maker:'Airbus',role:'Passenger · lower deck',len:66.8,dia:5.96,kind:'pax',cockpit:'mask',wing:.475,
+   lower:[{name:'Forward hold',a:.18,b:.42,rows:10,start:11},{name:'Aft hold',a:.53,b:.72,rows:8,start:31}],bulk:{a:.73,b:.78},doors:[.21,.58],pdoors:[.07,.27,.6,.87],cg:[15,38,29.1],
+   load:{L11:{L:U('A1','g','Coffee',1350,'071-30001'),R:U('A2','g','Coffee',1310,'071-30002')},L12:{L:U('A3','g','Leather goods',980,'071-30006'),R:U('A4','g','Garments',1100,'071-30008')},L13:{L:U('A5','g','E-commerce parcels',870,'071-30011')},L14:{R:U('D2','d','Paint',360,'071-30014','UN1263 · class 3')},L31:{L:U('F1','p','Chilled meat',1420,'071-30020','Keep 0–4 °C'),R:U('F2','p','Chilled meat',1390,'071-30021','Keep 0–4 °C')},L32:{L:U('M1','g','Mail',640,'071-30025'),R:U('M2','g','Mail',590,'071-30026')}}},
+ 'B737-800':{flight:'Your flight',route:'Tonight',std:'23:45',maker:'Boeing',role:'Narrow-body · bulk holds',len:39.5,dia:3.76,kind:'narrow',wing:.47,
+   bulkOnly:[{key:'FWD',name:'Forward hold',a:.17,b:.40,vol:19.6,cap:3500,kg:620,pcs:34},{key:'AFT',name:'Aft hold',a:.56,b:.78,vol:25.4,cap:4500,kg:1140,pcs:61}],doors:[.2,.66],pdoors:[.08,.86],cg:[9,31,18.6],load:{}}
+};
+const ORDER=['B787-8','B777F','A350-900','B737-800'];
+let cur='B787-8',sel=null,selSide=null,holdView=false,geo=null,VB=null;
+try{const s=localStorage.getItem('adeyiq-ac');if(AC[s])cur=s}catch(e){}
+
+const f1=n=>Math.round(n*10)/10;
+const kgF=v=>v>=10000?(v/1000).toFixed(1)+' t':Math.round(v).toLocaleString('en-US')+' kg';
+const rowLabel=key=>key[0]==='M'?String.fromCharCode(65+ +key.slice(1)):key.slice(1);
+function rng(seed){let t=seed>>>0;return()=>{t+=0x6D2B79F5;let r=Math.imul(t^t>>>15,1|t);r^=r+Math.imul(r^r>>>7,61|r);return((r^r>>>14)>>>0)/4294967296}}
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+const awbNo=(pre,serial)=>{const s=String(serial%10000000).padStart(7,'0');return pre+'-'+s+(+s%7)};
+const shcClass=c=>['RLI','RFL','ICE','RCL','RNG'].includes(c)?'dg':(['COL','PIL','PEM','PEF','PER','PES','EAT'].includes(c)?'cold':'');
+const shcHtml=list=>list.map(c=>`<span class="shc ${shcClass(c)}">${c}</span>`).join(' ');
+
+/* consolidation: every ULD carries a main AWB plus a few others */
+const CONS={};
+function consign(u){
+  const key=cur+u.id;if(CONS[key])return CONS[key];
+  const R=rng(hash('c'+cur+u.id+u.awb)),prim=u.k==='g'?0:u.k==='p'?1:2;
+  const extra=1+Math.floor(R()*3),pool=POOL[u.k].slice();
+  const order=[3,4,5,6,7,0,1].filter(i=>i!==prim);
+  const share0=0.45+R()*0.25;let rest=1-share0;
+  const list=[{awb:awbNo('071',+u.awb.split('-')[1]),what:u.what,shc:SHCMAP[u.what]||['GEN'],ci:prim,share:share0,note:u.note}];
+  for(let i=0;i<extra&&pool.length;i++){
+    const p=pool.splice(Math.floor(R()*pool.length),1)[0];
+    const sh=i===extra-1?rest:rest*(0.35+R()*0.4);rest-=sh;
+    list.push({awb:awbNo(R()<.7?'071':'176',1000000+Math.floor(R()*8999999)),what:p.what,shc:p.shc,ci:order[i%order.length],share:sh,note:''});
+  }
+  list.forEach(a=>a.kg=Math.round(u.kg*a.share));
+  return CONS[key]=list;
+}
+
+function positions(a){
+  const list=[];
+  if(a.main){for(let i=0;i<a.main.rows;i++)list.push({key:'M'+i,deck:'main',hold:a.main,i})}
+  (a.lower||[]).forEach(h=>{for(let i=0;i<h.rows;i++)list.push({key:'L'+(h.start+i),deck:'lower',hold:h,i})});
+  (a.bulkOnly||[]).forEach(b=>list.push({key:'B'+b.key,deck:'bulk',hold:b}));
+  return list;
+}
+function allUlds(a){const out=[];Object.keys(a.load).forEach(k=>['L','R'].forEach(s=>{const u=a.load[k][s];if(u)out.push({key:k,side:s,u})}));return out}
+let pending=null;
+function eff(a,k){const l=a.load[k];if(!l||!pending||pending.key!==k||pending.cur!==cur)return l;const c=Object.assign({},l);delete c[pending.side];return (c.L||c.R)?c:null}
+
+/* ---------- aircraft side view ---------- */
+function buildSide(){
+  const a=AC[cur],W=640,k=W/a.len,D=a.dia*k,x0=20,xe=x0+W;
+  const T=Math.round(22+1.45*D),B=T+D,G=B+0.78*D,H=Math.round(G+16);
+  const X=f=>x0+f*W,xw=X(a.wing);
+  const floor=a.kind==='narrow'?T+0.62*D:T+0.6*D,holdBot=B-0.06*D,slotH=0.28*D,palH=0.42*D;
+  const fs=Math.max(7,Math.min(9,D*0.13));
+  const P=pts=>pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  let s='';
+  s+=`<line x1="-400" y1="${G}" x2="1080" y2="${G}" stroke="var(--line)"/>`;
+  const nx=x0+1.7*D,mx=xw+0.35*D,wr=0.12*D;
+  s+=`<line x1="${nx}" y1="${B-2}" x2="${nx}" y2="${G-wr*2}" stroke="var(--stroke)" stroke-width="${Math.max(2,D*.04)}"/><circle cx="${nx}" cy="${G-wr}" r="${wr}" fill="var(--stroke)"/>`;
+  s+=`<line x1="${mx}" y1="${B+0.1*D}" x2="${mx}" y2="${G-wr*2}" stroke="var(--stroke)" stroke-width="${Math.max(2.5,D*.05)}"/>`;
+  const nWheels=cur==='B777F'?3:(a.kind==='narrow'?1:2);
+  for(let i=0;i<nWheels;i++){const cx=mx+(i-(nWheels-1)/2)*wr*2.3;s+=`<circle cx="${cx}" cy="${G-wr}" r="${wr*1.1}" fill="var(--stroke)"/>`}
+  s+=`<polygon points="${P([[xw-1.0*D,B-0.06*D],[xw+1.2*D,B-0.1*D],[xw+3.1*D,B+0.48*D],[xw+2.85*D,B+0.55*D],[xw+0.1*D,B+0.14*D]])}" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.1"/>`;
+  s+=`<polygon points="${P([[xe-2.35*D,T],[xe-1.35*D,T-1.38*D],[xe-0.85*D,T-1.38*D],[xe-0.95*D,T-0.9*D],[xe-0.05*D,T+0.33*D]])}" fill="var(--accent)" stroke="var(--stroke)" stroke-width=".8"/>`;
+  const tl=2.2*D;
+  s+=`<path d="M${x0+0.9*D},${T} L${xe-tl},${T} C${xe-tl*0.5},${T+0.02*D} ${xe-0.15*D},${T+0.2*D} ${xe},${T+0.35*D} L${xe},${T+0.5*D} C${xe-0.5*D},${T+0.6*D} ${xe-2*D},${B-0.05*D} ${xe-3.2*D},${B} L${x0+0.9*D},${B} C${x0+0.2*D},${B} ${x0},${B-0.3*D} ${x0},${T+0.55*D} C${x0},${T+0.2*D} ${x0+0.4*D},${T} ${x0+0.9*D},${T} Z" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.3"/>`;
+  s+=`<polygon points="${P([[x0+0.35*D,T+0.39*D],[xe-1.6*D,T+0.39*D],[xe-0.9*D,T+0.3*D],[xe-0.9*D,T+0.35*D],[xe-1.6*D,T+0.44*D],[x0+0.3*D,T+0.44*D]])}" fill="var(--accent)"/>`;
+  if(a.cockpit==='mask')s+=`<path d="M${x0+0.18*D},${T+0.42*D} L${x0+0.5*D},${T+0.2*D} L${x0+1.05*D},${T+0.15*D} L${x0+1.2*D},${T+0.3*D} L${x0+0.55*D},${T+0.36*D} Z" fill="var(--glass)"/>`;
+  else s+=`<path d="M${x0+0.22*D},${T+0.36*D} L${x0+0.5*D},${T+0.2*D} L${x0+0.92*D},${T+0.17*D} L${x0+0.95*D},${T+0.32*D} L${x0+0.28*D},${T+0.4*D} Z" fill="var(--glass)"/>`;
+  if(a.kind!=='freighter'){
+    let w='';const step=0.17*D;
+    for(let x=x0+1.5*D;x<xe-3.1*D;x+=step){if(a.pdoors.some(f=>Math.abs(X(f)-x)<0.3*D))continue;w+=`<rect x="${x.toFixed(1)}" y="${T+0.24*D}" width="${0.07*D}" height="${0.12*D}" rx="${0.035*D}"/>`}
+    s+=`<g fill="var(--win)">${w}</g>`;
+  }
+  a.pdoors.forEach(f=>{s+=`<rect x="${X(f)-0.1*D}" y="${T+0.12*D}" width="${0.2*D}" height="${0.5*D}" rx="${0.05*D}" fill="none" stroke="var(--win)" stroke-width=".8"/>`});
+  s+=`<polygon points="${P([[xe-2.0*D,T+0.45*D],[xe-0.75*D,T+0.6*D],[xe-0.1*D,T+0.66*D],[xe-0.45*D,T+0.72*D],[xe-2.05*D,T+0.6*D]])}" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1"/>`;
+  if(a.main){
+    s+=`<rect x="${X(a.main.a)}" y="${T+0.1*D}" width="${X(a.main.b)-X(a.main.a)}" height="${floor-T-0.11*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/>`;
+    s+=`<rect x="${X(a.mainDoor)-0.3*D}" y="${floor-0.52*D}" width="${0.6*D}" height="${0.5*D}" fill="none" stroke="var(--door)" stroke-width="2"/>`;
+  }
+  (a.lower||[]).forEach(h=>{s+=`<rect x="${X(h.a)}" y="${floor+0.02*D}" width="${X(h.b)-X(h.a)}" height="${holdBot-floor-0.01*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/>`});
+  if(a.bulk)s+=`<rect x="${X(a.bulk.a)}" y="${floor+0.08*D}" width="${X(a.bulk.b)-X(a.bulk.a)}" height="${holdBot-floor-0.16*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/><text x="${(X(a.bulk.a)+X(a.bulk.b))/2}" y="${(floor+holdBot)/2+fs*0.35}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="${fs*0.85}" fill="var(--muted)">Bulk</text>`;
+  s+=`<line x1="${x0+0.4*D}" y1="${floor}" x2="${X(.79)}" y2="${floor}" stroke="var(--stroke)" stroke-width="1.4"/>`;
+  let slots='';const gs={};
+  positions(a).forEach(p=>{
+    const sl=p.key===sel;
+    if(p.deck==='bulk'){
+      const b=p.hold,x=X(b.a),w=X(b.b)-x,y=floor+0.03*D,h=holdBot-y,pct=b.kg/b.cap;
+      slots+=`<g class="slot" tabindex="0" role="button" data-k="${p.key}" aria-label="${b.name}, ${b.kg} kg loaded"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="var(--cut)" stroke="${sl?'var(--contour)':'var(--stroke)'}" stroke-width="${sl?2:.8}"/><rect x="${x+2}" y="${y+h*(1-pct)}" width="${w-4}" height="${h*pct-2}" rx="2" fill="var(--gen)"/><text x="${x+w/2}" y="${y+h*0.42}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="${fs}" fill="var(--fg)">${b.name} · ${Math.round(pct*100)}%</text></g>`;
+      return;
+    }
+    const h=p.hold,x1=X(h.a),pitch=(X(h.b)-x1)/h.rows,x=x1+p.i*pitch+0.8,w=pitch-1.6;
+    const isMain=p.deck==='main',hgt=isMain?palH:slotH,y=isMain?floor-palH-0.5:holdBot-slotH-1;
+    const l=eff(a,p.key),lab=rowLabel(p.key);gs[p.key]={x,y,w,h:hgt};
+    const sides=l?['L','R'].filter(sd=>l[sd]):[];
+    let inner='';
+    sides.forEach((sd,si)=>{
+      const u=l[sd],cs=consign(u),sw=sides.length===2?w/2:w,sx=x+si*sw;let yy=y+hgt;
+      cs.forEach(c=>{const bh=hgt*c.share;yy-=bh;inner+=`<rect x="${sx.toFixed(1)}" y="${yy.toFixed(1)}" width="${sw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${PAL[c.ci][0]}"/>`});
+    });
+    const kinds=sides.map(sd=>l[sd].k),bd=kinds.includes('d')?'var(--dgline)':(kinds.includes('p')?'var(--cold)':'var(--stroke)');
+    const fsz=Math.min(fs,w*0.5).toFixed(1);
+    slots+=`<g class="slot" tabindex="0" role="button" data-k="${p.key}" aria-label="${isMain?'Main deck row ':'Row '}${lab}${sides.length?', loaded':', empty'}">${sides.length?'':`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${hgt.toFixed(1)}" fill="var(--skin)"/>`}${inner}<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${hgt.toFixed(1)}" rx="1.5" fill="none" stroke="${sl?'var(--contour)':bd}" stroke-width="${sl?2:(bd==='var(--stroke)'?.6:1.4)}" ${sides.length?'':'stroke-dasharray="2 2"'}/><text x="${(x+w/2).toFixed(1)}" y="${(y+hgt/2+fsz*0.35).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="${fsz}" fill="${sides.length?'#16181a':'var(--muted)'}">${lab}</text></g>`;
+  });
+  s+=`<g id="slots">${slots}</g>`;
+  a.doors.forEach(f=>{s+=`<line x1="${X(f)}" y1="${B-0.5}" x2="${X(f)+(a.kind==='narrow'?0.35:0.55)*D}" y2="${B-0.5}" stroke="var(--door)" stroke-width="3"/>`});
+  s+=`<path d="M${xw-1.2*D},${B} Q${xw+0.1*D},${B+0.28*D} ${xw+1.4*D},${B-0.03*D}" fill="var(--skin)" stroke="var(--stroke)"/>`;
+  const el=a.kind==='narrow'?1.25*D:1.5*D,eh=a.kind==='narrow'?0.45*D:0.5*D,ex=xw-0.55*D-el/2,ey=B+0.02*D;
+  s+=`<line x1="${xw-0.4*D}" y1="${B+0.05*D}" x2="${xw-0.25*D}" y2="${ey+0.05*D}" stroke="var(--stroke)" stroke-width="${Math.max(3,D*.08)}"/>`;
+  s+=`<path d="M${ex},${ey} L${ex+el*0.82},${ey} Q${ex+el*1.02},${ey+eh*0.15} ${ex+el*1.08},${ey+eh/2} Q${ex+el*1.02},${ey+eh*0.85} ${ex+el*0.82},${ey+eh} L${ex},${ey+eh} Q${ex-el*0.06},${ey+eh/2} ${ex},${ey} Z" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.1"/><ellipse cx="${ex}" cy="${ey+eh/2}" rx="${eh*0.16}" ry="${eh*0.48}" fill="var(--stroke)"/>`;
+  s+=`<g font-family="IBM Plex Sans,sans-serif"><text x="${x0}" y="${T-0.45*D}" font-size="10" fill="var(--muted)">← FWD</text>`;
+  if(!a.main)(a.lower||[]).forEach(h=>{s+=`<text x="${(X(h.a)+X(h.b))/2}" y="${floor-2}" text-anchor="middle" font-size="${fs}" fill="var(--fg)">${h.name}</text>`});
+  if(a.main)s+=`<text x="${(X(a.main.a)+X(a.main.b))/2}" y="${T+0.1*D-3}" text-anchor="middle" font-size="${fs}" fill="var(--fg)">Main deck · pallets   ·   lower deck · AKE (rows 11–19, 31–37)</text>`;
+  if(a.kind==='pax')s+=`<text x="${X(.45)}" y="${T-0.45*D}" text-anchor="middle" font-size="10" fill="var(--muted)">Passenger cabin above the floor · cargo only below</text>`;
+  if(a.kind==='narrow')s+=`<text x="${X(.45)}" y="${T-0.45*D}" text-anchor="middle" font-size="10" fill="var(--muted)">Narrow-body · loose bulk loading, no ULDs</text>`;
+  s+=`<text x="${xe}" y="${G+12}" text-anchor="end" font-size="9" fill="var(--muted)">Length ${a.len} m · drawn to scale</text></g>`;
+  acSvg.innerHTML=`<title id="acT">Side view of a ${cur} with its cargo decks cut away to show positions</title>`+s;
+  const hs=[...(a.lower||[]),...(a.bulkOnly||[])];const minA=Math.min(...hs.map(h=>h.a),a.main?a.main.a:1),maxB=Math.max(...hs.map(h=>h.b),a.bulk?a.bulk.b:0,a.main?a.main.b:0);
+  geo={all:[0,0,680,H+4],hold:[X(minA)-8,(a.main?T+0.02*D:floor-0.16*D)-4,X(maxB)-X(minA)+16,(a.main?B-T:B-floor+0.16*D)+8],slots:gs,G,X,D};
+  const nearestDoor=sx=>a.doors.reduce((b,q)=>Math.abs(X(q)-sx)<Math.abs(X(b)-sx)?q:b);
+  geo.sdoor=key=>{if(key[0]==='M')return{x:X(a.mainDoor)-0.3*D,y:floor-0.52*D,w:0.6*D,h:0.5*D};const f=nearestDoor(gs[key].x);return{x:X(f),y:floor+0.03*D,w:0.55*D,h:holdBot-floor-0.06*D}};
+  geo.doorX=key=>{if(key[0]==='M')return X(a.mainDoor);const sx=gs[key].x;const f=a.doors.reduce((b,q)=>Math.abs(X(q)-sx)<Math.abs(X(b)-sx)?q:b);return X(f)+0.27*D};
+  if(!VB||VB.cur!==cur)setVB(holdView?geo.hold:geo.all);else applyVB();
+}
+function setVB(v){VB={x:v[0],y:v[1],w:v[2],h:v[3],cur};applyVB()}
+function applyVB(){acSvg.setAttribute('viewBox',`${VB.x.toFixed(1)} ${VB.y.toFixed(1)} ${VB.w.toFixed(1)} ${VB.h.toFixed(1)}`)}
+function zoomBy(f){const cx=VB.x+VB.w/2,cy=VB.y+VB.h/2,full=geo.all;let w=Math.max(90,Math.min(full[2]*1.2,VB.w*f));const h=w*VB.h/VB.w;VB.x=cx-w/2;VB.y=cy-h/2;VB.w=w;VB.h=h;applyVB()}
+
+/* ---------- cross-section, detail, load list ---------- */
+function buildXs(){
+  const a=AC[cur],p=positions(a).find(q=>q.key===sel);
+  let s=`<circle cx="150" cy="85" r="78" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.2"/><line x1="77" y1="80" x2="223" y2="80" stroke="var(--stroke)" stroke-width="1.5"/>`;
+  const t=(x,y,txt,sz,fill,anchor)=>`<text x="${x}" y="${y}" text-anchor="${anchor||'middle'}" font-family="IBM Plex Sans,sans-serif" font-size="${sz||11}" fill="${fill||'var(--muted)'}">${txt}</text>`;
+  const shape=(pts,u)=>{if(u){const c=PAL[consign(u)[0].ci];return `<polygon points="${pts}" fill="${c[0]}" stroke="${u.k==='d'?'var(--dgline)':u.k==='p'?'var(--cold)':'var(--stroke)'}" stroke-width="${u.k==='g'?1:2}"/>`}return `<polygon points="${pts}" fill="none" stroke="var(--stroke)" stroke-dasharray="3 3"/>`};
+  const ltxt=(x,y,u,lab)=>`<text x="${x}" y="${y}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="${u?PAL[consign(u)[0].ci][1]:'var(--muted)'}">${u?u.id:lab}</text>`;
+  const l=eff(a,sel)||{};
+  if(a.kind==='freighter'){
+    const isMain=p&&p.deck==='main';
+    s+=shape('82,76 148,76 148,26 108,26 82,50',isMain?l.L:null)+shape('152,76 218,76 218,50 192,26 152,26',isMain?l.R:null);
+    s+=isMain?ltxt(118,56,l.L,'L')+ltxt(184,56,l.R,'R'):t(150,56,'Main deck');
+  }else if(a.kind==='narrow'){
+    s+=`<g fill="var(--win)">${[92,108,124,164,180,196].map(x=>`<rect x="${x}" y="58" width="13" height="12" rx="2"/>`).join('')}</g>`+t(150,48,'Cabin seats');
+  }else{
+    s+=`<g fill="var(--win)"><rect x="88" y="40" width="22" height="10" rx="2"/><rect x="116" y="40" width="30" height="10" rx="2"/><rect x="154" y="40" width="30" height="10" rx="2"/><rect x="190" y="40" width="22" height="10" rx="2"/></g>`+t(150,68,'Cabin seats');
+  }
+  if(a.kind==='narrow'){
+    const b=p?p.hold:a.bulkOnly[0],pct=b.kg/b.cap;
+    s+=`<polygon points="92,88 208,88 200,126 172,146 128,146 100,126" fill="none" stroke="var(--stroke)" stroke-dasharray="3 3"/>`;
+    const n=Math.round(pct*24);let bags='';
+    for(let i=0;i<n;i++){const r=Math.floor(i/8),c=i%8;bags+=`<rect x="${110+c*10}" y="${132-r*11}" width="9" height="10" rx="2" fill="${PAL[i%5][0]}"/>`}
+    s+=bags+t(150,100,'Loose bags · '+Math.round(pct*100)+'% full',10,'var(--fg)');
+  }else{
+    const isLower=p&&p.deck==='lower';
+    s+=shape('94,90 146,90 146,140 106,140 94,122',isLower?l.L:null)+shape('154,90 206,90 206,122 194,140 154,140',isLower?l.R:null);
+    s+=ltxt(122,118,isLower?l.L:null,'L')+ltxt(178,118,isLower?l.R:null,'R');
+    s+=`<line x1="232" y1="122" x2="208" y2="128" stroke="var(--muted)" stroke-width=".8"/>`+t(236,122,'Sloped',11,null,'start')+t(236,135,'AKE corner',11,null,'start');
+  }
+  document.getElementById('xs').innerHTML=s;
+  document.getElementById('xsT').textContent=p?(p.deck==='bulk'?'Cross-section · '+p.hold.name.toLowerCase():'Cross-section · '+(p.deck==='main'?'main deck row ':'row ')+rowLabel(sel)+' · looking forward'):'Cross-section';
+}
+function awbLines(u){return consign(u).map(c=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${PAL[c.ci][0]}"></i><span class="mono">${c.awb}</span><span style="color:var(--muted)">${c.what} · ${kgF(c.kg)}</span>${shcHtml(c.shc)}</div>`).join('')}
+function sideHtml(pos,u,uld){
+  if(!u)return `<div class="side"><span class="mono">${pos}</span><span class="empty">Empty · free for one ${uld}</span></div>`;
+  const c=C[u.k];
+  return `<div class="side"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="mono" style="font-weight:500">${pos} · ${uld} ${u.id}</span><span class="tag" style="background:${c.fill};color:${c.ink}">${c.name}</span><span class="mono" style="color:var(--muted)">${kgF(u.kg)}</span></div>${awbLines(u)}${u.note?`<span style="color:var(--muted);font-size:12px">${u.note}</span>`:''}</div>`;
+}
+function buildDet(){
+  const a=AC[cur],p=positions(a).find(q=>q.key===sel),el=document.getElementById('det');
+  if(!p){el.innerHTML='<span class="empty">Select a position on the aircraft.</span>';return}
+  if(p.deck==='bulk'){const b=p.hold,pct=Math.round(b.kg/b.cap*100);
+    el.innerHTML=`<h2>${b.name}</h2><div class="side"><span>${b.pcs} pieces · <span class="mono">${kgF(b.kg)}</span> of <span class="mono">${kgF(b.cap)}</span></span><div class="meter"><i style="width:${pct}%"></i></div><span class="mono" style="color:var(--muted);font-size:12px">${pct}% by weight · ${b.vol} m³ volume</span></div><div class="side"><span class="empty">The 737-800 has no ULD positions. Bags and cargo are loaded loose by hand.</span></div>`;return}
+  const l=eff(a,p.key)||{},lab=rowLabel(p.key),uld=p.deck==='main'?'PMC':'AKE';
+  el.innerHTML=`<h2>${p.deck==='main'?'Main deck row '+lab:'Row '+lab+' · '+p.hold.name.toLowerCase()}</h2>`+sideHtml(lab+'L',l.L,uld)+sideHtml(lab+'R',l.R,uld);
+}
+function buildLoad(){
+  const a=AC[cur],list=allUlds(a),box=document.getElementById('ulds'),st=document.getElementById('stats');
+  const pos=positions(a);
+  if(a.kind==='narrow'){
+    const kg=a.bulkOnly.reduce((s,b)=>s+b.kg,0),pcs=a.bulkOnly.reduce((s,b)=>s+b.pcs,0);
+    st.innerHTML=`<div class="stat"><b class="mono">0</b><span>ULDs (bulk only)</span></div><div class="stat"><b class="mono">${pcs}</b><span>pieces loose</span></div><div class="stat"><b class="mono">${kgF(kg)}</b><span>loaded</span></div>`;
+    box.innerHTML='';a.bulkOnly.forEach(b=>{const bt=document.createElement('button');bt.type='button';bt.className='uld';if(sel==='B'+b.key)bt.setAttribute('aria-current','true');
+      bt.innerHTML=`<i class="sw" style="background:var(--gen);width:14px;height:30px"></i><span style="min-width:0">${b.name}<br><span class="mono" style="color:var(--muted);font-size:12px">${b.pcs} pcs · ${kgF(b.kg)}</span></span><span class="tag" style="background:var(--panel2)">${Math.round(b.kg/b.cap*100)}%</span>`;
+      bt.addEventListener('click',()=>select('B'+b.key));box.appendChild(bt)});
+  }else{
+    const kg=list.reduce((s,x)=>s+x.u.kg,0),slots=pos.length*2,awbs=list.reduce((s,x)=>s+consign(x.u).length,0);
+    st.innerHTML=`<div class="stat"><b class="mono">${list.length}</b><span>ULDs · ${list.length} / ${slots} positions</span></div><div class="stat"><b class="mono">${awbs}</b><span>AWBs on board</span></div><div class="stat"><b class="mono">${kgF(kg)}</b><span>loaded</span></div>`;
+    box.innerHTML='';list.forEach(x=>{const cs=consign(x.u),bt=document.createElement('button');bt.type='button';bt.className='uld';if(x.key===sel&&x.side===selSide)bt.setAttribute('aria-current','true');
+      const shcs=[...new Set(cs.flatMap(c=>c.shc))];
+      bt.innerHTML=`<span class="stack">${cs.slice().reverse().map(c=>`<i style="flex:${c.share};background:${PAL[c.ci][0]}"></i>`).join('')}</span><span style="min-width:0"><span class="mono" style="font-weight:500">${x.u.id}</span> · ${x.u.what}<br><span class="mono" style="color:var(--muted);font-size:12px">${x.key[0]==='M'?'Main ':''}${rowLabel(x.key)}${x.side} · ${cs.length} AWBs · ${kgF(x.u.kg)}</span></span><span class="shcs">${shcHtml(shcs)}</span>`;
+      bt.addEventListener('click',()=>select(x.key,x.side));box.appendChild(bt)});
+  }
+  const [lo,hi,v]=a.cg,sc=x=>Math.max(2,Math.min(98,(x-lo+8)/(hi-lo+16)*100));
+  const env=document.querySelector('#cg .env'),pt=document.querySelector('#cg .pt');
+  env.style.left=sc(lo)+'%';env.style.width=(sc(hi)-sc(lo))+'%';pt.style.left=sc(v)+'%';
+  document.getElementById('cg').setAttribute('aria-label',`Centre of gravity ${v} percent MAC, between forward limit ${lo} and aft limit ${hi} percent`);
+  document.getElementById('cgT').textContent=v+'% MAC, within limits';
+  document.getElementById('cgl').innerHTML=`<span style="left:${sc(lo)}%">Fwd ${lo}%</span><span style="left:${sc(hi)}%">Aft ${hi}%</span>`;
+}
+function buildHead(){
+  const a=AC[cur],list=allUlds(a);
+  document.getElementById('h1').textContent=a.flight+' · '+cur;
+  document.getElementById('sub').textContent=a.route+' · STD '+a.std+' local · '+a.role;
+  const kg=a.kind==='narrow'?a.bulkOnly.reduce((s,b)=>s+b.kg,0):list.reduce((s,x)=>s+x.u.kg,0);
+  const dg=list.some(x=>x.u.k==='d');
+  document.getElementById('chips').innerHTML=(a.kind==='narrow'?'<span class="chip">Bulk only</span>':`<span class="chip">${list.length} ULDs</span>`)+`<span class="chip">${kgF(kg)}</span>${dg?'<span class="chip" style="border-color:var(--dgline);color:var(--dgline)">DG · NOTOC</span>':''}<span class="chip ok">✓ Counts match manifest</span>`;
+  const lowerRows=(a.lower||[]).reduce((s,h)=>s+h.rows,0);
+  document.getElementById('facts').textContent=`${a.maker} ${cur} · length ${a.len} m · fuselage ${a.dia} m`+(a.main?` · main deck ${a.main.rows*2} pallet positions`:'')+(lowerRows?` · lower deck ${lowerRows*2} LD3 positions`:'')+(a.bulkOnly?` · bulk holds ${f1(a.bulkOnly.reduce((s,b)=>s+b.vol,0))} m³`:'');
+  document.querySelectorAll('.pick').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ac===cur)));
+}
+
+/* ---------- ULD build-up bench ---------- */
+const SPEC={
+  AKE:{code:'AKE',name:'AKE container (LD3)',contour:'LD3 lower-deck contour',W:201,Dp:153,H:163,maxKg:1588,
+    minX:z=>z<64?45*(1-z/64):0,maxX:()=>201,prof:[[45,0],[201,0],[201,163],[0,163],[0,64]],
+    types:[[60,40,40],[50,40,30],[80,60,40],[40,40,30],[60,50,50],[100,50,40],[50,50,50]]},
+  PMC:{code:'PMC',name:'PMC pallet with net',contour:'Main-deck Q6 contour',W:244,Dp:318,H:244,maxKg:6804,
+    minX:()=>0,maxX:z=>z<160?244:244-(z-160)*70/84,prof:[[0,0],[244,0],[244,160],[174,244],[0,244]],
+    types:[[120,80,60],[100,80,60],[80,60,60],[120,100,60],[60,40,40],[80,80,40],[100,60,40]]}
+};
+const STEPS=['Pieces received','Build-up','Contour check','Weigh and tag','Load to aircraft'];
+let anim=null,phase='done',pieces=[],shown=0,dropZ=0,curSpec=null,curU=null,curCons=[],yaw=-0.35,spinOn=!RM,spinId=null,hiAwb=null,hoverI=null;
+const PCACHE={};
+function pack(u,sp){
+  const key=cur+u.id;if(PCACHE[key])return PCACHE[key];
+  const R=rng(hash(u.id+u.awb+cur)),out=[],heights=[...new Set(sp.types.map(t=>t[2]))];let z=0;
+  for(let guard=0;guard<40;guard++){
+    const fit=heights.filter(x=>z+x<=sp.H);if(!fit.length)break;
+    const hh=fit[Math.floor(R()*fit.length)],cands=sp.types.filter(t=>t[2]===hh);let y=0;
+    const opts=[];cands.forEach(t=>{opts.push([t[0],t[1]]);opts.push([t[1],t[0]])});
+    for(let g2=0;g2<40;g2++){
+      const fitsY=opts.filter(o=>y+o[1]<=sp.Dp);if(!fitsY.length)break;
+      const [w0,d]=fitsY[Math.floor(R()*fitsY.length)];
+      let x=Math.ceil(sp.minX(z));const xm=sp.maxX(z+hh)+0.01;
+      while(true){
+        const fitsX=opts.filter(o=>o[1]<=d&&x+o[0]<=xm);if(!fitsX.length)break;
+        const o=x+w0<=xm&&R()<.7?[w0,d]:fitsX[Math.floor(R()*fitsX.length)];
+        out.push({x0:x,y0:y,z0:z,x1:x+o[0],y1:y+o[1],z1:z+hh,v:R()*0.14});x+=o[0];
+      }
+      y+=d;
+    }
+    z+=hh;
+  }
+  out.sort((p,q)=>p.z0-q.z0||(p.x0+p.y0)-(q.x0+q.y0));
+  const keep=out.slice(0,Math.max(6,Math.round(out.length*(0.82+R()*0.15))));
+  const cs=consign(u),cum=[];let acc=0;cs.forEach(c=>{acc+=c.share;cum.push(acc)});
+  let i=0;while(i<keep.length){const r=R(),ai=cum.findIndex(c=>r<=c);const run=1+Math.floor(R()*4);for(let j=0;j<run&&i<keep.length;j++,i++)keep[i].a=ai<0?0:ai}
+  cs.forEach((c,ai)=>{if(!keep.some(b=>b.a===ai)){const idx=keep.length-1-ai;if(idx>=0)keep[idx].a=ai}});
+  cs.forEach((c,ai)=>{const mine=keep.filter(b=>b.a===ai),vol=mine.reduce((s,b)=>s+(b.x1-b.x0)*(b.y1-b.y0)*(b.z1-b.z0),0);c.pcs=mine.length;let n=0;mine.forEach(b=>{b.kg=c.kg*(b.x1-b.x0)*(b.y1-b.y0)*(b.z1-b.z0)/vol;b.n=++n})});
+  return PCACHE[key]=keep;
+}
+function profArea(pr){let s=0;for(let i=0;i<pr.length;i++){const p=pr[i],q=pr[(i+1)%pr.length];s+=p[0]*q[1]-q[0]*p[1]}return Math.abs(s)/2}
+const CS=Math.cos(Math.PI/6),SN=0.5;
+function rotXY(sp,x,y,t){const dx=x-sp.W/2,dy=y-sp.Dp/2,c=Math.cos(t),s=Math.sin(t);return [dx*c-dy*s,dx*s+dy*c]}
+function isoFit(sp){
+  if(sp._fit)return sp._fit;let a=1e9,b=-1e9,c=1e9,d=-1e9;
+  for(let deg=0;deg<360;deg+=10){const t=deg*Math.PI/180;sp.prof.forEach(([x,z])=>[0,sp.Dp].forEach(y=>{const [rx,ry]=rotXY(sp,x,y,t),X=(rx-ry)*CS,Y=(rx+ry)*SN-z;a=Math.min(a,X);b=Math.max(b,X);c=Math.min(c,Y);d=Math.max(d,Y)}))}
+  const VW=360,VH=300,s=Math.min((VW-30)/(b-a),(VH-60)/(d-c+30));
+  return sp._fit={s,ox:VW/2-(a+b)/2*s,oy:(VH-30)/2-(c+d)/2*s+8};
+}
+/* ---------- inside the hold: internal contour, positions, door, loader ---------- */
+let isoMode='uld',HA=null,doorOpen=0;
+const A1=.92,B1=.22,A2=.5,B2=.4,DV=[1,-A2/A1,B2+(A2/A1)*B1];
+function holdGeo(){
+  const a=AC[cur],key=sel;if(!key||key[0]==='B'||!geo)return null;const X=geo.X,D=geo.D;
+  if(key[0]==='M'){const m=a.main,pitch=330;return{sp:SPEC.PMC,rows:m.rows,pitch,i:+key.slice(1),name:'Main deck',lab:j=>String.fromCharCode(65+j),key:j=>'M'+j,lanes:{L:6,R:270},
+    cont:[[-15,0],[535,0],[535,170],[450,288],[70,288],[-15,170]],doorW:370,doorFrac:(X(a.mainDoor)-X(m.a))/(X(m.b)-X(m.a)),Lh:m.rows*pitch+20,mirror:{L:true,R:false}}}
+  const r=+key.slice(1),h=a.lower.find(q=>r>=q.start&&r<q.start+q.rows),pitch=165;
+  const f=a.doors.reduce((b,q)=>Math.abs(q-(h.a+h.b)/2)<Math.abs(b-(h.a+h.b)/2)?q:b);
+  const frac=Math.max(.08,Math.min(.92,(X(f)+0.27*D-X(h.a))/(X(h.b)-X(h.a))));
+  return{sp:SPEC.AKE,rows:h.rows,pitch,i:r-h.start,name:h.name,lab:j=>String(h.start+j),key:j=>'L'+(h.start+j),lanes:{L:8,R:222},
+    cont:[[-30,178],[-30,95],[25,0],[405,0],[460,95],[460,178]],doorW:270,doorFrac:frac,Lh:h.rows*pitch+20,mirror:{L:false,R:true}};
+}
+function laneProf(hg,lane,dx){const sp=hg.sp,m=hg.mirror[lane];return sp.prof.map(([x,z])=>[(m?sp.W-x:x)+hg.lanes[lane]+(dx||0),z])}
+function rowY(hg,j){return 10+j*hg.pitch+(hg.pitch-hg.sp.Dp)/2}
+function clipPoly(poly,za,zb){
+  const clip=(pts,keep,cross)=>{const out=[];for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length],ip=keep(p),iq=keep(q);if(ip)out.push(p);if(ip!==iq)out.push(cross(p,q))}return out};
+  const at=z=>(p,q)=>{const t=(z-p[1])/(q[1]-p[1]);return[p[0]+(q[0]-p[0])*t,z]};
+  return clip(clip(poly,p=>p[1]>=za,at(za)),p=>p[1]<=zb,at(zb));
+}
+function bandsOf(u,H){let z=0;return consign(u).map(c=>{const b=[z,z+H*c.share,PAL[c.ci][0]];z+=H*c.share;return b})}
+function drawExt(P,prof,y0,y1,bands,stroke,sw){
+  let ar=0;for(let i=0;i<prof.length;i++){const p=prof[i],q=prof[(i+1)%prof.length];ar+=p[0]*q[1]-q[0]*p[1]}const ccw=ar>0;let o='';
+  const pt=(x,y,z)=>P(x,y,z);
+  for(let i=0;i<prof.length;i++){
+    const p=prof[i],q=prof[(i+1)%prof.length],ex=q[0]-p[0],ez=q[1]-p[1],n=ccw?[ez,-ex]:[-ez,ex],len=Math.hypot(n[0],n[1])||1;
+    if(n[0]*DV[0]+n[1]*DV[2]<=0)continue;
+    const al=(n[1]/len>0.9?0:0.24).toFixed(2);
+    bands.forEach(([za,zb,col])=>{
+      let a0,a1;
+      if(Math.abs(ez)<1e-6){if(p[1]<za-0.01||p[1]>zb+0.01)return;a0=0;a1=1}
+      else{let t1=(za-p[1])/ez,t2=(zb-p[1])/ez;if(t1>t2)[t1,t2]=[t2,t1];a0=Math.max(0,t1);a1=Math.min(1,t2);if(a1-a0<1e-4)return}
+      const sa=[p[0]+ex*a0,p[1]+ez*a0],sb=[p[0]+ex*a1,p[1]+ez*a1];
+      const pts=[pt(sa[0],y0,sa[1]),pt(sb[0],y0,sb[1]),pt(sb[0],y1,sb[1]),pt(sa[0],y1,sa[1])].join(' ');
+      o+=`<polygon points="${pts}" fill="${col}"/><polygon points="${pts}" fill="rgba(0,0,0,${al})"/>`;
+    });
+  }
+  bands.forEach(([za,zb,col])=>{const c=clipPoly(prof,za,zb);if(c.length<3)return;const pts=c.map(([x,z])=>pt(x,y0,z)).join(' ');o+=`<polygon points="${pts}" fill="${col}"/><polygon points="${pts}" fill="rgba(0,0,0,.12)"/>`});
+  o+=`<polygon points="${prof.map(([x,z])=>pt(x,y0,z)).join(' ')}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+  return o;
+}
+function renderHold(){
+  const svg=document.getElementById('iso'),a=AC[cur],VW=480,VH=300,hg=holdGeo();
+  svg.setAttribute('viewBox',`0 0 ${VW} ${VH}`);
+  if(!hg){svg.innerHTML=`<text x="${VW/2}" y="150" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="13" fill="var(--muted)">${a.kind==='narrow'?'Bulk hold · loose loading':'Select a ULD position'}</text>`;return}
+  const yd=hg.doorFrac*hg.Lh,xs=hg.cont.map(c=>c[0]),zs=hg.cont.map(c=>c[1]),xMax=Math.max(...xs),xMin=Math.min(...xs),zTop=Math.max(...zs),midX=(xMin+xMax)/2;
+  const pts=[];hg.cont.forEach(([x,z])=>[0,hg.Lh].forEach(y=>pts.push([x,y,z])));pts.push([xMax+hg.sp.W+120,yd,-200],[xMax+hg.sp.W+120,yd,hg.sp.H]);
+  let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;pts.forEach(([x,y,z])=>{const X=y*A1+x*A2,Y=-y*B1+x*B2-z;a0=Math.min(a0,X);a1=Math.max(a1,X);b0=Math.min(b0,Y);b1=Math.max(b1,Y)});
+  const s=Math.min((VW-24)/(a1-a0),(VH-44)/(b1-b0)),ox=(VW-(a1-a0)*s)/2-a0*s,oy=(VH-28-(b1-b0)*s)/2-b0*s+6;
+  const P=(x,y,z)=>(ox+(y*A1+x*A2)*s).toFixed(1)+','+(oy+(-y*B1+x*B2-z)*s).toFixed(1);
+  const line=(p,q,st)=>{const [ax,ay]=P(...p).split(','),[bx,by]=P(...q).split(',');return `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" ${st}/>`};
+  let o='';
+  const fl=hg.cont.filter(c=>c[1]===0).map(c=>c[0]),f0=Math.min(...fl),f1=Math.max(...fl);
+  o+=`<polygon points="${[P(f0,0,0),P(f1,0,0),P(f1,hg.Lh,0),P(f0,hg.Lh,0)].join(' ')}" fill="var(--line)" opacity=".6"/>`;
+  for(let x=f0+30;x<f1;x+=45)o+=line([x,0,0],[x,hg.Lh,0],'stroke="var(--stroke)" stroke-width=".6" stroke-dasharray="2 4" opacity=".55"');
+  for(let i=0;i<hg.cont.length;i++){const p=hg.cont[i],q=hg.cont[(i+1)%hg.cont.length];if((p[0]+q[0])/2<midX&&!(p[1]===0&&q[1]===0)&&!(p[1]===zTop&&q[1]===zTop))o+=`<polygon points="${[P(p[0],0,p[1]),P(q[0],0,q[1]),P(q[0],hg.Lh,q[1]),P(p[0],hg.Lh,p[1])].join(' ')}" fill="var(--skin)" opacity=".75"/>`}
+  for(let j=0;j<=hg.rows;j++){const y=10+j*hg.pitch;o+=`<polyline points="${hg.cont.map(([x,z])=>P(x,y,z)).join(' ')} ${P(hg.cont[0][0],y,hg.cont[0][1])}" fill="none" stroke="var(--contour)" stroke-width=".8" opacity="${j===0||j===hg.rows?.9:.38}"/>`}
+  hg.cont.forEach(([x,z])=>{o+=line([x,0,z],[x,hg.Lh,z],'stroke="var(--contour)" stroke-width=".8" opacity=".55"')});
+  for(let j=0;j<hg.rows;j++){const y0=rowY(hg,j),y1=y0+hg.sp.Dp;['L','R'].forEach(l=>{const pr=laneProf(hg,l),bx=pr.filter(p=>p[1]===0).map(p=>p[0]);o+=`<polygon points="${[P(Math.min(...bx),y0,0),P(Math.max(...bx),y0,0),P(Math.max(...bx),y1,0),P(Math.min(...bx),y1,0)].join(' ')}" fill="none" stroke="var(--stroke)" stroke-width=".7" stroke-dasharray="3 2" opacity=".7"/>`});
+    const [tx,ty]=P(f1+40,y0+hg.sp.Dp/2,0).split(',');o+=`<text x="${tx}" y="${ty}" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="middle">${hg.lab(j)}</text>`}
+  const wb=[];
+  if(HA&&HA.platform){const z=HA.pz,px0=xMax+20,px1=xMax+20+hg.sp.W+60,py0=yd-hg.sp.Dp/2-30,py1=yd+hg.sp.Dp/2+30;
+    o+=`<polygon points="${[P(px0,py0,z),P(px1,py0,z),P(px1,py1,z),P(px0,py1,z)].join(' ')}" fill="var(--stroke)" opacity=".85"/>`;
+    o+=line([px0+20,py0,z],[px1-20,py1,-200],'stroke="var(--stroke)" stroke-width="1.2"')+line([px1-20,py0,z],[px0+20,py1,-200],'stroke="var(--stroke)" stroke-width="1.2"');
+    o+=`<polygon points="${[P(px0-10,py0-40,-200),P(px1+40,py0-40,-200),P(px1+40,py1+40,-200),P(px0-10,py1+40,-200)].join(' ')}" fill="var(--stroke)" opacity=".35"/>`}
+  for(let j=0;j<hg.rows;j++){const l=eff(a,hg.key(j));if(!l)continue;['L','R'].forEach(sd=>{const u=l[sd];if(!u)return;const y0=rowY(hg,j);wb.push({u,k:hg.key(j),sd,prof:laneProf(hg,sd),y0,z:0,mv:false})})}
+  if(HA)wb.push({u:curU,k:sel,sd:HA.lane,prof:laneProf(hg,HA.lane,HA.dx).map(([x,z])=>[x,z+HA.z]),y0:HA.y,z:HA.z,mv:true});
+  wb.forEach(w=>{const xc=w.prof.reduce((s,p)=>s+p[0],0)/w.prof.length;w.d=xc*DV[0]+(w.y0+hg.sp.Dp/2)*DV[1]+(w.z+hg.sp.H/2)*DV[2]});
+  wb.sort((p,q)=>p.d-q.d);
+  wb.forEach(w=>{const bd=bandsOf(w.u,hg.sp.H).map(([za,zb,c])=>[za+w.z,zb+w.z,c]);const sel2=w.k===sel&&w.sd===selSide;
+    o+=`<g data-k="${w.k}" data-s="${w.sd}" style="cursor:pointer">${drawExt(P,w.prof,w.y0,w.y0+hg.sp.Dp,bd,w.mv||sel2?'var(--contour)':'rgba(0,0,0,.5)',w.mv||sel2?1.8:.7)}</g>`});
+  const near=[];for(let i=0;i<hg.cont.length;i++){const c=hg.cont[i];if(c[0]>midX)near.push(c)}
+  near.sort((p,q)=>p[1]-q[1]);
+  const ya=yd-hg.doorW/2,yb=yd+hg.doorW/2,hinge=near[near.length-1],sill=near[0],Lp=Math.hypot(hinge[0]-sill[0],hinge[1]-sill[1]);
+  const frame=[...near.map(([x,z])=>P(x,ya,z)),...near.slice().reverse().map(([x,z])=>P(x,yb,z))].join(' ');
+  if(doorOpen<0.04)o+=`<polygon points="${frame}" fill="var(--skin)" opacity=".92" stroke="var(--door)" stroke-width="1.6"/>`;
+  else{o+=`<polygon points="${frame}" fill="none" stroke="var(--door)" stroke-width="1.6"/>`;const th=doorOpen*1.9,tx=hinge[0]+Math.sin(th)*Lp,tz=hinge[1]-Math.cos(th)*Lp;
+    o+=`<polygon points="${[P(hinge[0],ya,hinge[1]),P(hinge[0],yb,hinge[1]),P(tx,yb,tz),P(tx,ya,tz)].join(' ')}" fill="var(--skin)" stroke="var(--door)" stroke-width="1.4" opacity=".95"/>`}
+  const [lx,ly]=P(xMin,0,zTop+20).split(',');
+  o+=`<text x="${lx}" y="${ly}" font-family="IBM Plex Sans,sans-serif" font-size="11" fill="var(--muted)">← FWD</text>`;
+  o+=`<text x="12" y="${VH-12}" font-family="IBM Plex Sans,sans-serif" font-size="11" fill="var(--accent-text)">— ${hg.name} internal contour</text><text x="${VW-12}" y="${VH-12}" text-anchor="end" font-family="IBM Plex Sans,sans-serif" font-size="11" fill="var(--door)">Cargo door</text>`;
+  svg.innerHTML=o;
+}
+function setMode(m){isoMode=m;document.getElementById('mU').setAttribute('aria-pressed',String(m==='uld'));document.getElementById('mH').setAttribute('aria-pressed',String(m==='hold'));
+  document.querySelectorAll('#rotSeg button').forEach(b=>b.disabled=m==='hold');
+  document.getElementById('isoHint').textContent=m==='hold'?'Internal contour of the hold · hover a ULD for AWBs and SHC · click to select it':'Drag to turn · hover a box for AWB and SHC · click to highlight one AWB';
+  hideTip();renderIso()}
+function renderIso(){
+  const svg=document.getElementById('iso'),a=AC[cur],VW=360,VH=300;
+  if(isoMode==='hold'){renderHold();return}
+  svg.setAttribute('viewBox','0 0 360 300');
+  if(a.kind==='narrow'){svg.innerHTML=`<text x="180" y="140" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="14" fill="var(--fg)">No ULD build-up on the 737-800</text><text x="180" y="164" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--muted)">Bags and cargo go into the bulk holds piece by piece.</text>`;return}
+  const sp=curSpec,F=isoFit(sp),t=yaw,ct=Math.cos(t),st=Math.sin(t);
+  const P=(x,y,z)=>{const [rx,ry]=rotXY(sp,x,y,t);return (F.ox+(rx-ry)*CS*F.s).toFixed(1)+','+(F.oy+((rx+ry)*SN-z)*F.s).toFixed(1)};
+  const poly=(arr,fill,extra)=>`<polygon points="${arr.join(' ')}" fill="${fill}" ${extra||''}/>`;
+  let o='';
+  const x0b=sp.minX(0),x1b=sp.maxX(0);
+  o+=`<ellipse cx="${VW/2}" cy="${F.oy+ (sp.W+sp.Dp)*0.18*F.s}" rx="${(sp.W+sp.Dp)*0.55*F.s}" ry="${(sp.W+sp.Dp)*0.2*F.s}" fill="var(--line)" opacity=".35"/>`;
+  o+=poly([P(x0b,0,0),P(x1b,0,0),P(x1b,sp.Dp,0),P(x0b,sp.Dp,0)],'var(--stroke)','opacity=".55"');
+  o+=poly([P(x0b,0,-6),P(x1b,0,-6),P(x1b,sp.Dp,-6),P(x0b,sp.Dp,-6)],'var(--stroke)','opacity=".35"');
+  const nx=[ct,st],ny=[-st,ct];
+  const faces=[{n:nx,c:b=>[[b.x1,b.y0],[b.x1,b.y1]]},{n:[-nx[0],-nx[1]],c:b=>[[b.x0,b.y1],[b.x0,b.y0]]},{n:ny,c:b=>[[b.x1,b.y1],[b.x0,b.y1]]},{n:[-ny[0],-ny[1]],c:b=>[[b.x0,b.y0],[b.x1,b.y0]]}].filter(f=>f.n[0]+f.n[1]>0);
+  if(curU){
+    const vis=pieces.slice(0,shown).map((b,i)=>({b,i}));
+    vis.forEach(v=>{const [rx,ry]=rotXY(sp,(v.b.x0+v.b.x1)/2,(v.b.y0+v.b.y1)/2,t);v.d=rx+ry});
+    vis.sort((p,q)=>p.b.z0-q.b.z0||p.d-q.d);
+    vis.forEach(({b,i})=>{
+      const dz=(i===shown-1)?dropZ:0,z0=b.z0+dz,z1=b.z1+dz,cn=curCons[b.a],col=PAL[cn.ci][0];
+      const dim=hiAwb!==null&&hiAwb!==b.a,hov=hoverI===i;
+      const st2=`stroke="${hov?'var(--fg)':'rgba(0,0,0,.45)'}" stroke-width="${hov?1.6:.6}" stroke-linejoin="round"`;
+      let g=`<g data-i="${i}" ${dim?'opacity=".18"':''}>`;
+      faces.forEach(f=>{const [[ax,ay],[bx,by]]=f.c(b);const pts=[P(ax,ay,z0),P(bx,by,z0),P(bx,by,z1),P(ax,ay,z1)];const al=(0.34-0.16*(f.n[0]-f.n[1])/1.4142).toFixed(2);g+=poly(pts,col,st2)+poly(pts,`rgba(0,0,0,${al})`)});
+      const top=[P(b.x0,b.y0,z1),P(b.x1,b.y0,z1),P(b.x1,b.y1,z1),P(b.x0,b.y1,z1)];
+      g+=poly(top,col,st2)+poly(top,`rgba(255,255,255,${b.v.toFixed(2)})`);
+      if(cn.shc.some(c=>shcClass(c)==='dg')){const cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;g+=`<polygon points="${P(cx-9,cy,z1)} ${P(cx,cy-9,z1)} ${P(cx+9,cy,z1)} ${P(cx,cy+9,z1)}" fill="#fff" stroke="#c0392b" stroke-width="1.2"/>`}
+      else if(cn.shc.includes('COL')||cn.shc.includes('PIL')){const cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;g+=`<polygon points="${P(cx-7,cy-7,z1)} ${P(cx+7,cy-7,z1)} ${P(cx+7,cy+7,z1)} ${P(cx-7,cy+7,z1)}" fill="#fff" stroke="#1f6fc2" stroke-width="1.2"/>`}
+      o+=g+'</g>';
+    });
+  }
+  const wire=(op,w,dash)=>{let s=`<polyline points="${sp.prof.map(([x,z])=>P(x,0,z)).join(' ')} ${P(sp.prof[0][0],0,sp.prof[0][1])}" fill="none" stroke="var(--contour)" stroke-width="${w}" opacity="${op}" ${dash}/>`;
+    s+=`<polyline points="${sp.prof.map(([x,z])=>P(x,sp.Dp,z)).join(' ')} ${P(sp.prof[0][0],sp.Dp,sp.prof[0][1])}" fill="none" stroke="var(--contour)" stroke-width="${w}" opacity="${op}" ${dash}/>`;
+    sp.prof.forEach(([x,z])=>{const [ax,ay]=P(x,0,z).split(','),[bx,by]=P(x,sp.Dp,z).split(',');s+=`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="var(--contour)" stroke-width="${w}" opacity="${op}" ${dash}/>`});return s};
+  o+=wire(.75,1.3,'stroke-dasharray="5 3"');
+  o+=`<text x="12" y="${VH-12}" font-family="IBM Plex Sans,sans-serif" font-size="11" fill="var(--accent-text)">— ${sp.contour}</text><text x="${VW-12}" y="${VH-12}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="var(--muted)">${sp.W}×${sp.Dp}×${sp.H} cm</text>`;
+  if(!curU)o+=`<text x="${VW/2}" y="${VH/2}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="13" fill="var(--fg)">Empty position · nothing built yet</text>`;
+  svg.innerHTML=o;
+}
+function stepIdx(){return {building:1,checked:4,loading:4,done:5}[phase]}
+function renderPanel(){
+  const a=AC[cur],el=document.getElementById('bPanel'),bt=document.getElementById('bT');
+  if(a.kind==='narrow'){bt.textContent='Build-up';el.innerHTML='<h2>Bulk loading</h2><p class="empty" style="margin:0">The 737-800 has no container positions. Load agents stack bags and cargo by hand in the forward and aft holds. Pick a wide-body aircraft above to see a ULD build-up.</p>';return}
+  if(!curU){bt.textContent='Build-up · '+curSpec.code;el.innerHTML='<h2>Empty position</h2><p class="empty" style="margin:0">Select a loaded position on the aircraft or in the load summary to see how its ULD is built.</p>';return}
+  const pos=rowLabel(sel)+selSide,si=stepIdx(),c=C[curU.k],checks=si>=4;
+  bt.textContent='Build-up · '+curSpec.code+' '+curU.id+' → '+(sel[0]==='M'?'main deck ':'')+pos;
+  el.innerHTML=`<h2>${curSpec.code} ${curU.id} · ${curU.what}</h2>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="tag" style="background:${c.fill};color:${c.ink}">${c.name}</span><span class="sub">${curSpec.name} · ${curCons.length} AWBs consolidated</span></div>
+  <ol class="steps">${STEPS.map((n,i)=>`<li class="${i<si?'done':(i===si?'now':'')}">${i<si?'✓ ':''}${n}</li>`).join('')}</ol>
+  <div class="stats"><div class="stat"><b class="mono" id="bPcs"></b><span>pieces placed</span></div><div class="stat"><b class="mono" id="bKg"></b><span>of ${kgF(curSpec.maxKg)} max</span></div><div class="stat"><b class="mono" id="bVol"></b><span>volume used</span></div></div>
+  <div class="check">${checks?'<b>✓</b>':'<span class="empty">…</span>'} Height <span class="mono" id="bH"></span> within ${curSpec.contour}</div>
+  <div class="check">${checks?'<b>✓</b>':'<span class="empty">…</span>'} Weight within ${curSpec.code} limit · ULD tag printed</div>
+  ${curU.k==='d'?`<div class="check">${checks?'<b>✓</b>':'<span class="empty">…</span>'} DG segregation checked · NOTOC updated (${curU.note})</div>`:''}
+  ${curU.k==='p'?`<div class="check">${checks?'<b>✓</b>':'<span class="empty">…</span>'} Cold chain kept · ${curU.note}</div>`:''}
+  <div class="awbs" id="awbList">${curCons.map((cn,i)=>`<button type="button" class="awb" data-a="${i}" aria-pressed="${hiAwb===i}"><i class="sw" style="background:${PAL[cn.ci][0]}"></i><span style="min-width:0"><span class="mono" style="font-weight:500">${cn.awb}</span><br><span style="color:var(--muted);font-size:12px">${cn.what} · ${cn.pcs} pcs · ${kgF(cn.kg)}</span></span><span class="shcs">${shcHtml(cn.shc)}</span></button>`).join('')}</div>
+  <div class="btns"><button type="button" class="btn" id="bReplay" ${phase==='building'||phase==='loading'?'disabled':''}>▶ ${phase==='done'?'Replay build-up':'Restart build-up'}</button><button type="button" class="btn pri" id="bLoad" ${phase==='checked'?'':'disabled'}>Load into ${sel[0]==='M'?'main deck ':''}${pos}</button></div>`;
+  document.getElementById('bReplay').addEventListener('click',startBuild);
+  document.getElementById('bLoad').addEventListener('click',startLoad);
+  document.querySelectorAll('#awbList .awb').forEach(b=>b.addEventListener('click',()=>{const i=+b.dataset.a;hiAwb=hiAwb===i?null:i;document.querySelectorAll('#awbList .awb').forEach(x=>x.setAttribute('aria-pressed',String(+x.dataset.a===hiAwb)));renderIso()}));
+  updNums();
+}
+function updNums(){
+  if(!curU||!document.getElementById('bPcs'))return;
+  const vis=pieces.slice(0,shown),kg=vis.reduce((s,b)=>s+b.kg,0),vol=vis.reduce((s,b)=>s+(b.x1-b.x0)*(b.y1-b.y0)*(b.z1-b.z0),0);
+  const cap=profArea(curSpec.prof)*curSpec.Dp,h=vis.length?Math.max(...vis.map(b=>b.z1)):0;
+  document.getElementById('bPcs').textContent=vis.length+' / '+pieces.length;
+  document.getElementById('bKg').textContent=kgF(kg);
+  document.getElementById('bVol').textContent=Math.round(vol/cap*100)+'%';
+  document.getElementById('bH').textContent=h+' / '+curSpec.H+' cm';
+}
+function stopAnim(){if(anim)cancelAnimationFrame(anim);anim=null;HA=null;doorOpen=0;['mover','loader','lift','truck','sdoor'].forEach(id=>{const e=document.getElementById(id);if(e)e.remove()})}
+function buildB(){
+  const a=AC[cur];hiAwb=null;hoverI=null;hideTip();
+  if(a.kind==='narrow'){curU=null;curSpec=null;renderIso();renderPanel();return}
+  curSpec=sel&&sel[0]==='M'?SPEC.PMC:SPEC.AKE;
+  curU=(a.load[sel]||{})[selSide]||null;
+  curCons=curU?consign(curU):[];
+  pieces=curU?pack(curU,curSpec):[];
+  if(phase!=='building')shown=pieces.length;
+  dropZ=0;renderIso();renderPanel();
+}
+function refresh(){buildSide();buildXs();buildDet();buildLoad()}
+function startBuild(){
+  if(!curU)return;stopAnim();
+  pending={cur,key:sel,side:selSide};phase='building';shown=0;hiAwb=null;refresh();renderPanel();
+  if(RM){shown=pieces.length;phase='checked';renderIso();renderPanel();return}
+  const STEP=Math.max(60,Math.min(160,5200/pieces.length)),t0=performance.now();
+  const tick=now=>{
+    const el=now-t0,n=Math.min(pieces.length,Math.floor(el/STEP)+1),p=Math.min(1,(el-(n-1)*STEP)/STEP);
+    shown=n;dropZ=Math.pow(1-p,2)*(curSpec.H*0.35);if(!spinOn)renderIso();updNums();
+    if(n>=pieces.length&&p>=1){dropZ=0;anim=null;phase='checked';renderIso();renderPanel();return}
+    anim=requestAnimationFrame(tick);
+  };
+  anim=requestAnimationFrame(tick);
+}
+function startLoad(){
+  if(phase!=='checked')return;
+  phase='loading';renderPanel();
+  holdView=false;bA.setAttribute('aria-pressed','true');bH.setAttribute('aria-pressed','false');setVB(geo.all);
+  setMode('hold');
+  const card=document.querySelector('.build'),r=card.getBoundingClientRect();
+  if(r.top<0||r.bottom>innerHeight)card.scrollIntoView({behavior:RM?'auto':'smooth',block:'center'});
+  /* side view actors: door, high-loader truck, ULD */
+  const g=geo.slots[sel],dx=geo.doorX(sel),sd=geo.sdoor(sel),D=geo.D,G=geo.G,cs=curCons;
+  const mk=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||acSvg).appendChild(e);return e};
+  const sdoor=mk('g',{id:'sdoor'});
+  const hole=mk('rect',{x:sd.x,y:sd.y,width:sd.w,height:sd.h,fill:'var(--glass)',stroke:'var(--door)','stroke-width':1.4},sdoor);
+  const panel=mk('rect',{x:sd.x,y:sd.y,width:sd.w,height:sd.h,fill:'var(--skin)',stroke:'var(--door)','stroke-width':1.4},sdoor);
+  const truck=mk('g',{id:'truck'}),tw=Math.max(g.w+14,1.1*D);
+  mk('rect',{x:0,y:G-0.2*D,width:tw,height:0.11*D,rx:2,fill:'var(--stroke)'},truck);
+  mk('rect',{x:-0.32*D,y:G-0.36*D,width:0.3*D,height:0.27*D,rx:3,fill:'var(--contour)',stroke:'var(--stroke)'},truck);
+  mk('rect',{x:-0.29*D,y:G-0.33*D,width:0.12*D,height:0.09*D,fill:'var(--glass)'},truck);
+  [0.12*D,tw-0.12*D,-0.17*D].forEach(cx=>mk('circle',{cx,cy:G-0.06*D,r:0.065*D,fill:'var(--fg)',opacity:.75},truck));
+  const sc1=mk('line',{stroke:'var(--stroke)','stroke-width':1.6},truck),sc2=mk('line',{stroke:'var(--stroke)','stroke-width':1.6},truck);
+  const plat=mk('rect',{x:-4,width:tw+8,height:3,fill:'var(--fg)',opacity:.8},truck);
+  const mover=mk('g',{id:'mover'});let yy=g.h;
+  cs.forEach(c=>{const bh=g.h*c.share;yy-=bh;mk('rect',{x:0,y:yy,width:g.w,height:bh,fill:PAL[c.ci][0]},mover)});
+  mk('rect',{x:0,y:0,width:g.w,height:g.h,fill:'none',stroke:'var(--contour)','stroke-width':1.5},mover);
+  /* hold view actor */
+  const hg=holdGeo(),yd=hg.doorFrac*hg.Lh,xMax=Math.max(...hg.cont.map(c=>c[0])),lane=selSide;
+  const dxOut=xMax+70-hg.lanes[lane],dxR=hg.lanes.R-hg.lanes[lane],yStart=yd-hg.sp.Dp/2,yEnd=rowY(hg,hg.i),zLow=-200;
+  HA={lane,dx:dxOut,y:yStart,z:zLow,platform:true,pz:zLow-4};
+  const ease=q=>q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2,seg=(p,a,b)=>ease(Math.max(0,Math.min(1,(p-a)/(b-a))));
+  const dur=RM?10:9000,t0=performance.now()+(RM?0:500),tx0=-tw-60,txD=dx-tw/2,txOut=-tw-140;
+  const tick=now=>{
+    const p=Math.max(0,Math.min(1,(now-t0)/dur));
+    const drive=seg(p,0,.12),open=seg(p,.02,.14)*(1-seg(p,.86,.97)),lift=seg(p,.13,.27),enter=seg(p,.28,.45),shift=seg(p,.45,.55),roll=seg(p,.55,.84),leave=seg(p,.86,1);
+    doorOpen=open;
+    /* side view */
+    panel.setAttribute('y',(sd.y-sd.h*open*0.95).toFixed(1));panel.setAttribute('height',(sd.h*(1-open*0.55)).toFixed(1));
+    hole.setAttribute('opacity',open>0.02?1:0);
+    const tx=p<.86?tx0+(txD-tx0)*drive:txD+(txOut-txD)*leave;
+    const bedY=G-0.2*D,platY=bedY-3-(bedY-3-(g.y+g.h))*lift*(p<.86?1:(1-leave));
+    truck.setAttribute('transform',`translate(${tx.toFixed(1)},0)`);
+    plat.setAttribute('y',platY.toFixed(1));
+    sc1.setAttribute('x1',0.15*D);sc1.setAttribute('y1',bedY);sc1.setAttribute('x2',tw-0.15*D);sc1.setAttribute('y2',platY+3);
+    sc2.setAttribute('x1',tw-0.15*D);sc2.setAttribute('y1',bedY);sc2.setAttribute('x2',0.15*D);sc2.setAttribute('y2',platY+3);
+    let mx,my,mo=1;
+    if(p<.28){mx=tx+tw/2-g.w/2;my=platY-g.h}
+    else if(p<.55){mx=dx-g.w/2;my=g.y;mo=1-enter*0.35}
+    else{mx=(dx-g.w/2)+(g.x-(dx-g.w/2))*roll;my=g.y;mo=.65+roll*.35}
+    mover.setAttribute('transform',`translate(${mx.toFixed(1)},${my.toFixed(1)})`);mover.setAttribute('opacity',mo.toFixed(2));
+    /* hold view */
+    HA.z=zLow+(0-zLow)*lift;HA.pz=HA.z-4;HA.dx=dxOut+(dxR-dxOut)*enter+(0-dxR)*shift;HA.y=yStart+(yEnd-yStart)*roll;HA.platform=p<.86;
+    if(isoMode==='hold')renderHold();
+    if(p<1){anim=requestAnimationFrame(tick);return}
+    stopAnim();pending=null;phase='done';refresh();renderPanel();renderIso();
+  };
+  anim=requestAnimationFrame(tick);
+}
+function select(k,side){
+  stopAnim();pending=null;phase='done';sel=k;
+  const l=AC[cur].load[k];selSide=side||(l?(l.L?'L':'R'):'L');
+  refresh();buildB();
+}
+function setAc(name){
+  cur=name;try{localStorage.setItem('adeyiq-ac',name)}catch(e){}
+  const a=AC[cur],first=allUlds(a)[0];
+  holdView=false;bA.setAttribute('aria-pressed','true');bH.setAttribute('aria-pressed','false');VB=null;
+  buildHead();select(first?first.key:(a.bulkOnly?'B'+a.bulkOnly[0].key:null),first?first.side:null);
+}
+
+/* ---------- interaction ---------- */
+const acSvg=document.getElementById('ac'),iso=document.getElementById('iso'),tip=document.getElementById('tip'),tip2=document.getElementById('tip2');
+const bA=document.getElementById('vAll'),bH=document.getElementById('vHold');
+function placeTip(el,box,cx,cy){el.hidden=false;const r=box.getBoundingClientRect(),w=el.offsetWidth,h=el.offsetHeight;let x=cx-r.left+14,y=cy-r.top+14;if(x+w>r.width)x=cx-r.left-w-14;if(y+h>r.height)y=Math.max(4,cy-r.top-h-14);el.style.left=Math.max(4,x)+'px';el.style.top=y+'px'}
+function hideTip(){tip.hidden=true;tip2.hidden=true}
+
+/* aircraft: drag to pan, buttons to zoom, hover for AWBs */
+let acDrag=null;
+acSvg.addEventListener('pointerdown',e=>{acDrag={x:e.clientX,y:e.clientY,vx:VB.x,vy:VB.y,moved:false};});
+window.addEventListener('pointermove',e=>{
+  if(acDrag){const dx=e.clientX-acDrag.x,dy=e.clientY-acDrag.y;if(!acDrag.moved&&Math.hypot(dx,dy)>4){acDrag.moved=true;acSvg.classList.add('dragging');tip2.hidden=true}
+    if(acDrag.moved){const k=VB.w/acSvg.getBoundingClientRect().width;VB.x=acDrag.vx-dx*k;VB.y=acDrag.vy-dy*k;applyVB()}return}
+});
+window.addEventListener('pointerup',e=>{if(!acDrag)return;const moved=acDrag.moved;acDrag=null;acSvg.classList.remove('dragging');
+  if(!moved){const g=document.elementFromPoint(e.clientX,e.clientY);const s=g&&g.closest&&g.closest('#ac [data-k]');if(s)select(s.dataset.k)}});
+acSvg.addEventListener('pointermove',e=>{
+  if(acDrag&&acDrag.moved)return;const g=e.target.closest&&e.target.closest('[data-k]');
+  if(!g){tip2.hidden=true;return}
+  const a=AC[cur],k=g.dataset.k;
+  if(k[0]==='B'){const b=a.bulkOnly.find(x=>'B'+x.key===k);tip2.innerHTML=`<b>${b.name}</b><br>${b.pcs} loose pieces · ${kgF(b.kg)}`;placeTip(tip2,document.querySelector('.stage'),e.clientX,e.clientY);return}
+  const l=eff(a,k),lab=rowLabel(k),uld=k[0]==='M'?'PMC':'AKE';
+  let h=`<b>${k[0]==='M'?'Main deck row ':'Row '}${lab}</b>`;
+  if(!l)h+='<br><span class="empty">Empty · free for 2 × '+uld+'</span>';
+  else ['L','R'].forEach(sd=>{const u=l[sd];if(!u)return;h+=`<div style="margin-top:6px"><span class="mono">${lab}${sd} · ${uld} ${u.id}</span> · ${kgF(u.kg)}</div>`+consign(u).map(c=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${PAL[c.ci][0]}"></i><span class="mono">${c.awb}</span>${shcHtml(c.shc)}</div>`).join('')});
+  tip2.innerHTML=h;placeTip(tip2,document.querySelector('.stage'),e.clientX,e.clientY);
+});
+acSvg.addEventListener('pointerleave',()=>{tip2.hidden=true});
+acSvg.addEventListener('keydown',e=>{const g=e.target.closest('[data-k]');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(g.dataset.k);const n=acSvg.querySelector(`[data-k="${g.dataset.k}"]`);if(n)n.focus()}});
+document.getElementById('zIn').addEventListener('click',()=>zoomBy(0.7));
+document.getElementById('zOut').addEventListener('click',()=>zoomBy(1/0.7));
+function view(h){holdView=h;setVB(h?geo.hold:geo.all);bA.setAttribute('aria-pressed',String(!h));bH.setAttribute('aria-pressed',String(h))}
+bA.addEventListener('click',()=>view(false));bH.addEventListener('click',()=>view(true));
+
+/* ULD bench: drag or keys to turn, auto-rotate, hover a box for AWB + SHC */
+let isoDrag=null;
+iso.addEventListener('pointerdown',e=>{isoDrag={x:e.clientX,y0:yaw,moved:false};});
+window.addEventListener('pointermove',e=>{if(!isoDrag||isoMode==='hold')return;const dx=e.clientX-isoDrag.x;if(!isoDrag.moved&&Math.abs(dx)>4){isoDrag.moved=true;iso.classList.add('dragging');setSpin(false);tip.hidden=true}
+  if(isoDrag.moved){yaw=isoDrag.y0+dx*0.012;renderIso()}});
+window.addEventListener('pointerup',e=>{if(!isoDrag)return;const moved=isoDrag.moved;isoDrag=null;iso.classList.remove('dragging');
+  if(!moved&&isoMode==='hold'){if(phase==='loading')return;const g=document.elementFromPoint(e.clientX,e.clientY);const s=g&&g.closest&&g.closest('#iso [data-k]');if(s)select(s.dataset.k,s.dataset.s);return}
+  if(!moved){const g=document.elementFromPoint(e.clientX,e.clientY);const s=g&&g.closest&&g.closest('#iso [data-i]');
+    if(s){const ai=pieces[+s.dataset.i].a;hiAwb=hiAwb===ai?null:ai}else hiAwb=null;
+    document.querySelectorAll('#awbList .awb').forEach(x=>x.setAttribute('aria-pressed',String(+x.dataset.a===hiAwb)));renderIso()}});
+iso.addEventListener('pointermove',e=>{
+  if(isoMode==='hold'){const g=e.target.closest&&e.target.closest('[data-k]');if(!g){tip.hidden=true;return}tip.innerHTML=rowTip(g.dataset.k,g.dataset.s);placeTip(tip,document.querySelector('.isoWrap'),e.clientX,e.clientY);return}
+  if(isoDrag&&isoDrag.moved)return;const g=e.target.closest&&e.target.closest('[data-i]');
+  if(!g){if(hoverI!==null){hoverI=null;renderIso()}tip.hidden=true;return}
+  const i=+g.dataset.i,b=pieces[i],cn=curCons[b.a];
+  if(hoverI!==i){hoverI=i;renderIso()}
+  tip.innerHTML=`<div style="display:flex;gap:6px;align-items:center"><i class="sw" style="background:${PAL[cn.ci][0]}"></i><b class="mono">AWB ${cn.awb}</b></div><div>${cn.what}</div><div style="margin:3px 0">SHC ${shcHtml(cn.shc)}</div><div class="mono" style="color:var(--muted)">Piece ${b.n} of ${cn.pcs} · ${kgF(b.kg)}<br>${b.x1-b.x0}×${b.y1-b.y0}×${b.z1-b.z0} cm</div>`;
+  placeTip(tip,document.querySelector('.isoWrap'),e.clientX,e.clientY);
+});
+iso.addEventListener('pointerleave',()=>{tip.hidden=true;if(hoverI!==null){hoverI=null;renderIso()}});
+iso.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setSpin(false);yaw+=e.key==='ArrowLeft'?-0.15:0.15;renderIso()}});
+document.getElementById('rL').addEventListener('click',()=>{setSpin(false);yaw-=Math.PI/4;renderIso()});
+document.getElementById('rR').addEventListener('click',()=>{setSpin(false);yaw+=Math.PI/4;renderIso()});
+const spinBtn=document.getElementById('rSpin');
+spinBtn.addEventListener('click',()=>setSpin(!spinOn));
+function setSpin(on){spinOn=on;spinBtn.setAttribute('aria-pressed',String(on));if(spinId){cancelAnimationFrame(spinId);spinId=null}if(on)spinId=requestAnimationFrame(spinTick)}
+function spinTick(){if(!spinOn)return;if(isoMode==='uld'&&hoverI===null&&!isoDrag){yaw+=0.004;renderIso()}spinId=requestAnimationFrame(spinTick)}
+document.getElementById('mU').addEventListener('click',()=>setMode('uld'));
+document.getElementById('mH').addEventListener('click',()=>setMode('hold'));
+function rowTip(k,only){
+  const a=AC[cur],l=eff(a,k),lab=rowLabel(k),uld=k[0]==='M'?'PMC':'AKE';let h=`<b>${k[0]==='M'?'Main deck row ':'Row '}${lab}</b>`;
+  if(!l)return h+'<br><span class="empty">Empty · free for 2 × '+uld+'</span>';
+  ['L','R'].forEach(sd=>{const u=l[sd];if(!u||(only&&only!==sd))return;h+=`<div style="margin-top:6px"><span class="mono">${lab}${sd} · ${uld} ${u.id}</span> · ${kgF(u.kg)}</div>`+consign(u).map(c=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${PAL[c.ci][0]}"></i><span class="mono">${c.awb}</span>${shcHtml(c.shc)}</div>`).join('')});
+  return h;
+}
+
+const pk=document.getElementById('picker');
+ORDER.forEach(n=>{const a=AC[n],b=document.createElement('button');b.type='button';b.className='pick';b.dataset.ac=n;
+  b.innerHTML=`<b>${n}</b><span>${a.maker} · ${a.role}</span><span class="mono">${a.flight} · ${a.route}</span>`;
+  b.addEventListener('click',()=>setAc(n));pk.appendChild(b)});
+setAc(cur);
+setSpin(spinOn);
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AdeyIQ Aircraft & ULD data</title>
+<meta name="description" content="Doors, holds, contours and ULDs for active commercial aircraft.">
+<link rel="icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: reference page — aircraft table grouped by type, ULD and contour table, sources and status per row. */
+:root{--bg:#F6F9FC;--panel:#FFFFFF;--panel2:#F0F4F8;--line:#E3E8EE;--fg:#0A2540;--muted:#425466;--accent:#FFD21F;--accent-ink:#0A2540;--link:#635BFF;--ok:#0E8A5F;--ok-bg:rgba(14,138,95,.10);--warn:#B26B00;--warn-bg:rgba(245,165,36,.16);
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--body:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0A2540;--panel:#0F2F50;--panel2:#16395E;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;--link:#A29BFF;--ok:#3ECF8E;--ok-bg:rgba(62,207,142,.14);--warn:#FFB547;--warn-bg:rgba(255,181,71,.16);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0A2540;--panel:#0F2F50;--panel2:#16395E;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;--link:#A29BFF;--ok:#3ECF8E;--ok-bg:rgba(62,207,142,.14);--warn:#FFB547;--warn-bg:rgba(255,181,71,.16);color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.5;margin:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:22px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(26px,3.4vw,34px);margin:0;line-height:1}
+h2{font-family:var(--display);font-weight:600;font-size:22px;margin:0 0 8px}
+.sub{color:var(--muted);font-size:13px}
+a{color:var(--link)}
+.back{margin-left:auto;font-weight:600;text-decoration:none;border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:10px;color:var(--fg)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 5px -1px rgba(50,50,93,.08)}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+th{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:var(--panel2)}
+td.num{text-align:right;font-family:var(--mono)}
+td.mono{font-family:var(--mono)}
+tr.g td{background:var(--panel2);font-weight:600;font-family:var(--display);font-size:16px}
+.b{font-size:11px;padding:1px 7px;border-radius:5px;font-weight:600}.b.v{background:var(--ok-bg);color:var(--ok)}.b.u{background:var(--warn-bg);color:var(--warn)}
+.note{font-size:13px;color:var(--muted);max-width:90ch}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header><a class="logo" href="/" aria-label="AdeyIQ home" style="text-decoration:none">A</a><div><h1>Aircraft &amp; ULD data</h1><div class="sub">AdeyIQ reference · doors, holds, contours and ULDs for active commercial aircraft</div></div><a class="back" href="/build">Open Cargo Builder →</a></header>
+<div class="card">
+  <h2>Aircraft</h2>
+  <p class="note"><span class="b v">Sourced</span> has a public source. <span class="b u">Verify</span> is a working value to confirm in the manufacturer's airport-planning document (ACAPS). Position, zonal floor and balance limits are not public; they come from each airline's weight-and-balance manual.</p>
+  <div class="tbl"><table><thead><tr><th>Aircraft</th><th>Lower deck</th><th>Main deck</th><th>Fwd door W×H cm</th><th>Aft door</th><th>Bulk / main door</th><th class="num">Bulk m³</th><th>Status</th><th>Source</th></tr></thead><tbody id="ac"></tbody></table></div>
+</div>
+<div class="card">
+  <h2>ULDs and contours</h2>
+  <div class="tbl"><table><thead><tr><th>ULD</th><th>IATA code</th><th>Base cm</th><th>Contour height cm</th><th class="num">Usable m³</th><th class="num">Max gross kg</th><th>Used on</th></tr></thead><tbody id="uld"></tbody></table></div>
+  <p class="note" style="margin-top:10px">AKE 1,588 kg and PMC 6,804 kg are standard ULD ratings; PGA 11,340 kg is the 20 ft pallet rating. Lower-deck pallet and AKH limits are typical working values. Cargo longer than a PMC goes on a PGA (20 ft) or on two connected pallets on a freighter main deck.</p>
+</div>
+</div>
+<script>
+const AC=[
+ ['Wide-body (belly)'],
+ ['Boeing 787-8','28 LD3 (16 / 12)','—','269 × 170','178 × 170','91 × 114',11.4,'u','Boeing 787 ACAPS','https://www.boeing.com/content/dam/boeing/v2/airports/acaps/787_ACAP_Rev_Q.pdf'],
+ ['Boeing 787-9','36 LD3 (20 / 16)','—','269 × 170','269 × 170','91 × 114',11.4,'u','Key.aero','https://www.key.aero/article/commercial-boeing-787-10-dreamliner'],
+ ['Boeing 787-10','40 LD3 (22 / 18)','—','269 × 170','269 × 170','91 × 114',11.4,'v','Key.aero','https://www.key.aero/article/commercial-boeing-787-10-dreamliner'],
+ ['Airbus A350-900','36 LD3 or 11 pallets','—','269 × 170','269 × 170','114 × 102',11.3,'v','Air India Cargo','https://cargo.airindia.com/in/en/about-us/fleet-ulds.html'],
+ ['Airbus A350-1000','44 LD3 (24 / 20)','—','269 × 170','269 × 170','114 × 102',11.3,'u','JAL Cargo','https://www.jal.co.jp/jp/ja/jalcargo/support/aircraft/pdf_sites/DG_A350-1000.pdf'],
+ ['Boeing 777-300ER','44 LD3 (24 / 20)','—','269 × 170','269 × 170','91 × 114',16.9,'v','JAL Cargo','https://www.jal.co.jp/jp/ja/jalcargo/support/aircraft/pdf_sites/DG_777-300ER.pdf'],
+ ['Airbus A330-300','32 LD3 (18 / 14)','—','270 × 169','181 × 169','95 × 63',19.7,'u','Airbus','https://www.airbus.com/en/airport-operations-and-technical-data/aircraft-characteristics'],
+ ['Narrow-body'],
+ ['Boeing 737-800','Bulk only','—','122 × 89','122 × 84','—',44,'v','Boeing 737NG','https://www.boeing.com/resources/boeingdotcom/company/about_bca/startup/pdf/historical/737NG_passenger.pdf'],
+ ['Boeing 737-8 (MAX)','Bulk only','—','122 × 89','122 × 84','—',44,'u','Boeing 737 MAX ACAPS','https://www.boeing.com/content/dam/boeing/v2/airports/acaps/737MAX_RevK.pdf'],
+ ['Airbus A320neo','7 AKH + bulk','—','182 × 124','182 × 124','95 × 77',5.9,'u','Airbus','https://www.airbus.com/en/airport-operations-and-technical-data/aircraft-characteristics'],
+ ['Airbus A321neo','10 AKH + bulk','—','182 × 124','182 × 124','95 × 77',5.9,'u','Airbus','https://www.airbus.com/en/airport-operations-and-technical-data/aircraft-characteristics'],
+ ['Freighter'],
+ ['Boeing 777 Freighter','32 LD3 or 10 pallets','27 pallets, PGA, up to 300 cm','269 × 170','178 × 170','Main 361 × 305',17,'u','Boeing 777F ACAPS','https://www.boeing.com/resources/boeingdotcom/commercial/airports/acaps/777-200LR-300ER-F_Rev_G.pdf'],
+ ['Boeing 747-8F','Lower-deck pallets and LD1','27 at 300 cm + 5 at 244 cm','—','—','Side 340 × 305 + nose door',14,'u','Boeing 747-8F','https://boeing.com/resources/boeingdotcom/company/about_bca/startup/pdf/freighters/747-8F-freighter.pdf']
+];
+document.getElementById('ac').innerHTML=AC.map(r=>r.length===1?`<tr class="g"><td colspan="9">${r[0]}</td></tr>`:`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td class="mono">${r[3]}</td><td class="mono">${r[4]}</td><td class="mono">${r[5]}</td><td class="num">${r[6]}</td><td>${r[7]==='v'?'<span class="b v">Sourced</span>':'<span class="b u">Verify</span>'}</td><td><a href="${r[9]}" target="_blank" rel="noopener">${r[8]}</a></td></tr>`).join('');
+const ULD=[['AKE container (LD3)','AKE','156 × 153 (top 201)','163, sloped corner',4.3,1588,'Wide-body lower deck'],['AKH container (LD3-45)','AKH','156 × 153','114',3.5,1134,'A320 family lower deck'],['Pallet, lower deck','PMC / PAG','318 × 244','163',11.5,4626,'Wide-body and freighter lower deck'],['Pallet, main deck Q6','PMC / PAG','318 × 244','244',17,6804,'Freighter main deck'],['Pallet, main deck Q7','PMC / PAG','318 × 244','300',21,6804,'Freighter main deck'],['20 ft pallet / connected pallets','PGA','606 × 244','300',40,11340,'Freighter main deck, long cargo']];
+document.getElementById('uld').innerHTML=ULD.map(r=>`<tr><td><b>${r[0]}</b></td><td class="mono">${r[1]}</td><td class="mono">${r[2]}</td><td>${r[3]}</td><td class="num">${r[4]}</td><td class="num">${r[5].toLocaleString('en-US')}</td><td>${r[6]}</td></tr>`).join('');
+</script>
+
+</body>
+</html>

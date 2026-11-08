@@ -1,0 +1,1133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AdeyIQ Cargo Builder</title>
+<meta name="description" content="Build your cargo virtually: ULD build-up, aircraft loading, weight and balance.">
+<link rel="icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: two-step tool — step 1 ULD build-up bench (small add-cargo panel top-left, 3D ULD + details), step 2 load aircraft (hold positions + weight & balance). */
+/* Palette: Adey Abeba petal yellow for brand actions, Stripe-style white, cloud grey, navy and slate, blurple for links and focus. */
+:root{
+  --bg:#F6F9FC;--panel:#FFFFFF;--panel2:#F0F4F8;--line:#E3E8EE;--fg:#0A2540;--muted:#425466;--faint:#697386;
+  --accent:#FFD21F;--accent-ink:#0A2540;--contour:#D99A00;--link:#635BFF;
+  --ok:#0E8A5F;--ok-bg:rgba(14,138,95,.10);--warn:#B26B00;--warn-bg:rgba(245,165,36,.16);--bad:#DF1B41;--bad-bg:rgba(223,27,65,.10);--info-bg:rgba(99,91,255,.10);
+  --skin:#FFFFFF;--stroke:#8792A2;--cut:#E9EEF4;--win:#A3ACB9;--glass:#0A2540;--door:#635BFF;--dgline:#DF1B41;--cold:#0570DE;--accent-text:#9A6700;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A2540;--panel:#0F2F50;--panel2:#16395E;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;--faint:#8FA3B8;--accent:#FFD21F;--accent-ink:#0A2540;--contour:#FFD21F;--link:#A29BFF;
+  --ok:#3ECF8E;--ok-bg:rgba(62,207,142,.14);--warn:#FFB547;--warn-bg:rgba(255,181,71,.16);--bad:#FF6B81;--bad-bg:rgba(255,107,129,.14);--info-bg:rgba(162,155,255,.14);--skin:#16395E;--stroke:#8FA3B8;--cut:#0B2742;--win:#4F6B88;--glass:#061727;--door:#A29BFF;--dgline:#FF6B81;--cold:#4DB8FF;--accent-text:#FFD21F;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A2540;--panel:#0F2F50;--panel2:#16395E;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;--faint:#8FA3B8;--accent:#FFD21F;--accent-ink:#0A2540;--contour:#FFD21F;--link:#A29BFF;
+  --ok:#3ECF8E;--ok-bg:rgba(62,207,142,.14);--warn:#FFB547;--warn-bg:rgba(255,181,71,.16);--bad:#FF6B81;--bad-bg:rgba(255,107,129,.14);--info-bg:rgba(162,155,255,.14);--skin:#16395E;--stroke:#8FA3B8;--cut:#0B2742;--win:#4F6B88;--glass:#061727;--door:#A29BFF;--dgline:#FF6B81;--cold:#4DB8FF;--accent-text:#FFD21F;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:22px;flex:none}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(26px,3.4vw,34px);margin:0;line-height:1}
+h2{font-family:var(--display);font-weight:600;font-size:22px;margin:0;line-height:1.1}
+.sub{color:var(--muted);font-size:13px}
+.hright{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.saved{font-size:12px;color:var(--ok);opacity:0;transition:opacity .3s}
+.saved.on{opacity:1}
+.iconbtn{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;color:var(--fg);text-decoration:none;font-size:18px}
+.iconbtn:hover{border-color:var(--link);color:var(--link)}
+select,input{font:inherit;font-size:14px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%;min-width:0}
+#acSel{width:auto;min-width:210px;font-weight:600}
+input[type=checkbox]{width:18px;height:18px;padding:0}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#iso:focus-visible{outline:2px solid var(--link);outline-offset:1px}
+.btn{font:inherit;font-size:14px;font-weight:600;padding:9px 15px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn.pri{background:var(--accent);border-color:transparent;color:var(--accent-ink)}
+.btn.sec{background:var(--link);border-color:transparent;color:#fff}
+.btn.lg{font-size:16px;padding:13px 22px;border-radius:12px}
+.btn.sm{font-size:12px;padding:5px 10px;border-radius:8px}
+.btn.link{border:0;background:transparent;color:var(--link);padding:4px 2px}
+.btn:disabled{opacity:.45;cursor:default}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.step{font:inherit;text-align:left;display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);cursor:pointer;color:var(--muted)}
+.step .num{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:600;background:var(--panel2);flex:none}
+.step b{display:block;color:var(--fg);font-size:16px}
+.step span.s{font-size:12px}
+.step[aria-selected="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.step[aria-selected="true"] .num{background:var(--accent);color:var(--accent-ink)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;box-shadow:0 2px 5px -1px rgba(50,50,93,.08),0 1px 3px -1px rgba(0,0,0,.06)}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.drawers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;align-items:start}
+.ship select{font-size:12px;padding:4px 6px;border-radius:7px;width:auto;max-width:150px}
+.side{display:flex;flex-direction:column;gap:10px}
+.addhd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+@media (max-width:520px){.form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.form label{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:600;color:var(--muted);min-width:0}
+.span2{grid-column:span 2}.full{grid-column:1/-1}
+.dims{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.err{color:var(--bad);font-size:12px}
+.note{font-size:12px;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:5px;max-height:380px;overflow-y:auto;margin-top:8px}
+.ship{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto auto;gap:8px;align-items:center;padding:7px 8px;border:1px solid var(--line);border-radius:9px;font-size:13px}
+.ship .dot{width:12px;height:12px;border-radius:3px}
+.ship .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ship .m{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.ship .kg{text-align:right;font-family:var(--mono);font-size:12px}
+.x{border:0;background:transparent;color:var(--faint);font-size:17px;cursor:pointer;padding:0 5px;border-radius:6px}
+.x:hover{color:var(--bad);background:var(--panel2)}
+.cat{display:inline-grid;place-items:center;min-width:20px;height:18px;border-radius:5px;font-weight:600;font-size:11px;font-family:var(--mono);padding:0 4px}
+.cat.A{background:#E3F4D4;color:#2C5A0F}.cat.B{background:#DCEBFC;color:#0B3D73}.cat.C{background:#EDE6FF;color:#3A2B85}.cat.X{background:var(--bad-bg);color:var(--bad)}
+.chip{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border-radius:4px;background:var(--panel2);color:var(--muted);margin-right:3px}
+.chip.dg{background:var(--bad-bg);color:var(--bad)}
+.mainhd{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.summary{display:flex;gap:16px;align-items:baseline}
+.summary b{font-family:var(--display);font-size:26px;font-weight:600;line-height:1}
+.summary span{font-size:11px;color:var(--muted);display:block}
+.flag{font:inherit;font-size:12px;font-weight:600;border:0;border-radius:999px;padding:5px 11px;cursor:pointer;background:var(--warn-bg);color:var(--warn)}
+.flags{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.flags div{font-size:13px;padding:8px 10px;border-radius:9px;background:var(--panel2)}
+.strip{display:flex;gap:6px;overflow-x:auto;padding:10px 0 6px}
+.uchip{font:inherit;flex:none;display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-size:13px;color:var(--fg)}
+.uchip .pct{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.uchip[aria-pressed="true"]{border-color:var(--link);box-shadow:inset 0 0 0 1px var(--link)}
+.uchip.dg{border-color:var(--bad)}
+.stage{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:16px;align-items:start}
+@media (max-width:820px){.stage{grid-template-columns:minmax(0,1fr)}}
+.isoWrap{position:relative}
+#iso{display:block;width:100%;height:auto;background:var(--panel2);border-radius:12px;touch-action:pan-y;cursor:grab}
+.isobar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:240px;z-index:5}
+.info .id{font-family:var(--display);font-weight:600;font-size:30px;line-height:1}
+.info .ty{font-size:13px;color:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:10px 0}
+.kv span:nth-child(odd){color:var(--muted)}
+.bar{height:7px;border-radius:4px;background:var(--panel2);overflow:hidden;margin:3px 0 8px}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar i.hi{background:var(--warn)}.bar i.over{background:var(--bad)}
+.awb{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
+.awb .sw{width:12px;height:12px;border-radius:3px}
+.okline{font-size:13px;color:var(--ok)}
+.warnline{font-size:12px;padding:7px 9px;border-radius:8px;background:var(--bad-bg);margin-top:8px}
+.cta{display:flex;justify-content:flex-end;margin-top:12px}
+.empty{padding:34px 14px;text-align:center;color:var(--muted)}
+.deck{overflow-x:auto}
+.deck svg{display:block;min-width:720px;width:100%;height:auto}
+.wbgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:820px){.wbgrid{grid-template-columns:minmax(0,1fr)}}
+.gauge{position:relative;height:22px;border-radius:7px;background:var(--panel2);margin:14px 0 4px}
+.gauge .env{position:absolute;top:0;bottom:0;background:var(--ok-bg);border-left:2px solid var(--ok);border-right:2px solid var(--ok)}
+.gauge .pt{position:absolute;top:-5px;width:5px;height:32px;border-radius:3px;background:var(--fg);transform:translateX(-2px)}
+.alert{display:flex;gap:8px;font-size:13px;padding:9px 11px;border-radius:10px}
+.alert.bad{background:var(--bad-bg)}.alert.ok{background:var(--ok-bg)}.alert.info{background:var(--info-bg)}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+details.settings{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 16px}
+details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:12px}
+.sgrid label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
+.toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:11px 15px;border-radius:12px;font-size:14px;z-index:20}
+/* step 2 · same structure as the AdeyIQ hold view */
+.p2head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.p2head h2{font-size:clamp(22px,2.6vw,28px)}
+.hchips{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.hchip{font-family:var(--mono);font-size:12px;padding:4px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);white-space:nowrap}
+.hchip.ok{border-color:transparent;background:var(--ok-bg);color:var(--ok)}.hchip.bad{border-color:var(--dgline);color:var(--dgline)}
+.acstage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px 6px;box-shadow:0 2px 5px -1px rgba(50,50,93,.10),0 1px 3px -1px rgba(0,0,0,.08)}
+.sbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.sw{width:11px;height:11px;border-radius:2px;display:inline-block;flex:none}
+.facts{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.tools{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:12px;padding:6px 11px;background:transparent;color:var(--muted);border:0;cursor:pointer;min-width:32px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg button:disabled{opacity:.45;cursor:default}
+.scroll{overflow-x:auto}
+#ac{display:block;width:100%;min-width:640px;height:auto;touch-action:pan-y;cursor:grab}
+#ac.dragging,#iso2.dragging{cursor:grabbing}
+.slot{cursor:pointer;outline:none}
+.slot:focus-visible{outline:2px solid var(--link)}
+.hint{font-size:12px;color:var(--muted)}
+.shc{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);white-space:nowrap}
+.shc.dg{border-color:var(--dgline);color:var(--dgline)}.shc.cold{border-color:var(--cold);color:var(--cold)}
+.bench{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.bench{grid-template-columns:minmax(0,1fr)}}
+#iso2{display:block;width:100%;height:auto;max-height:480px;background:var(--panel2);border-radius:10px;touch-action:pan-y;cursor:grab;outline:none}
+#iso2:focus-visible{outline:2px solid var(--link)}
+.grid3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.1fr);gap:14px}
+@media (max-width:980px){.grid3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.grid3>.load{grid-column:1/-1}}
+@media (max-width:640px){.grid3{grid-template-columns:minmax(0,1fr)}}
+.lab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.mut{color:var(--muted)}
+.pside{padding:9px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:4px;font-size:13px}
+.pside:first-of-type{border-top:0}
+.tag{font-size:11px;padding:2px 7px;border-radius:5px;font-weight:600;white-space:nowrap}
+.ulrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;background:transparent;width:100%;text-align:left;font:inherit;font-size:13px;color:inherit}
+.ulrow:hover{background:var(--panel2)}
+.ulrow[aria-current="true"]{border-color:var(--link)}
+.stack{display:flex;flex-direction:column;width:14px;height:30px;border-radius:3px;overflow:hidden;flex:none}
+.ullist{max-height:320px;overflow-y:auto}
+.meter{height:10px;border-radius:5px;background:var(--panel2);overflow:hidden;margin:6px 0 2px}
+.meter i{display:block;height:100%;background:#8CC152}
+.cg{position:relative;height:16px;background:var(--panel2);border-radius:5px;margin-top:6px}
+.cg .env{position:absolute;top:0;bottom:0;background:var(--ok-bg);border-left:2px solid var(--ok);border-right:2px solid var(--ok)}
+.cg .pt{position:absolute;top:-4px;width:3px;height:24px;background:var(--fg);border-radius:2px;transform:translateX(-1px)}
+.cgl{position:relative;height:16px;font-size:11px;color:var(--muted);margin-top:4px}
+.cgl span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 12px}
+.stat{background:var(--panel2);border-radius:8px;padding:8px 10px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:22px;font-weight:600;line-height:1.1}
+.stat span{font-size:11px;color:var(--muted)}
+.bsteps{display:flex;gap:4px;flex-wrap:wrap;margin:10px 0 12px;padding:0;list-style:none}
+.bsteps li{font-size:12px;padding:4px 8px;border-radius:6px;background:var(--panel2);color:var(--muted)}
+.bsteps li.done{color:var(--ok)}.bsteps li.now{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.check{display:flex;gap:8px;align-items:center;font-size:13px;padding:7px 0;border-top:1px solid var(--line)}
+.check b{color:var(--ok);font-weight:600}.check b.no{color:var(--bad)}
+.awbs{display:flex;flex-direction:column;gap:4px;margin-top:12px}
+.awbb{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:transparent;font:inherit;font-size:13px;color:inherit;text-align:left;cursor:pointer;width:100%}
+.awbb:hover{background:var(--panel2)}
+.awbb[aria-pressed="true"]{border-color:var(--link);background:var(--panel2)}
+.awbb .sw{width:14px;height:14px;border-radius:3px}
+.shcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+<header>
+  <a class="logo" href="/" aria-label="AdeyIQ home" style="text-decoration:none">A</a>
+  <div><h1>Build your cargo</h1><div class="sub">AdeyIQ · build ULDs, then load the aircraft</div></div>
+  <div class="hright">
+    <span class="saved" id="saved" aria-live="polite">✓ Saved</span>
+    <select id="acSel" aria-label="Aircraft"></select>
+    <a class="iconbtn" href="/aircraft-data" title="Aircraft &amp; ULD data" aria-label="Aircraft and ULD data">✈</a>
+  </div>
+</header>
+
+<nav class="steps" role="tablist" aria-label="Steps">
+  <button class="step" role="tab" id="st1" aria-selected="true" type="button"><span class="num">1</span><span><b>ULD build-up</b><span class="s" id="st1s">Add cargo and build ULDs</span></span></button>
+  <button class="step" role="tab" id="st2" aria-selected="false" type="button"><span class="num">2</span><span><b>Load aircraft</b><span class="s" id="st2s">Positions and weight &amp; balance</span></span></button>
+</nav>
+
+<!-- STEP 1 · ULD BUILD-UP -->
+<section id="p1" role="tabpanel" aria-labelledby="st1" style="display:flex;flex-direction:column;gap:12px">
+<div class="toolbar">
+  <button class="btn pri" id="addToggle" type="button" aria-expanded="false" aria-controls="addPanel">＋ Add cargo</button>
+  <button class="btn" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
+  <button class="btn" id="upBtn" type="button">⬆ Upload file</button><input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden>
+  <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
+  <span class="note" id="upMsg" role="status"></span>
+</div>
+<div class="drawers" id="drawers" hidden>
+    <div class="card" id="addPanel" hidden>
+      <div class="addhd"><b>Add cargo</b><button class="x" type="button" data-close="addPanel" aria-label="Close">×</button></div>
+      <form id="f" class="form" novalidate>
+        <label class="span2">AWB<input id="sAwb" placeholder="071-18402213" autocomplete="off" inputmode="numeric"></label>
+        <label class="span2">Goods<input id="sNat" placeholder="Auto parts"></label>
+        <label>Pieces<input id="sPcs" type="number" min="1" value="1"></label>
+        <label>Weight kg<input id="sWt" type="number" min="0" step="0.1" placeholder="1450"></label>
+        <label class="span2">Dimensions per piece (cm)<div class="dims"><input id="sL" type="number" min="1" placeholder="L" aria-label="Length cm"><input id="sW" type="number" min="1" placeholder="W" aria-label="Width cm"><input id="sH" type="number" min="1" placeholder="H" aria-label="Height cm"></div></label>
+        <label>DG class<select id="sDg"></select></label>
+        <label>UN no.<input id="sUn" placeholder="UN1263" maxlength="6"></label>
+        <div class="full" id="more" hidden style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+          <label class="span2">Handling codes<input id="sShc" placeholder="EAT, COL"></label>
+          <label>Overhang %<input id="sOhg" type="number" min="0" max="100" value="0"></label>
+          <label style="flex-direction:row;align-items:center;gap:6px;margin-top:18px"><input type="checkbox" id="sExcl"> Own ULD</label>
+        </div>
+        <label class="span2">Load on<select id="sPin"></select></label>
+        <div class="span2" style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><button class="btn link" id="moreBtn" type="button" aria-expanded="false">+ More</button><button class="btn pri" type="submit">Add</button></div>
+        <span class="err full" id="sErr" role="alert"></span>
+      </form>
+    </div>
+    <div class="card" id="listPanel" hidden>
+      <div class="addhd"><b>Cargo</b><div style="display:flex;gap:6px;align-items:center"><button class="btn link" id="clearBtn" type="button">Clear all</button><button class="x" type="button" data-close="listPanel" aria-label="Close">×</button></div></div>
+      <p class="note" style="margin:4px 0 0">Pick a pallet or container in “Load on” to place a shipment by hand. “Auto” lets AdeyIQ choose.</p>
+      <div class="list" id="cargo"></div>
+    </div>
+</div>
+  <div class="card">
+    <div class="mainhd"><h2>ULD build-up</h2><div class="summary" id="sum"></div><button class="flag" id="flagBtn" type="button" hidden aria-expanded="false"></button></div>
+    <div class="flags" id="flags" hidden></div>
+    <div class="strip" id="strip" role="group" aria-label="ULDs"></div>
+    <div class="stage">
+      <div>
+        <div class="isoWrap"><svg id="iso" viewBox="0 0 640 420" tabindex="0" role="img" aria-label="3D view of the selected ULD with its pieces. Drag or use the arrow keys to turn it."></svg><div class="tip" id="tip" hidden></div></div>
+        <div class="isobar"><button class="btn sm" id="spin" type="button" aria-pressed="true">Auto-rotate</button><span class="note">Drag to turn · hover a box for its AWB</span></div>
+      </div>
+      <div class="info" id="info"></div>
+    </div>
+    <div class="cta"><button class="btn sec lg" id="toLoad" type="button">Load to aircraft →</button></div>
+  </div>
+</section>
+
+<!-- STEP 2 · LOAD AIRCRAFT -->
+<section id="p2" role="tabpanel" aria-labelledby="st2" hidden style="display:flex;flex-direction:column;gap:14px">
+  <div class="p2head">
+    <div><h2 id="loadTitle">Your flight</h2><div class="sub" id="loadSub"></div></div>
+    <div class="hchips" id="hchips"></div>
+    <div style="display:flex;gap:8px"><button class="btn" id="back" type="button">← ULD build-up</button><button class="btn sec" id="reassign" type="button">Rebalance</button></div>
+  </div>
+  <div class="card empty" id="p2empty" hidden>Build ULDs first, then load them here.</div>
+  <div id="p2main" style="display:flex;flex-direction:column;gap:14px">
+  <section class="acstage" aria-label="Aircraft side view">
+    <div class="sbar">
+      <span class="lg"><i class="sw" style="background:linear-gradient(90deg,#8CC152 0 33%,#6FB1F0 33% 66%,#E58FA6 66%)"></i>Each colour = one AWB</span>
+      <span class="lg"><i class="sw" style="border:2px solid var(--dgline)"></i>DG on board</span>
+      <span class="lg"><i class="sw" style="border:2px solid var(--cold)"></i>Cold chain</span>
+      <span class="lg"><i class="sw" style="border:1px dashed var(--stroke)"></i>Empty</span>
+      <span class="lg"><i class="sw" style="background:var(--door);height:4px"></i>Cargo door</span>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Zoom"><button id="zOut" type="button" aria-label="Zoom out">−</button><button id="zIn" type="button" aria-label="Zoom in">+</button></div>
+        <div class="seg" role="group" aria-label="View"><button id="vAll" aria-pressed="true" type="button">Whole aircraft</button><button id="vHold" aria-pressed="false" type="button">Cargo decks only</button></div>
+      </div>
+    </div>
+    <div class="scroll"><svg id="ac" viewBox="0 0 680 262" role="img" aria-label="Aircraft side view with the cargo decks cut away to show the loaded positions"></svg></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between">
+      <div class="facts" id="facts"></div>
+      <div class="hint">Drag to move · hover a ULD to see its AWBs and SHC codes · click to select</div>
+    </div>
+    <div class="tip" id="tip2" hidden></div>
+  </section>
+  <section class="card" id="benchCard" aria-label="ULD build-up and loading">
+    <div class="bench">
+      <div>
+        <p class="lab" id="bT">Build-up</p>
+        <div class="isoWrap"><svg id="iso2" viewBox="0 0 640 420" tabindex="0" role="img" aria-label="3D view of the selected ULD, or of the hold with its internal contour"></svg><div class="tip" id="tip3" hidden></div></div>
+        <div class="isobar">
+          <div class="seg" role="group" aria-label="Bench view"><button type="button" id="mU" aria-pressed="true">ULD</button><button type="button" id="mH" aria-pressed="false">Inside the hold</button></div>
+          <div class="seg" role="group" aria-label="Turn the ULD" id="rotSeg"><button type="button" id="rL" aria-label="Turn left">⟲</button><button type="button" id="rSpin" aria-pressed="true">Auto-rotate</button><button type="button" id="rR" aria-label="Turn right">⟳</button></div>
+          <span class="hint" id="isoHint2">Drag to turn · hover a box for AWB and SHC · click to highlight one AWB</span>
+        </div>
+      </div>
+      <div id="bPanel" aria-live="polite"></div>
+    </div>
+  </section>
+  <div class="grid3">
+    <section class="card" aria-label="Cross-section"><p class="lab" id="xsT">Cross-section</p><svg id="xs" viewBox="0 0 300 175" width="100%" role="img" aria-label="Fuselage cross-section at the selected row"></svg></section>
+    <section class="card" aria-label="Selected position" aria-live="polite"><p class="lab">Selected position</p><div id="det"></div></section>
+    <section class="card load" aria-label="Load summary">
+      <p class="lab">Load summary</p>
+      <div class="stats" id="stats"></div>
+      <div class="ullist" id="ulds"></div>
+      <p class="lab" style="margin-top:14px">Weight &amp; balance · <span id="cgT" style="text-transform:none;letter-spacing:0"></span></p>
+      <div class="cg" id="cg" role="img"><div class="env"></div><div class="pt"></div></div>
+      <div class="cgl" id="cgl"></div>
+    </section>
+  </div>
+  <section class="card" aria-label="Checks"><p class="lab">Checks</p><div id="loadAlerts" style="display:flex;flex-direction:column;gap:6px"></div><div id="comp" style="margin-top:12px"></div></section>
+  </div>
+</section>
+
+<details class="settings">
+  <summary>Rules and limits</summary>
+  <div class="sgrid">
+    <label>Volumetric divisor<input id="rDiv" type="number" value="6000"></label>
+    <label>Packing efficiency %<input id="rEff" type="number" value="85"></label>
+    <label>Pivot PMC kg<input id="rPivP" type="number" value="1650"></label>
+    <label>Pivot AKE kg<input id="rPivA" type="number" value="500"></label>
+    <label>OHG threshold %<input id="rOhgT" type="number" value="55"></label>
+    <label>OHG below threshold %<input id="rOhgLo" type="number" value="25"></label>
+    <label>OHG at/above threshold %<input id="rOhgHi" type="number" value="50"></label>
+    <label>AKE max kg<input id="rAke" type="number" value="1588"></label>
+    <label>AKH max kg<input id="rAkh" type="number" value="1134"></label>
+    <label>Lower-deck pallet max kg<input id="rPmcL" type="number" value="4626"></label>
+    <label>Main-deck pallet max kg<input id="rPmcM" type="number" value="6804"></label>
+    <label>PGA 20 ft max kg<input id="rPga" type="number" value="11340"></label>
+    <label>Balance fwd limit<input id="rIdxF" type="number" value="-60"></label>
+    <label>Balance aft limit<input id="rIdxA" type="number" value="60"></label>
+  </div>
+  <p class="note">Position, zonal and balance limits are placeholders until the airline's weight-and-balance figures are entered. DG segregation follows IATA DGR Table 9.3.A. Results are a planning aid; the final load sheet comes from the airline's approved system.</p>
+</details>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=(n,d=0)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const uid=()=>Math.random().toString(36).slice(2,10);
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function toast(s){const t=$('toast');t.textContent=s;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+function savedFlash(){const s=$('saved');s.classList.add('on');clearTimeout(savedFlash.t);savedFlash.t=setTimeout(()=>s.classList.remove('on'),2200)}
+
+/* ---------- reference data ---------- */
+const DG=[['','No DG'],['1','1 · Explosives'],['1.4S','1.4S · Explosives (S)'],['2.1','2.1 · Flammable gas'],['2.2','2.2 · Non-flammable gas'],['2.3','2.3 · Toxic gas'],['3','3 · Flammable liquid'],['4.1','4.1 · Flammable solid'],['4.2','4.2 · Spontaneously combustible'],['4.3','4.3 · Dangerous when wet'],['5.1','5.1 · Oxidizer'],['5.2','5.2 · Organic peroxide'],['6.1','6.1 · Toxic'],['6.2','6.2 · Infectious'],['7','7 · Radioactive'],['8','8 · Corrosive'],['9','9 · Miscellaneous']];
+$('sDg').innerHTML=DG.map(([v,t])=>`<option value="${v}">${t}</option>`).join('');
+const CAO_UN=['UN3480','UN3090'];
+const ULD={
+  AKE:{name:'AKE container',contour:'LD3 contour 163 cm',h:160,vol:4.3,maxKey:'rAke',len:156,half:true,W:201,Dp:153,H:163,prof:[[45,0],[201,0],[201,163],[0,163],[0,64]]},
+  AKH:{name:'AKH container',contour:'LD3-45 contour 114 cm',h:110,vol:3.5,maxKey:'rAkh',len:156,half:true,W:156,Dp:153,H:114,prof:[[0,0],[156,0],[156,114],[0,114]]},
+  PMCL:{name:'PMC pallet · lower deck',contour:'Lower-deck contour 163 cm',h:160,vol:11.5,maxKey:'rPmcL',len:244,W:318,Dp:244,H:163,prof:[[0,0],[318,0],[318,140],[300,163],[18,163],[0,140]]},
+  PMC6:{name:'PMC pallet · main deck',contour:'Main-deck Q6 contour 244 cm',h:244,vol:17,maxKey:'rPmcM',len:318,main:true,W:318,Dp:244,H:244,prof:[[0,0],[318,0],[318,160],[250,244],[0,244]]},
+  PMC7:{name:'PMC pallet · main deck',contour:'Main-deck Q7 contour 300 cm',h:300,vol:21,maxKey:'rPmcM',len:318,main:true,W:318,Dp:244,H:300,prof:[[0,0],[318,0],[318,200],[250,300],[0,300]]},
+  PGA:{name:'PGA 20 ft pallet · main deck',contour:'20 ft pallet, 300 cm contour',h:300,vol:40,maxKey:'rPga',len:606,main:true,W:244,Dp:606,H:300,prof:[[0,0],[244,0],[244,220],[200,300],[0,300]]}
+};
+const AC=[
+ {id:'B787-8',g:'belly',name:'Boeing 787-8',low:{fwd:{rows:8},aft:{rows:6}}},{id:'B787-9',g:'belly',name:'Boeing 787-9',low:{fwd:{rows:10},aft:{rows:8}}},{id:'B787-10',g:'belly',name:'Boeing 787-10',low:{fwd:{rows:11},aft:{rows:9}}},
+ {id:'A350-900',g:'belly',name:'Airbus A350-900',low:{fwd:{rows:10},aft:{rows:8}}},{id:'A350-1000',g:'belly',name:'Airbus A350-1000',low:{fwd:{rows:12},aft:{rows:10}}},{id:'B777-300ER',g:'belly',name:'Boeing 777-300ER',low:{fwd:{rows:12},aft:{rows:10}}},{id:'A330-300',g:'belly',name:'Airbus A330-300',low:{fwd:{rows:9},aft:{rows:7}}},
+ {id:'B737-800',g:'narrow',name:'Boeing 737-800',bulkHolds:{fwd:{m3:19.6,kg:3500},aft:{m3:24.4,kg:4500}},door:'122 × 89',doorWH:[122,84]},{id:'B737-8',g:'narrow',name:'Boeing 737-8 (MAX)',bulkHolds:{fwd:{m3:19.6,kg:3500},aft:{m3:24.4,kg:4500}},door:'122 × 89',doorWH:[122,84]},
+ {id:'A320neo',g:'narrow',name:'Airbus A320neo',akh:{fwd:{rows:3},aft:{rows:4}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124]},{id:'A321neo',g:'narrow',name:'Airbus A321neo',akh:{fwd:{rows:5},aft:{rows:5}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124]},
+ {id:'B777F',g:'freighter',name:'Boeing 777 Freighter',low:{fwd:{rows:9},aft:{rows:7}},main:{rows:14}},{id:'B747-8F',g:'freighter',name:'Boeing 747-8F',low:{fwd:{rows:10},aft:{rows:8}},main:{rows:16}}
+];
+const GROUPS={belly:'Wide-body (belly)',narrow:'Narrow-body',freighter:'Freighter'};
+$('acSel').innerHTML=Object.entries(GROUPS).map(([g,t])=>`<optgroup label="${t}">${AC.filter(a=>a.g===g).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}</optgroup>`).join('');
+$('acSel').value='B787-9';
+const acNow=()=>AC.find(a=>a.id===$('acSel').value);
+
+/* ---------- state ---------- */
+let ships=[],build=null,plan=null,db=null,user=null,canWrite=null,storeOk=false,mcp=null,selU=null;
+const R=k=>Number($(k).value)||0;
+
+/* ---------- cargo rules ---------- */
+function fitsBase(l,w,bl,bw){return (l<=bl&&w<=bw)||(l<=bw&&w<=bl)}
+function category(s){const{l,w,h}=s;if(!l||!w||!h)return'X';
+  if(h<=155&&fitsBase(l,w,150,150))return'A';
+  if(h<=160&&(fitsBase(l,w,318,244)||s.ohg>0))return'B';
+  if(h<=300&&(fitsBase(l,w,606,244)||s.ohg>0))return'C';return'X'}
+const CATTXT={A:'Container',B:'Lower-deck pallet',C:'Freighter main deck',X:'Out of gauge'};
+const longPiece=s=>!fitsBase(s.l,s.w,318,244);
+function fitsDoor(s,wh){const d=[s.l,s.w,s.h].sort((a,b)=>a-b);return d[0]<=Math.min(...wh)&&d[1]<=Math.max(...wh)}
+const volM3=s=>s.pcs*s.l*s.w*s.h/1e6,volKg=s=>volM3(s)*1e6/R('rDiv'),chg=s=>Math.max(s.wt,volKg(s));
+const isCAO=s=>CAO_UN.includes((s.un||'').toUpperCase().replace(/\s/g,''))||s.shc.includes('CAO');
+const FOOD=['EAT','PEM','PES','PER','PEF'];
+function conflict(a,b){const x=a.dg,y=b.dg;
+  if(x&&y){if((x==='1'&&y!=='1.4S')||(y==='1'&&x!=='1.4S'))return'explosives are kept apart from other DG';const p=(m,n)=>(x===m&&y===n)||(x===n&&y===m);
+    if(p('3','5.1'))return'class 3 and 5.1 must be segregated';if(p('4.2','5.1'))return'4.2 and 5.1 must be segregated';if(p('4.3','8'))return'4.3 and class 8 must be segregated'}
+  const tox=s=>s.dg==='6.1'||s.dg==='6.2',food=s=>s.shc.some(c=>FOOD.includes(c)),avi=s=>s.shc.includes('AVI'),heg=s=>s.shc.includes('HEG'),ice=s=>s.shc.includes('ICE')||(s.un||'')==='UN1845',rry=s=>s.dg==='7'||s.shc.includes('RRY'),fil=s=>s.shc.includes('FIL');
+  if((tox(a)&&(food(b)||avi(b)))||(tox(b)&&(food(a)||avi(a))))return'toxic goods are kept away from food and animals';
+  if((ice(a)&&(avi(b)||heg(b)))||(ice(b)&&(avi(a)||heg(a))))return'dry ice is kept away from animals and hatching eggs';
+  if((rry(a)&&(avi(b)||heg(b)||fil(b)))||(rry(b)&&(avi(a)||heg(a)||fil(a))))return'radioactive goods are kept away from animals, eggs and film';
+  return null}
+function charge(s,u){const c=chg(s);const kind=u?(u.type==='PGA'?'PGA':ULD[u.type].half?'AKE':'PMC'):(category(s)==='A'?'AKE':'PMC');const piv={AKE:R('rPivA'),PMC:R('rPivP'),PGA:2*R('rPivP')}[kind],T=R('rOhgT');
+  let base=c,why='chargeable weight';if((s.excl||s.ohg>0||kind==='PGA')&&c<piv){base=piv;why=`pivot ${kind}`}
+  const useOhg=s.ohg>0&&kind!=='PGA',ohg=useOhg?c*(s.ohg<T?R('rOhgLo'):R('rOhgHi'))/100:0;if(ohg)why+=` + OHG ${s.ohg<T?R('rOhgLo'):R('rOhgHi')}%`;return{kg:base+ohg,why}}
+
+/* ---------- reading files ---------- */
+const HDR={awb:['awb','awbno','awbnumber','airwaybill','mawb'],pcs:['pcs','pieces','piece','qty','quantity','nop'],l:['l','length','len','lengthcm'],w:['w','width','widthcm'],h:['h','height','heightcm'],dims:['dims','dim','dimensions','size','lxwxh'],wt:['weight','wt','gross','grossweight','grosskg','kg','weightkg'],nat:['nature','natureofgoods','goods','description','commodity','nog'],shc:['shc','handling','specialhandling','shcs'],dg:['dg','dgclass','class','hazardclass'],un:['un','unnumber','unno'],excl:['exclusive','ownuld','excl'],ohg:['ohg','overhang','overhangpct']};
+const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function rowsToShips(rows){if(rows.length<2)return{list:[],errs:['the file needs a header row and at least one line']};
+  const m={};rows[0].forEach((h,i)=>{const n=norm(h);for(const k in HDR)if(HDR[k].includes(n)&&m[k]==null)m[k]=i});const list=[],errs=[];
+  if(m.awb==null)errs.push('no AWB column');
+  rows.slice(1).forEach((r,i)=>{if(!r||r.every(c=>String(c||'').trim()===''))return;const g=k=>m[k]!=null?r[m[k]]:'';
+    let l=+g('l'),w=+g('w'),h=+g('h');if((!l||!w||!h)&&m.dims!=null){const d=String(g('dims')).toLowerCase().match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)/);if(d){l=+d[1];w=+d[2];h=+d[3]}}
+    const s=mk({awb:String(g('awb')).trim(),pcs:+g('pcs')||1,l,w,h,wt:+String(g('wt')).replace(/[^0-9.]/g,''),nat:String(g('nat')||'').trim(),shc:String(g('shc')||''),dg:String(g('dg')||'').trim(),un:String(g('un')||'').trim(),excl:/^(y|yes|true|1|x)$/i.test(String(g('excl')).trim()),ohg:+g('ohg')||0});
+    const e=validate(s);if(e)errs.push(`line ${i+2}: ${e}`);else list.push(s)});return{list,errs}}
+function parseCSV(t){const f=t.split('\n')[0],sep=f.includes('\t')?'\t':(f.split(';').length>f.split(',').length?';':',');const out=[];let row=[],cur='',q=false;
+  for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===sep){row.push(cur);cur=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cur);out.push(row);row=[];cur=''}else cur+=c}
+  if(cur!==''||row.length){row.push(cur);out.push(row)}return out}
+function mk(o){const dg=String(o.dg||'').replace(/^class\s*/i,''),known=DG.map(d=>d[0]);
+  return{id:o.id||uid(),awb:o.awb||'',pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:o.nat||'',shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>x.trim().toUpperCase()).filter(Boolean),dg:known.includes(dg)?dg:'',un:String(o.un||'').toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',at:o.at||new Date().toISOString()}}
+/* manual placement: "Load on" choices */
+function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boolean))].sort();const next=k=>k+':'+(1+Math.max(0,...used.filter(p=>p.startsWith(k)).map(p=>+p.split(':')[1])));
+  const label=p=>{const[k,n]=p.split(':');return k==='PMC'?`Manual pallet ${n}`:`Manual container ${n}`};
+  const opts=[['','Auto (AdeyIQ chooses)'],...used.map(p=>[p,label(p)]),[next('PMC'),'+ New manual pallet'],[next('AKE'),'+ New manual container']];
+  if(cur&&!opts.some(o=>o[0]===cur))opts.splice(1,0,[cur,label(cur)]);
+  return opts.map(([v,t])=>`<option value="${v}"${v===cur?' selected':''}>${t}</option>`).join('')}
+async function updateShip(id,patch){const s=ships.find(x=>x.id===id);if(!s)return;Object.assign(s,patch);
+  if(db&&storeOk&&canWrite!==false){try{const{id:_,...b}=s;await db.doc('shipments/'+id).set(b);savedFlash();return}catch(e){}}saveLocal();refresh()}
+function validate(s){if(!/^\d{3}-?\d{8}$/.test(s.awb.replace(/\s/g,'')))return'AWB should look like 071-12345675';if(!(s.wt>0))return'enter the weight in kg';if(!(s.l>0&&s.w>0&&s.h>0))return'enter length, width and height';if(s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))return'dangerous goods need a UN number, like UN1263';return null}
+
+/* ---------- saving (quiet) ---------- */
+const GS={server:'Google Sheets',id:'1-jMbYE7sy6ikGYviHWyP2L-txICiTru2_ue7HdG4AxQ'};
+const now=()=>new Date().toISOString().slice(0,19).replace('T',' ');
+function uldOf(s){return build?build.ulds.find(u=>u.items.some(i=>i.s===s)):null}
+function shipRow(s,ev){const u=uldOf(s);return[now(),'',$('acSel').value,s.awb,s.pcs,s.l,s.w,s.h,s.wt,+volM3(s).toFixed(3),Math.round(volKg(s)),Math.round(chg(s)),category(s),s.nat,s.shc.join(' '),s.dg,s.un,s.excl?'yes':'no',s.ohg,u?u.id:'',u&&u.pos?u.pos:'',ev]}
+async function report(range,rows){if(!mcp||!rows.length)return;try{await mcp.callTool(GS.server,'append_values',{spreadsheetId:GS.id,range,values:rows});savedFlash()}catch(e){if(['not_granted','capability_disabled','capability_removed'].includes(e&&e.code))mcp=null}}
+function reportPlan(){if(!build||!plan)return;const ac=$('acSel').value,t=now();
+  const ul=build.ulds.map(u=>[t,'',ac,u.id,ULD[u.type].name,u.pos||'',Math.round(u.kg),u.max,+u.m3.toFixed(2),+u.cap.toFixed(1),[...new Set(u.items.map(i=>i.s.awb))].join(' '),[...u.flags].join(' ')]);
+  const k=key=>Math.round(plan.C.filter(c=>c.key===key).reduce((s,c)=>s+c.kg,0));
+  report("'ULD builds'!A1",ul).then(()=>report("'Load plans'!A1",[[t,'',ac,build.ac.g,'',build.ulds.length,Math.round(plan.total||0),k('fwd'),k('aft'),k('main'),Math.round(plan.index*10)/10,build.offload.map(o=>o.s.awb).join(' ')]]))}
+async function initStore(){
+  try{if(window.claude&&window.claude.use){[db,user,mcp]=await Promise.all([claude.use('db'),claude.use('user'),claude.use('mcp')]);if(user)canWrite=await user.can('data.write')}}catch(e){}
+  if(!db){loadLocal();refresh();return}
+  db.collection('shipments').onSnapshot(snap=>{ships=snap.docs.map(d=>mk(Object.assign({id:d.id},d.data()))).sort((a,b)=>String(a.at).localeCompare(String(b.at)));storeOk=true;refresh()},()=>{loadLocal();refresh()});
+}
+function loadLocal(){try{ships=JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').map(mk)}catch(e){}}
+function saveLocal(){try{localStorage.setItem('adeyiq-ships',JSON.stringify(ships))}catch(e){}savedFlash()}
+async function addShips(list){report('Shipments!A1',list.map(s=>shipRow(s,'added')));
+  if(db&&storeOk&&canWrite!==false){try{for(const s of list){const{id,...b}=s;await db.doc('shipments/'+id).set(b)}savedFlash();return}catch(e){canWrite=false}}
+  ships.push(...list.filter(x=>!ships.find(y=>y.id===x.id)));saveLocal();refresh()}
+async function delShip(id,quiet){const s=ships.find(x=>x.id===id);if(s&&!quiet)report('Shipments!A1',[shipRow(s,'deleted')]);
+  if(db&&storeOk&&canWrite!==false){try{await db.doc('shipments/'+id).delete();savedFlash();return}catch(e){}}ships=ships.filter(x=>x.id!==id);saveLocal();refresh()}
+function savePlan(){if(!(db&&storeOk&&canWrite!==false)||!plan)return;db.doc('plans/latest').set({aircraft:$('acSel').value,at:new Date().toISOString(),ulds:build.ulds.map(u=>({id:u.id,type:u.type,kg:Math.round(u.kg),pos:u.pos||null,awbs:[...new Set(u.items.map(i=>i.s.awb))]})),index:Math.round(plan.index*10)/10,offload:build.offload.map(o=>o.s.awb)}).catch(()=>{})}
+
+/* ---------- build ULDs ---------- */
+function buildUlds(){
+  const ac=acNow(),g=ac.g,eff=R('rEff')/100,ulds=[],offload=[],bulkLoads=[],apart=[];let n=0;
+  const newUld=t=>{const T=ULD[t];const u={id:`${t.startsWith('PMC')?'PMC':t}${String(++n).padStart(3,'0')}`,type:t,items:[],kg:0,m3:0,max:R(T.maxKey),cap:T.vol*eff,h:T.h,flags:new Set()};ulds.push(u);return u};
+  const pax=g!=='freighter';
+  const add=(u,s,p)=>{const it=u.items.find(i=>i.s===s);if(it)it.p+=p;else u.items.push({s,p});u.kg+=s.wt/s.pcs*p;u.m3+=s.l*s.w*s.h/1e6*p;if(s.dg)u.flags.add('DG');s.shc.forEach(c=>u.flags.add(c))};
+  /* how many more pieces of s physically fit in u: weight, volume, then a real 3D stacking check inside the contour */
+  function fitCount(u,s,left){const kp=s.wt/s.pcs,mp=s.l*s.w*s.h/1e6;let k=Math.min(left,Math.floor((u.max-u.kg)/kp),Math.floor((u.cap-u.m3)/mp));
+    while(k>0){const items=u.items.map(i=>({s:i.s,p:i.p}));const it=items.find(i=>i.s===s);if(it)it.p+=k;else items.push({s,p:k});if(packItems(u.type,items).notShown===0)return k;k=k>8?Math.floor(k*.75):k-1}return 0}
+  function place(s,types){let left=s.pcs;
+    while(left>0){const ok=u=>!u.excl&&types.includes(u.type)&&u.h>=s.h&&u.items.every(i=>!conflict(i.s,s));
+      const cands=ulds.filter(ok).sort((a,b)=>(b.items.some(i=>i.s===s))-(a.items.some(i=>i.s===s)));let done=false;
+      for(const u of cands){const k=fitCount(u,s,left);if(k>0){add(u,s,k);left-=k;done=true;break}}
+      if(done)continue;
+      let made=false;for(const t of types.filter(t=>ULD[t].h>=s.h)){const u=newUld(t);const k=fitCount(u,s,left);if(k>0){add(u,s,k);left-=k;made=true;break}ulds.pop();n--}
+      if(!made){offload.push({s,why:'a piece does not fit inside the ULD contour'});return}}}
+  /* 1 · shipments placed by hand on a chosen pallet or container */
+  const manualWarn=[];const groups={};
+  ships.filter(s=>s.pin).forEach(s=>{(groups[s.pin]=groups[s.pin]||[]).push(s)});
+  Object.keys(groups).sort().forEach(pin=>{const[kind,num]=pin.split(':'),list=groups[pin].filter(s=>{
+      if(category(s)==='X'){offload.push({s,why:'out of gauge for any ULD'});return false}
+      if(pax&&isCAO(s)){offload.push({s,why:'Cargo Aircraft Only, book it on a freighter'});return false}return true});
+    if(!list.length)return;
+    let t;if(kind==='AKE')t=g==='narrow'?(ac.akh?'AKH':null):'AKE';
+    else if(g==='narrow')t=null;else if(g==='belly')t='PMCL';else t=list.some(longPiece)?'PGA':(Math.max(...list.map(s=>s.h))>244?'PMC7':'PMC6');
+    if(!t){list.forEach(s=>offload.push({s,why:`the ${ac.name} has no ${kind==='AKE'?'containers':'pallets'}; set Load on to Auto`}));return}
+    const u={id:`${kind}-M${num}`,type:t,items:[],kg:0,m3:0,max:R(ULD[t].maxKey),cap:ULD[t].vol*eff,h:ULD[t].h,flags:new Set(),manual:true,warn:[]};
+    list.forEach(s=>{add(u,s,s.pcs);if(s.ohg)u.ohg=Math.max(u.ohg||0,s.ohg)});ulds.push(u);
+    if(u.kg>u.max)u.warn.push(`over the ${fmt(u.max)} kg limit (${fmt(u.kg)} kg)`);
+    if(packItems(t,u.items,u.ohg).notShown>0)u.warn.push('some pieces do not fit inside the contour');
+    list.forEach((a,i)=>list.slice(i+1).forEach(b=>{const c=conflict(a,b);if(c)u.warn.push(`${a.awb.slice(-4)} and ${b.awb.slice(-4)}: ${c}`)}));
+    if(list.some(s=>s.h>ULD[t].H))u.warn.push(`a piece is taller than the ${ULD[t].H} cm contour`);
+    u.warn.forEach(w=>manualWarn.push(`${u.id}: ${w}`))});
+  /* 2 · everything else is built automatically */
+  ships.filter(s=>!s.pin).sort((a,b)=>(b.excl-a.excl)||((b.dg?1:0)-(a.dg?1:0))||chg(b)-chg(a)).forEach(s=>{
+    const cat=category(s);
+    if(cat==='X')return offload.push({s,why:'out of gauge for any ULD'});
+    if(pax&&isCAO(s))return offload.push({s,why:'Cargo Aircraft Only, book it on a freighter'});
+    if(g==='belly'&&(cat==='C'||(longPiece(s)&&!s.ohg)))return offload.push({s,why:longPiece(s)?'too long for a PMC: book a freighter, PGA 20 ft or connected pallets':`${s.h} cm high: book a freighter main-deck pallet`});
+    if(g==='narrow'){if(!fitsDoor(s,ac.doorWH))return offload.push({s,why:`does not fit the ${ac.door} cm cargo door`});
+      if(ac.akh&&s.h<=110&&fitsBase(s.l,s.w,150,150)&&!s.excl)place(s,['AKH']);else bulkLoads.push(s);return}
+    if(g==='freighter'&&longPiece(s)){const u=newUld('PGA');u.excl=true;add(u,s,s.pcs);return}
+    const types=g==='belly'?(cat==='A'?['AKE','PMCL']:['PMCL']):(cat==='A'?['AKE','PMCL','PMC6']:cat==='B'?['PMCL','PMC6','PMC7']:(s.h<=244?['PMC6','PMC7']:['PMC7']));
+    if(s.excl||s.ohg>0){const ok=types.filter(t=>!(ULD[t].half&&s.ohg>0));const u=newUld(ok.find(t=>packItems(t,[{s,p:s.pcs}],s.ohg).notShown===0)||ok[0]||types[0]);u.excl=true;u.ohg=s.ohg;add(u,s,s.pcs);return}
+    place(s,types)});
+  ships.forEach((a,i)=>ships.slice(i+1).forEach(b=>{const c=conflict(a,b);if(c)apart.push({a,b,c})}));
+  let bulk=null;if(g==='narrow'){bulk=Object.entries(ac.bulkHolds).map(([k,v])=>({k,m3:v.m3*eff,kg:v.kg,used:0,usedKg:0,items:[]}));
+    bulkLoads.forEach(s=>{const v=volM3(s);const h=bulk.filter(h=>h.items.every(i=>!conflict(i,s))).sort((a,b)=>a.usedKg/a.kg-b.usedKg/b.kg).find(h=>h.used+v<=h.m3&&h.usedKg+s.wt<=h.kg);if(h){h.items.push(s);h.used+=v;h.usedKg+=s.wt}else offload.push({s,why:'no room left in the bulk holds'})})}
+  return{ac,ulds,offload,apart,bulk,manualWarn};
+}
+/* ---------- load plan + balance ---------- */
+function planLoad(b){
+  const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-20,16]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
+  const lower=ac.low||ac.akh;if(lower)for(const k of['fwd','aft']){const r=lower[k].rows;C.push({key:k,name:k==='fwd'?'Forward hold':'Aft hold',len:r*156,used:0,blocks:[],a:arm[k],maxKg:r*2*R(ac.akh?'rAkh':'rAke')*(ac.akh?1:.9)})}
+  if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*318,used:0,blocks:[],a:arm.main,maxKg:ac.main.rows*2*R('rPmcM')*.85});
+  const issues=[];let mom=0;if(!C.length)return{C,index:0,total:0,issues};
+  const clash=(a,c)=>a.items.some(i=>c.items.some(j=>conflict(i.s,j.s)));
+  const pairs=[];b.ulds.filter(u=>ULD[u.type].half).sort((x,y)=>y.kg-x.kg).forEach(u=>{const p=pairs.find(p=>p.length===1&&!clash(p[0],u));if(p)p.push(u);else pairs.push([u])});
+  /* main-deck pallets go two abreast (left and right), a PGA pairs with another PGA over two rows */
+  const mains=[];b.ulds.filter(u=>ULD[u.type].main).sort((x,y)=>y.kg-x.kg).forEach(u=>{const pga=u.type==='PGA',p=mains.find(p=>p.length===1&&(p[0].type==='PGA')===pga&&!clash(p[0],u));if(p)p.push(u);else mains.push([u])});
+  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?636:318,kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>y.w-x.w);
+  const posArm=(c,st,len)=>{const f=(st+len/2)/c.len;return c.key==='fwd'?c.a[1]-(c.a[1]-c.a[0])*f:c.a[0]+(c.a[1]-c.a[0])*f};
+  const lowC=C.filter(c=>c.key!=='main'),mainC=C.filter(c=>c.key==='main');
+  for(const un of units){
+    const tiers=un.kind==='main'?[mainC]:un.kind==='ake'?[lowC]:[lowC,mainC],L=c=>c.key==='main'&&un.kind==='pal'?318:un.len;let ok=false;
+    for(const tier of tiers){if(ok)break;
+      const cands=tier.map(c=>({c,arm:posArm(c,c.used,L(c))})).sort((x,y)=>Math.abs(mom+un.w*x.arm)-Math.abs(mom+un.w*y.arm)).map(x=>x.c);
+      for(const c of cands){const len=L(c),pitch=c.key==='main'?318:156,prev=[...c.blocks].reverse().find(x=>!x.gap);let st=c.used,gap=prev&&prev.ulds.some(a=>un.ulds.some(x=>clash(a,x)));if(gap)st+=pitch;if(st+len>c.len)continue;
+        if(gap){c.blocks.push({start:c.used,len:pitch,ulds:[],gap:true});issues.push({k:'info',t:`One position left empty in the ${c.name.toLowerCase()} to keep dangerous goods apart`})}
+        const a=posArm(c,st,len);c.blocks.push({start:st,len,ulds:un.ulds,arm:a,w:un.w});c.used=st+len;mom+=un.w*a;
+        const row=Math.floor(st/pitch+1e-6),lab=c.key==='main'?String.fromCharCode(65+row):String((c.key==='fwd'?11:31)+row);
+        un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'?'P':'L');u.pos=lab+u.side;u.blk={c:c.key,start:st,len}});ok=true;break}}
+    if(!ok)un.ulds.forEach(u=>b.offload.push({s:u.items[0].s,why:`no free position for ${u.id}`,uld:u}));
+  }
+  /* main deck: slide the whole pallet load aft row by row to the spot that best centres the balance */
+  mainC.forEach(c=>{const pitch=318,free=Math.floor((c.len-c.used)/pitch+1e-6);if(free<1||!c.blocks.length)return;
+    const base=mom-c.blocks.reduce((s,bk)=>s+(bk.w||0)*(bk.arm||0),0);let best=0,bv=Infinity;
+    for(let k=0;k<=free;k++){const m=base+c.blocks.reduce((s,bk)=>s+(bk.gap?0:bk.w*posArm(c,bk.start+k*pitch,bk.len)),0);if(Math.abs(m)<bv-1e-6){bv=Math.abs(m);best=k}}
+    if(!best)return;mom=base;c.lead=best*pitch;c.used+=c.lead;
+    c.blocks.forEach(bk=>{bk.start+=c.lead;if(bk.gap)return;bk.arm=posArm(c,bk.start,bk.len);mom+=bk.w*bk.arm;const lab=String.fromCharCode(65+Math.floor(bk.start/pitch+1e-6));bk.ulds.forEach(u=>{u.blk.start=bk.start;u.pos=lab+u.side})})});
+  C.forEach(c=>{c.kg=c.blocks.reduce((s,x)=>s+(x.w||0),0);if(c.kg>c.maxKg)issues.push({k:'bad',t:`${c.name} is over its ${fmt(c.maxKg)} kg limit (${fmt(c.kg)} kg)`})});
+  b.ulds.forEach(u=>{if(u.kg>u.max)issues.push({k:'bad',t:`${u.id} is over its ${fmt(u.max)} kg limit`})});
+  return{C,index:mom/1000,total:C.reduce((s,c)=>s+c.kg,0),issues};
+}
+
+/* ---------- 3D ULD (pieces packed by real dimensions) ---------- */
+function bounds(prof,z){const xs=[];for(let i=0;i<prof.length;i++){const[p0,p1]=[prof[i],prof[(i+1)%prof.length]];const[za,zb]=[p0[1],p1[1]];if((z>=Math.min(za,zb)-1e-6)&&(z<=Math.max(za,zb)+1e-6)){if(za===zb){xs.push(p0[0],p1[0])}else xs.push(p0[0]+(p1[0]-p0[0])*(z-za)/(zb-za))}}return xs.length?[Math.min(...xs),Math.max(...xs)]:[0,0]}
+const PCACHE=new Map();
+function packUld(u){const key=u.type+'|'+u.items.map(i=>i.s.id+':'+i.p).join(',')+'|'+(u.ohg||0);if(PCACHE.has(key))return PCACHE.get(key);const r=packItems(u.type,u.items,u.ohg);PCACHE.set(key,r);return r}
+function packItems(type,itemsIn,ohgFlag){
+  const T=ULD[type],u={type,items:itemsIn,ohg:ohgFlag};
+  let pcs=[];u.items.forEach(i=>{for(let k=0;k<i.p;k++)pcs.push({s:i.s,l:i.s.l,w:i.s.w,h:Math.min(i.s.h,T.H),kg:i.s.wt/i.s.pcs})});
+  /* Support-aware packing: every box rests on the base or on boxes below it (at least 85% of its footprint supported),
+     inside the contour, filling the lowest, rearmost, leftmost free spot first. No floating boxes, no hidden holes. */
+  pcs.sort((a,b)=>b.l*b.w-a.l*a.w||b.h-a.h||b.kg-a.kg);const total=pcs.length;pcs=pcs.slice(0,160);
+  const placed=[],left=[],E=.5,SUP=.85;
+  const eps=[{x:bounds(T.prof,0)[0],y:0}],epKey=new Set(['0|0']);
+  const addEp=(x,y)=>{if(y>=T.Dp-E)return;const k=Math.round(x)+'|'+Math.round(y);if(!epKey.has(k)){epKey.add(k);eps.push({x,y})}};
+  const ov=(a0,a1,b0,b1)=>Math.max(0,Math.min(a1,b1)-Math.max(a0,b0));
+  for(const p of pcs){let best=null;
+    for(const ep of eps)for(const[a,d]of[[p.l,p.w],[p.w,p.l]]){
+      const y=ep.y;if(y+d>T.Dp+E)continue;let x=ep.x;
+      for(let pass=0;pass<2;pass++){
+        let z=0;for(const b of placed)if(ov(x,x+a,b.x0,b.x1)>E&&ov(y,y+d,b.y0,b.y1)>E)z=Math.max(z,b.z1);
+        if(z+p.h>T.H+E)break;
+        const b0=bounds(T.prof,z),b1=bounds(T.prof,z+p.h),lo=Math.max(b0[0],b1[0]),hi=Math.min(b0[1],b1[1]);
+        if(x<lo-E){x=lo;continue}
+        if(x+a>hi+E)break;
+        if(z>0){let s=0;for(const b of placed)if(Math.abs(b.z1-z)<E)s+=ov(x,x+a,b.x0,b.x1)*ov(y,y+d,b.y0,b.y1);if(s<SUP*a*d)break}
+        const score=z*1e6+y*1e3+x;if(!best||score<best.score)best={score,x,y,z,a,d};break}}
+    if(!best){left.push(p);continue}
+    const b={p,x0:best.x,y0:best.y,z0:best.z,x1:best.x+best.a,y1:best.y+best.d,z1:best.z+p.h,v:(placed.length*37%13)/100};placed.push(b);
+    addEp(b.x1,b.y0);addEp(b.x0,b.y1);addEp(bounds(T.prof,b.z0)[0],b.y1);addEp(b.x0,b.y0)}
+  if(u.ohg||u.type==='PGA'){let zz=placed.reduce((m,b)=>Math.max(m,b.z1),0);left.splice(0).forEach(p=>{const[a,d]=p.l>=p.w?[p.w,p.l]:[p.l,p.w];placed.push({p,x0:0,y0:-Math.max(0,(d-T.Dp)/2),z0:zz,x1:a,y1:-Math.max(0,(d-T.Dp)/2)+d,z1:zz+p.h,v:.05});zz+=p.h})}
+  return{boxes:placed,notShown:total-placed.length,top:placed.reduce((m,b)=>Math.max(m,b.z1),0)};
+}
+let yaw=-.5,spinOn=!RM,hoverI=null,drag=null,spinId=null;
+function drawIso(){drawUldTo($('iso'),build&&build.ulds.find(x=>x.id===selU),yaw,hoverI,null,0,null,ships.length?'No ULD on this aircraft yet':'Add cargo to see the ULD build-up')}
+/* draws one ULD in 3D; shownN/dz animate the build-up (last piece drops in), hi dims every AWB but one */
+function drawUldTo(svg,u,yw,hovI,shownN,dz,hi,msg){
+  const VW=640,VH=420;
+  if(!u){svg.innerHTML=`<text x="${VW/2}" y="${VH/2}" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" fill="var(--muted)">${msg||''}</text>`;return}
+  const T=ULD[u.type],pk=packUld(u),CS=Math.cos(Math.PI/6),SN=.5,ct=Math.cos(yw),st=Math.sin(yw);
+  const rot=(x,y)=>{const dx=x-T.W/2,dy=y-T.Dp/2;return[dx*ct-dy*st,dx*st+dy*ct]};
+  if(!T._fit){let a=1e9,b=-1e9,c=1e9,d=-1e9;for(let deg=0;deg<360;deg+=15){const t=deg*Math.PI/180,cc=Math.cos(t),ss=Math.sin(t);T.prof.forEach(([x,zz])=>[0,T.Dp].forEach(y=>{const dx=x-T.W/2,dy=y-T.Dp/2,rx=dx*cc-dy*ss,ry=dx*ss+dy*cc,X=(rx-ry)*CS,Y=(rx+ry)*SN-zz;a=Math.min(a,X);b=Math.max(b,X);c=Math.min(c,Y);d=Math.max(d,Y)}))}
+    const s=Math.min((VW-30)/(b-a),(VH-50)/(d-c));T._fit={s,ox:VW/2-(a+b)/2*s,oy:(VH-20)/2-(c+d)/2*s}}
+  const F=T._fit,P=(x,y,z)=>{const[rx,ry]=rot(x,y);return(F.ox+(rx-ry)*CS*F.s).toFixed(1)+','+(F.oy+((rx+ry)*SN-z)*F.s).toFixed(1)};
+  const poly=(pts,fill,ex)=>`<polygon points="${pts.join(' ')}" fill="${fill}" ${ex||''}/>`;
+  let o='';const bx=bounds(T.prof,0);
+  o+=poly([P(bx[0],0,0),P(bx[1],0,0),P(bx[1],T.Dp,0),P(bx[0],T.Dp,0)],'#8792A2')+poly([P(bx[0],0,-7),P(bx[1],0,-7),P(bx[1],T.Dp,-7),P(bx[0],T.Dp,-7)],'#697386');
+  const faces=[{n:[ct,st],c:b=>[[b.x1,b.y0],[b.x1,b.y1]]},{n:[-ct,-st],c:b=>[[b.x0,b.y1],[b.x0,b.y0]]},{n:[-st,ct],c:b=>[[b.x1,b.y1],[b.x0,b.y1]]},{n:[st,-ct],c:b=>[[b.x0,b.y0],[b.x1,b.y0]]}].filter(f=>f.n[0]+f.n[1]>0);
+  const boxes=shownN==null?pk.boxes:pk.boxes.slice(0,shownN);
+  const vis=boxes.map((b,i)=>{const[rx,ry]=rot((b.x0+b.x1)/2,(b.y0+b.y1)/2);return{b,i,d:rx+ry}}).sort((p,q)=>p.b.z0-q.b.z0||p.d-q.d);
+  vis.forEach(({b,i})=>{const col=colorOf(b.p.s.awb),hov=hovI===i,stk=`stroke="${hov?'var(--fg)':'rgba(10,37,64,.45)'}" stroke-width="${hov?1.8:.6}"`,lift=shownN!=null&&i===shownN-1?dz:0,z0=b.z0+lift,z1=b.z1+lift;let g=`<g data-i="${i}"${hi&&hi!==b.p.s.awb?' opacity=".18"':''}>`;
+    faces.forEach(f=>{const[[ax,ay],[bx2,by]]=f.c(b);const pts=[P(ax,ay,z0),P(bx2,by,z0),P(bx2,by,z1),P(ax,ay,z1)];g+=poly(pts,col,stk)+poly(pts,`rgba(0,0,0,${(0.3-0.14*(f.n[0]-f.n[1])/1.414).toFixed(2)})`)});
+    const top=[P(b.x0,b.y0,z1),P(b.x1,b.y0,z1),P(b.x1,b.y1,z1),P(b.x0,b.y1,z1)];g+=poly(top,col,stk)+poly(top,`rgba(255,255,255,${b.v})`);
+    if(b.p.s.dg){const cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2,r=Math.min(b.x1-b.x0,b.y1-b.y0)/4;g+=`<polygon points="${P(cx-r,cy,z1)} ${P(cx,cy-r,z1)} ${P(cx+r,cy,z1)} ${P(cx,cy+r,z1)}" fill="#fff" stroke="#c0392b" stroke-width="1"/>`}
+    o+=g+'</g>'});
+  const ws='fill="none" stroke="var(--contour)" stroke-width="1.6" stroke-dasharray="6 4" opacity=".9"';
+  [0,T.Dp].forEach(y=>{o+=`<polygon points="${T.prof.map(([x,z])=>P(x,y,z)).join(' ')}" ${ws}/>`});
+  T.prof.forEach(([x,z])=>{const[a1,a2]=P(x,0,z).split(','),[b1,b2]=P(x,T.Dp,z).split(',');o+=`<line x1="${a1}" y1="${a2}" x2="${b1}" y2="${b2}" ${ws}/>`});
+  o+=`<text x="12" y="${VH-12}" font-family="IBM Plex Sans" font-size="12" fill="var(--contour)">— ${T.contour}</text>`;
+  svg.innerHTML=o;
+}
+function spinTick(){if(spinOn&&hoverI===null&&!drag&&!$('p1').hidden){yaw+=.004;drawIso()}
+  if(spin2&&build&&!$('p2').hidden&&benchMode==='uld'&&hov2===null&&!isoDrag2&&phase!=='building'){yaw2+=.004;renderBench()}
+  spinId=requestAnimationFrame(spinTick)}
+
+/* ---------- render ---------- */
+const PAL=['#8CC152','#6FB1F0','#E58FA6','#B39DF0','#F5A623','#5CC8BE','#FFD21F','#F08A5D','#9FB4C7','#7FD1AE','#D49BE0'];
+const awbColor={};function colorOf(awb){if(!awbColor[awb])awbColor[awb]=PAL[Object.keys(awbColor).length%PAL.length];return awbColor[awb]}
+function refresh(){build=ships.length?buildUlds():null;plan=build?planLoad(build):null;if(build&&!build.ulds.some(u=>u.id===selU))selU=build.ulds[0]?build.ulds[0].id:null;if(!build)selU=null;render()}
+function render(){
+  const ac=acNow();
+  $('cargoN').textContent=ships.length?`${ships.length} · ${fmt(ships.reduce((s,x)=>s+x.wt,0))} kg`:'';
+  $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.s===s&&!o.uld);
+    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div></div>
+    <select data-pin="${s.id}" aria-label="Load ${esc(s.awb)} on">${pinOptions(s.pin)}</select>
+    <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:'—'}</span></div><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delShip(b.dataset.del));
+  document.querySelectorAll('[data-pin]').forEach(sl=>sl.onchange=()=>{updateShip(sl.dataset.pin,{pin:sl.value});toast(sl.value?`Placed by hand on ${sl.options[sl.selectedIndex].text.replace('+ New ','')}`:'Back to automatic build')});
+  const keepPin=$('sPin').value;$('sPin').innerHTML=pinOptions(keepPin);
+  const bt=build;$('st1s').textContent=bt?`${bt.ulds.length} ULDs built`:'Add cargo and build ULDs';
+  $('sum').innerHTML=bt?`<div><b>${bt.ulds.length}</b><span>ULDs</span></div><div><b>${fmt(bt.ulds.reduce((s,u)=>s+u.kg,0))}</b><span>kg built</span></div>${bt.bulk?`<div><b>${fmt(bt.bulk.reduce((s,h)=>s+h.usedKg,0))}</b><span>kg loose (bulk)</span></div>`:''}`:'';
+  const off=bt?bt.offload.filter(o=>!o.uld):[],mw=bt?bt.manualWarn:[];const fb=$('flagBtn'),nf=off.length+mw.length;fb.hidden=!nf;
+  fb.textContent=`⚠ ${[off.length?`${off.length} not loaded`:'',mw.length?`${mw.length} to check`:''].filter(Boolean).join(' · ')}`;
+  $('flags').innerHTML=off.map(o=>`<div><b>${esc(o.s.awb)}</b> ${esc(o.s.nat)}: ${esc(o.why)}.</div>`).join('')+mw.map(w=>`<div>✋ ${esc(w)}</div>`).join('');if(!nf)$('flags').hidden=true;
+  $('strip').innerHTML=bt?bt.ulds.map(u=>{const pv=Math.round(Math.max(u.kg/u.max,u.m3/u.cap)*100);return `<button class="uchip ${u.flags.has('DG')?'dg':''}" type="button" data-u="${u.id}" aria-pressed="${u.id===selU}"><span style="display:flex;gap:2px">${[...new Set(u.items.map(i=>i.s.awb))].slice(0,4).map(a=>`<i style="width:8px;height:14px;border-radius:2px;background:${colorOf(a)}"></i>`).join('')}</span>${u.id}<span class="pct">${pv}%</span></button>`}).join('')+(bt.bulk?bt.bulk.map(h=>`<span class="uchip" style="cursor:default">Bulk ${h.k}<span class="pct">${fmt(h.usedKg)} kg</span></span>`).join(''):''):'';
+  document.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{selU=b.dataset.u;hoverI=null;render()});
+  renderInfo();drawIso();$('toLoad').disabled=!bt;renderLoad();
+}
+function renderInfo(){
+  const u=build&&build.ulds.find(x=>x.id===selU),el=$('info');
+  if(!u){el.innerHTML=build&&build.bulk?'<h2>Bulk loading</h2><p class="note">This aircraft carries loose cargo in its holds. Weights per hold are shown in the strip above and checked in step 2.</p>':'<p class="note">The ULDs appear here as soon as you add cargo.</p>';return}
+  const T=ULD[u.type],pk=packUld(u),pw=u.kg/u.max*100,pv=u.m3/u.cap*100,hOk=pk.top<=T.H;
+  const awbs=[...new Set(u.items.map(i=>i.s))];
+  const apart=build.apart.filter(x=>u.items.some(i=>i.s===x.a||i.s===x.b));
+  const ov=Math.round(Math.max(0,...pk.boxes.map(b=>Math.max(-b.y0,b.y1-T.Dp,-b.x0,b.x1-T.W))));
+  el.innerHTML=`<div class="id">${u.id}</div><div class="ty">${T.name}${u.pos?` · position ${u.pos}`:''}${u.manual?' · <b>built by hand</b>':''}</div>
+   ${ov>0?`<div class="warnline" style="background:var(--warn-bg)">Overhang: cargo sticks out ${ov} cm beyond the pallet edge${u.ohg?` · OHG ${u.ohg}% of the next position`:''}.</div>`:''}
+   ${u.warn&&u.warn.length?`<div class="warnline">✋ Check: ${u.warn.map(esc).join('; ')}.</div>`:''}
+   <div class="kv" style="margin-top:12px"><span>Weight</span><span><b>${fmt(u.kg)}</b> / ${fmt(u.max)} kg</span></div><div class="bar"><i class="${pw>100?'over':pw>90?'hi':''}" style="width:${Math.min(100,pw)}%"></i></div>
+   <div class="kv"><span>Volume</span><span><b>${fmt(pv)}%</b> of usable ${fmt(u.cap,1)} m³</span></div><div class="bar"><i class="${pv>100?'over':pv>90?'hi':''}" style="width:${Math.min(100,pv)}%"></i></div>
+   <div class="${hOk?'okline':'err'}">${hOk?'✓':'⚠'} Height ${fmt(pk.top)} cm within ${esc(T.contour)}</div>
+   ${u.type==='PGA'?'<div class="note" style="margin-top:4px">Long cargo on a 20 ft pallet (or two connected pallets) on the main deck.</div>':''}
+   <div style="margin-top:12px">${awbs.map(s=>{const it=u.items.find(i=>i.s===s),ch=charge(s,u);return `<div class="awb"><span class="sw" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><b style="font-family:var(--mono);font-size:12px">${esc(s.awb)}</b> · ${esc(s.nat)}<br><span class="note">${it.p}/${s.pcs} pcs · ${fmt(s.wt/s.pcs*it.p)} kg${s.shc.length?' · '+s.shc.map(c=>`<span class="chip">${esc(c)}</span>`).join(''):''}${s.dg?`<span class="chip dg">DG ${esc(s.dg)} ${esc(s.un)}</span>`:''}</span></div><span class="note" title="Charge basis: ${esc(ch.why)}" style="text-align:right">charge<br><b>${fmt(ch.kg)}</b></span></div>`}).join('')}</div>
+   ${apart.length?`<div class="warnline">Kept apart: ${apart.map(x=>`${esc(x.a.awb.slice(-4))} / ${esc(x.b.awb.slice(-4))}, ${esc(x.c)}`).join('; ')}.</div>`:''}
+   ${pk.notShown>0?`<p class="note">${pk.notShown} pieces are not drawn in the 3D view; they are counted in the weights.</p>`:''}`;
+}
+/* ===================== step 2 · load aircraft, same structure as the AdeyIQ hold view ===================== */
+const NS='http://www.w3.org/2000/svg';
+/* side-view geometry per aircraft: length and fuselage diameter in m, hold, door and wing positions as fractions of the length */
+const SIDE={
+ 'B787-8':{len:56.7,dia:5.77,wing:.47,fwd:[.20,.42],aft:[.53,.70],bulk:[.71,.76],doors:[.23,.58],pdoors:[.07,.33,.62,.88]},
+ 'B787-9':{len:62.8,dia:5.77,wing:.47,fwd:[.19,.43],aft:[.54,.72],bulk:[.73,.77],doors:[.22,.59],pdoors:[.07,.3,.62,.88]},
+ 'B787-10':{len:68.3,dia:5.77,wing:.475,fwd:[.18,.43],aft:[.54,.73],bulk:[.74,.78],doors:[.21,.6],pdoors:[.06,.28,.6,.88]},
+ 'A350-900':{len:66.8,dia:5.96,wing:.475,cockpit:'mask',fwd:[.18,.42],aft:[.53,.72],bulk:[.73,.78],doors:[.21,.58],pdoors:[.07,.27,.6,.87]},
+ 'A350-1000':{len:73.8,dia:5.96,wing:.48,cockpit:'mask',fwd:[.17,.43],aft:[.54,.74],bulk:[.75,.79],doors:[.2,.6],pdoors:[.06,.25,.6,.88]},
+ 'B777-300ER':{len:73.9,dia:6.2,wing:.48,fwd:[.17,.43],aft:[.55,.74],bulk:[.75,.79],doors:[.2,.6],pdoors:[.06,.24,.42,.63,.87]},
+ 'A330-300':{len:63.7,dia:5.64,wing:.47,cockpit:'mask',fwd:[.18,.42],aft:[.55,.72],bulk:[.73,.78],doors:[.21,.6],pdoors:[.07,.28,.6,.87]},
+ 'B737-800':{len:39.5,dia:3.76,wing:.47,fwd:[.17,.40],aft:[.56,.78],doors:[.2,.66],pdoors:[.08,.86]},
+ 'B737-8':{len:39.5,dia:3.76,wing:.47,fwd:[.17,.40],aft:[.56,.78],doors:[.2,.66],pdoors:[.08,.86]},
+ 'A320neo':{len:37.6,dia:3.95,wing:.46,cockpit:'mask',fwd:[.18,.40],aft:[.55,.73],bulk:[.74,.79],doors:[.2,.6],pdoors:[.08,.86]},
+ 'A321neo':{len:44.5,dia:3.95,wing:.47,cockpit:'mask',fwd:[.16,.41],aft:[.55,.75],bulk:[.76,.8],doors:[.19,.62],pdoors:[.07,.3,.66,.87]},
+ 'B777F':{len:63.7,dia:6.2,wing:.475,main:[.13,.80],fwd:[.17,.42],aft:[.53,.71],bulk:[.72,.77],doors:[.2,.57],mainDoor:.765,pdoors:[.07]},
+ 'B747-8F':{len:76.3,dia:6.5,wing:.47,hump:true,main:[.08,.82],fwd:[.17,.43],aft:[.55,.73],bulk:[.74,.78],doors:[.2,.58],mainDoor:.79,pdoors:[.07]}
+};
+const BULKN={fwd:'Forward hold',aft:'Aft hold',bulk:'Bulk hold'};
+const COLD=['COL','PIL','PEM','PEF','PER','PES'];
+const DGSHC=['RLI','RFL','ICE','RCL','RNG','ROX','RPB','RRY','RCM','RFG','RFS','RSC','RFW','ROP','RIS','REX','RDS','RXB'];
+const KIND={g:{fill:'#8CC152',ink:'#1f3a0a',name:'General'},d:{fill:'#F5A623',ink:'#3d2400',name:'Dangerous goods'},p:{fill:'#6FB1F0',ink:'#0b2b4d',name:'Perishable'}};
+const shcClass=c=>DGSHC.includes(c)?'dg':(COLD.includes(c)||c==='EAT'?'cold':'');
+const shcHtml=list=>list.map(c=>`<span class="shc ${shcClass(c)}">${esc(c)}</span>`).join(' ');
+const dgChip=s=>s.dg?`<span class="shc dg">DG ${esc(s.dg)}${s.un?' '+esc(s.un):''}</span>`:'';
+const kgF=v=>v>=10000?(v/1000).toFixed(1)+' t':fmt(v)+' kg';
+const isCold=u=>u.items.some(i=>i.s.shc.some(c=>COLD.includes(c)));
+const kindOf=u=>u.flags.has('DG')?'d':isCold(u)?'p':'g';
+/* AWBs inside one ULD, heaviest first, with their share of the ULD weight (drives the colour bands) */
+function consign(u){const m=new Map();u.items.forEach(i=>{const e=m.get(i.s.awb)||{awb:i.s.awb,s:i.s,kg:0,p:0};e.kg+=i.s.wt/i.s.pcs*i.p;e.p+=i.p;m.set(i.s.awb,e)});
+  const t=u.kg||1;return[...m.values()].sort((a,b)=>b.kg-a.kg).map(e=>Object.assign(e,{share:e.kg/t,col:colorOf(e.awb)}))}
+
+let SL=[],sel2=null,side2=null,selUid=null,holdView=false,geo=null,VB=null,benchMode='uld',yaw2=-.45,spin2=!RM,phase='done',shown2=null,dropZ2=0,hiAwb=null,hov2=null,anim2=null,HA=null,doorOpen=0,pendingId=null,isoDrag2=null;
+
+/* every loading position on the aircraft: loaded blocks, DG gaps, free rows, bulk holds */
+function slotsOf(){const out=[];
+  plan.C.forEach(c=>{const pitch=c.key==='main'?318:156,first=c.key==='fwd'?11:31,lab=st=>{const r=Math.floor(st/pitch+1e-6);return c.key==='main'?String.fromCharCode(65+r):String(first+r)};
+    for(let st=0;st+pitch<=(c.lead||0)+1e-6;st+=pitch)out.push({key:c.key+':e'+st,c,start:st,len:pitch,empty:true,ulds:[],lab:lab(st)});
+    c.blocks.forEach((b,i)=>out.push({key:c.key+':'+i,c,start:b.start,len:b.len,gap:!!b.gap,ulds:b.ulds||[],lab:lab(b.start)}));
+    for(let st=Math.ceil(c.used/pitch-1e-6)*pitch;st+pitch<=c.len+1e-6;st+=pitch)out.push({key:c.key+':e'+st,c,start:st,len:pitch,empty:true,ulds:[],lab:lab(st)})});
+  (build.bulk||[]).forEach(h=>out.push({key:'B:'+h.k,bulk:h,ulds:[],lab:BULKN[h.k]}));
+  return out}
+const curSlot=()=>SL.find(s=>s.key===sel2)||null;
+const curU2=()=>{const s=curSlot();return s?(s.ulds.find(u=>u.side===side2)||s.ulds[0]||null):null};
+function findUld(id){for(const sl of SL){const u=sl.ulds.find(x=>x.id===id);if(u)return{sl,u}}return null}
+
+/* ---------- aircraft side view ---------- */
+function buildSide(){
+  const ac=build.ac,a=SIDE[ac.id],kind=ac.g==='belly'?'pax':ac.g,svg=$('ac');
+  const W=640,k=W/a.len,D=a.dia*k,x0=20,xe=x0+W;
+  const T=Math.round(22+1.45*D+(a.hump?.25*D:0)),B=T+D,G=B+0.78*D,H=Math.round(G+16);
+  const X=f=>x0+f*W,xw=X(a.wing);
+  const floor=kind==='narrow'?T+0.62*D:T+0.6*D,holdBot=B-0.06*D,slotH=0.28*D,palH=0.42*D;
+  const fs=Math.max(7,Math.min(9,D*0.13));
+  const P=pts=>pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  let s='';
+  s+=`<line x1="-400" y1="${G}" x2="1080" y2="${G}" stroke="var(--line)"/>`;
+  const nx=x0+1.7*D,mx=xw+0.35*D,wr=0.12*D;
+  s+=`<line x1="${nx}" y1="${B-2}" x2="${nx}" y2="${G-wr*2}" stroke="var(--stroke)" stroke-width="${Math.max(2,D*.04)}"/><circle cx="${nx}" cy="${G-wr}" r="${wr}" fill="var(--stroke)"/>`;
+  s+=`<line x1="${mx}" y1="${B+0.1*D}" x2="${mx}" y2="${G-wr*2}" stroke="var(--stroke)" stroke-width="${Math.max(2.5,D*.05)}"/>`;
+  const nWheels=kind==='freighter'||ac.id==='B777-300ER'?3:(kind==='narrow'?1:2);
+  for(let i=0;i<nWheels;i++){const cx=mx+(i-(nWheels-1)/2)*wr*2.3;s+=`<circle cx="${cx}" cy="${G-wr}" r="${wr*1.1}" fill="var(--stroke)"/>`}
+  s+=`<polygon points="${P([[xw-1.0*D,B-0.06*D],[xw+1.2*D,B-0.1*D],[xw+3.1*D,B+0.48*D],[xw+2.85*D,B+0.55*D],[xw+0.1*D,B+0.14*D]])}" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.1"/>`;
+  s+=`<polygon points="${P([[xe-2.35*D,T],[xe-1.35*D,T-1.38*D],[xe-0.85*D,T-1.38*D],[xe-0.95*D,T-0.9*D],[xe-0.05*D,T+0.33*D]])}" fill="var(--accent)" stroke="var(--stroke)" stroke-width=".8"/>`;
+  const tl=2.2*D;
+  s+=`<path d="M${x0+0.9*D},${T} L${xe-tl},${T} C${xe-tl*0.5},${T+0.02*D} ${xe-0.15*D},${T+0.2*D} ${xe},${T+0.35*D} L${xe},${T+0.5*D} C${xe-0.5*D},${T+0.6*D} ${xe-2*D},${B-0.05*D} ${xe-3.2*D},${B} L${x0+0.9*D},${B} C${x0+0.2*D},${B} ${x0},${B-0.3*D} ${x0},${T+0.55*D} C${x0},${T+0.2*D} ${x0+0.4*D},${T} ${x0+0.9*D},${T} Z" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.3"/>`;
+  if(a.hump)s+=`<path d="M${x0+0.75*D},${T+0.03*D} C${x0+1.2*D},${T-0.3*D} ${x0+1.8*D},${T-0.33*D} ${x0+2.6*D},${T-0.33*D} L${X(.27)},${T-0.33*D} C${X(.31)},${T-0.33*D} ${X(.33)},${T-0.1*D} ${X(.36)},${T+0.01*D} Z" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.1"/>`;
+  s+=`<polygon points="${P([[x0+0.35*D,T+0.39*D],[xe-1.6*D,T+0.39*D],[xe-0.9*D,T+0.3*D],[xe-0.9*D,T+0.35*D],[xe-1.6*D,T+0.44*D],[x0+0.3*D,T+0.44*D]])}" fill="var(--accent)"/>`;
+  if(a.cockpit==='mask')s+=`<path d="M${x0+0.18*D},${T+0.42*D} L${x0+0.5*D},${T+0.2*D} L${x0+1.05*D},${T+0.15*D} L${x0+1.2*D},${T+0.3*D} L${x0+0.55*D},${T+0.36*D} Z" fill="var(--glass)"/>`;
+  else s+=`<path d="M${x0+0.22*D},${T+0.36*D} L${x0+0.5*D},${T+0.2*D} L${x0+0.92*D},${T+0.17*D} L${x0+0.95*D},${T+0.32*D} L${x0+0.28*D},${T+0.4*D} Z" fill="var(--glass)"/>`;
+  if(kind!=='freighter'){let w='';const step=0.17*D;
+    for(let x=x0+1.5*D;x<xe-3.1*D;x+=step){if(a.pdoors.some(f=>Math.abs(X(f)-x)<0.3*D))continue;w+=`<rect x="${x.toFixed(1)}" y="${T+0.24*D}" width="${0.07*D}" height="${0.12*D}" rx="${0.035*D}"/>`}
+    s+=`<g fill="var(--win)">${w}</g>`}
+  a.pdoors.forEach(f=>{s+=`<rect x="${X(f)-0.1*D}" y="${T+0.12*D}" width="${0.2*D}" height="${0.5*D}" rx="${0.05*D}" fill="none" stroke="var(--win)" stroke-width=".8"/>`});
+  s+=`<polygon points="${P([[xe-2.0*D,T+0.45*D],[xe-0.75*D,T+0.6*D],[xe-0.1*D,T+0.66*D],[xe-0.45*D,T+0.72*D],[xe-2.05*D,T+0.6*D]])}" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1"/>`;
+  if(a.main){s+=`<rect x="${X(a.main[0])}" y="${T+0.1*D}" width="${X(a.main[1])-X(a.main[0])}" height="${floor-T-0.11*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/>`;
+    s+=`<rect x="${X(a.mainDoor)-0.3*D}" y="${floor-0.52*D}" width="${0.6*D}" height="${0.5*D}" fill="none" stroke="var(--door)" stroke-width="2"/>`}
+  const holds=ac.low||ac.akh?[['fwd','Forward hold'],['aft','Aft hold']]:[];
+  holds.forEach(([hk])=>{const r=a[hk];s+=`<rect x="${X(r[0])}" y="${floor+0.02*D}" width="${X(r[1])-X(r[0])}" height="${holdBot-floor-0.01*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/>`});
+  if(a.bulk&&!(build.bulk||[]).some(h=>h.k==='bulk'))s+=`<rect x="${X(a.bulk[0])}" y="${floor+0.08*D}" width="${X(a.bulk[1])-X(a.bulk[0])}" height="${holdBot-floor-0.16*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/><text x="${(X(a.bulk[0])+X(a.bulk[1]))/2}" y="${(floor+holdBot)/2+fs*0.35}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="${fs*0.85}" fill="var(--muted)">Bulk</text>`;
+  s+=`<line x1="${x0+0.4*D}" y1="${floor}" x2="${X(.79)}" y2="${floor}" stroke="var(--stroke)" stroke-width="1.4"/>`;
+  let slots='';const gs={},ur={};
+  SL.forEach(sl=>{const isSel=sl.key===sel2;
+    if(sl.bulk){const h=sl.bulk,r=h.k==='bulk'?a.bulk:a[h.k];if(!r)return;const x=X(r[0]),w=X(r[1])-x,y=floor+(h.k==='bulk'?0.08:0.03)*D,hh=holdBot-y-(h.k==='bulk'?0.08*D:0),pct=Math.min(1,h.usedKg/h.kg);gs[sl.key]={x,y,w,h:hh};
+      slots+=`<g class="slot" tabindex="0" role="button" data-k="${sl.key}" aria-label="${BULKN[h.k]}, ${fmt(h.usedKg)} kg loaded"><rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="3" fill="var(--cut)" stroke="${isSel?'var(--contour)':'var(--stroke)'}" stroke-width="${isSel?2:.8}"/><rect x="${x+2}" y="${(y+hh*(1-pct)).toFixed(1)}" width="${w-4}" height="${Math.max(0,hh*pct-2).toFixed(1)}" rx="2" fill="#8CC152"/><text x="${x+w/2}" y="${y+hh*0.42}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="${fs*(h.k==='bulk'?.8:1)}" fill="var(--fg)">${h.k==='bulk'?'Bulk':BULKN[h.k]} · ${Math.round(pct*100)}%</text></g>`;return}
+    const c=sl.c,r=c.key==='main'?a.main:a[c.key],x1=X(r[0]),span=X(r[1])-x1,x=x1+sl.start/c.len*span+0.8,w=sl.len/c.len*span-1.6,isMain=c.key==='main',hgt=isMain?palH:slotH,y=isMain?floor-palH-0.5:holdBot-slotH-1;gs[sl.key]={x,y,w,h:hgt};
+    const fsz=Math.min(fs,w*0.5).toFixed(1),ty=(y+hgt/2+fsz*0.35).toFixed(1),cx=(x+w/2).toFixed(1);
+    if(sl.gap){slots+=`<g class="slot" tabindex="0" role="button" data-k="${sl.key}" aria-label="${isMain?'Main deck row ':'Row '}${sl.lab}, kept empty to separate dangerous goods"><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${hgt.toFixed(1)}" rx="1.5" fill="var(--skin)" stroke="${isSel?'var(--contour)':'var(--dgline)'}" stroke-width="${isSel?2:1}" stroke-dasharray="2 2"/><text x="${cx}" y="${ty}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="${fsz}" fill="var(--dgline)">DG</text></g>`;return}
+    const two=sl.ulds.length===2,vis=[];let inner='';
+    sl.ulds.forEach((u,si)=>{const sw=two?w/2:w,sx=x+(two?si*sw:0);ur[u.id]={x:sx,y,w:sw,h:hgt};if(u.id===pendingId)return;vis.push(u);let yy=y+hgt;
+      consign(u).forEach(cn=>{const bh=hgt*cn.share;yy-=bh;inner+=`<rect x="${sx.toFixed(1)}" y="${yy.toFixed(1)}" width="${sw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${cn.col}"/>`});
+      if(two&&si===0)inner+=`<line x1="${(sx+sw).toFixed(1)}" y1="${y.toFixed(1)}" x2="${(sx+sw).toFixed(1)}" y2="${(y+hgt).toFixed(1)}" stroke="rgba(10,37,64,.4)" stroke-width=".7"/>`});
+    const kinds=vis.map(kindOf),bd=kinds.includes('d')?'var(--dgline)':(kinds.includes('p')?'var(--cold)':'var(--stroke)');
+    const txt=vis.length===1&&vis[0].side==='P'?sl.lab+'P':sl.lab;
+    slots+=`<g class="slot" tabindex="0" role="button" data-k="${sl.key}" aria-label="${isMain?'Main deck row ':'Row '}${sl.lab}${vis.length?', '+vis.map(u=>u.pos+' '+u.id).join(', '):', empty'}">${vis.length?'':`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${hgt.toFixed(1)}" fill="var(--skin)"/>`}${inner}<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${hgt.toFixed(1)}" rx="1.5" fill="none" stroke="${isSel?'var(--contour)':bd}" stroke-width="${isSel?2:(bd==='var(--stroke)'?.6:1.4)}" ${vis.length?'':'stroke-dasharray="2 2"'}/><text x="${cx}" y="${ty}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="${fsz}" fill="${vis.length?'#16181a':'var(--muted)'}">${txt}</text></g>`});
+  s+=`<g id="slots">${slots}</g>`;
+  a.doors.forEach(f=>{s+=`<line x1="${X(f)}" y1="${B-0.5}" x2="${X(f)+(kind==='narrow'?0.35:0.55)*D}" y2="${B-0.5}" stroke="var(--door)" stroke-width="3"/>`});
+  s+=`<path d="M${xw-1.2*D},${B} Q${xw+0.1*D},${B+0.28*D} ${xw+1.4*D},${B-0.03*D}" fill="var(--skin)" stroke="var(--stroke)"/>`;
+  const el=kind==='narrow'?1.25*D:1.5*D,eh=kind==='narrow'?0.45*D:0.5*D,ex=xw-0.55*D-el/2,ey=B+0.02*D;
+  s+=`<line x1="${xw-0.4*D}" y1="${B+0.05*D}" x2="${xw-0.25*D}" y2="${ey+0.05*D}" stroke="var(--stroke)" stroke-width="${Math.max(3,D*.08)}"/>`;
+  s+=`<path d="M${ex},${ey} L${ex+el*0.82},${ey} Q${ex+el*1.02},${ey+eh*0.15} ${ex+el*1.08},${ey+eh/2} Q${ex+el*1.02},${ey+eh*0.85} ${ex+el*0.82},${ey+eh} L${ex},${ey+eh} Q${ex-el*0.06},${ey+eh/2} ${ex},${ey} Z" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.1"/><ellipse cx="${ex}" cy="${ey+eh/2}" rx="${eh*0.16}" ry="${eh*0.48}" fill="var(--stroke)"/>`;
+  s+=`<g font-family="IBM Plex Sans,sans-serif"><text x="${x0}" y="${T-0.45*D-(a.hump?.3*D:0)}" font-size="10" fill="var(--muted)">← FWD</text>`;
+  if(!a.main)holds.forEach(([hk,nm])=>{const r=a[hk];s+=`<text x="${(X(r[0])+X(r[1]))/2}" y="${floor-2}" text-anchor="middle" font-size="${fs}" fill="var(--fg)">${nm}</text>`});
+  if(a.main)s+=`<text x="${(X(a.main[0])+X(a.main[1]))/2}" y="${T+0.1*D-3}" text-anchor="middle" font-size="${fs}" fill="var(--fg)">Main deck · pallets two abreast   ·   lower deck · containers and pallets</text>`;
+  if(kind==='pax')s+=`<text x="${X(.45)}" y="${T-0.45*D}" text-anchor="middle" font-size="10" fill="var(--muted)">Passenger cabin above the floor · cargo only below</text>`;
+  if(kind==='narrow')s+=`<text x="${X(.45)}" y="${T-0.45*D}" text-anchor="middle" font-size="10" fill="var(--muted)">${ac.akh?'Narrow-body · AKH containers and a bulk hold':'Narrow-body · loose bulk loading, no ULDs'}</text>`;
+  s+=`<text x="${xe}" y="${G+12}" text-anchor="end" font-size="9" fill="var(--muted)">Length ${a.len} m · drawn to scale</text></g>`;
+  svg.innerHTML=s;
+  const rs=[a.fwd,a.aft,a.bulk,a.main].filter(Boolean),minA=Math.min(...rs.map(r=>r[0])),maxB=Math.max(...rs.map(r=>r[1]));
+  geo={all:[0,0,680,H+4],hold:[X(minA)-8,(a.main?T+0.02*D:floor-0.16*D)-4,X(maxB)-X(minA)+16,(a.main?B-T:B-floor+0.16*D)+8],gs,ur,G,X,D,floor,holdBot,a,kind};
+  const nearDoor=sx=>a.doors.reduce((b,q)=>Math.abs(X(q)-sx)<Math.abs(X(b)-sx)?q:b);
+  geo.sdoor=u=>{if(u.blk.c==='main')return{x:X(a.mainDoor)-0.3*D,y:floor-0.52*D,w:0.6*D,h:0.5*D};const f=nearDoor(ur[u.id].x);return{x:X(f),y:floor+0.03*D,w:(kind==='narrow'?0.35:0.55)*D,h:holdBot-floor-0.06*D}};
+  geo.doorX=u=>u.blk.c==='main'?X(a.mainDoor):X(nearDoor(ur[u.id].x))+(kind==='narrow'?0.17:0.27)*D;
+  if(!VB||VB.ac!==ac.id)setVB(holdView?geo.hold:geo.all);else applyVB();
+}
+function setVB(v){VB={x:v[0],y:v[1],w:v[2],h:v[3],ac:build.ac.id};applyVB()}
+function applyVB(){$('ac').setAttribute('viewBox',`${VB.x.toFixed(1)} ${VB.y.toFixed(1)} ${VB.w.toFixed(1)} ${VB.h.toFixed(1)}`)}
+function zoomBy(f){if(!VB||!geo)return;const cx=VB.x+VB.w/2,cy=VB.y+VB.h/2,full=geo.all;const w=Math.max(90,Math.min(full[2]*1.2,VB.w*f)),h=w*VB.h/VB.w;VB.x=cx-w/2;VB.y=cy-h/2;VB.w=w;VB.h=h;applyVB()}
+
+/* ---------- cross-section, selected position, load summary ---------- */
+function buildXs(){
+  const ac=build.ac,kind=ac.g==='belly'?'pax':ac.g,sl=curSlot();
+  let s=`<circle cx="150" cy="85" r="78" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.2"/><line x1="77" y1="80" x2="223" y2="80" stroke="var(--stroke)" stroke-width="1.5"/>`;
+  const t=(x,y,txt,sz,fill,anchor)=>`<text x="${x}" y="${y}" text-anchor="${anchor||'middle'}" font-family="IBM Plex Sans,sans-serif" font-size="${sz||11}" fill="${fill||'var(--muted)'}">${txt}</text>`;
+  const live=u=>u&&u.id!==pendingId;
+  const shp=(pts,u)=>{if(live(u)){const k=kindOf(u);return `<polygon points="${pts}" fill="${consign(u)[0].col}" stroke="${k==='d'?'var(--dgline)':k==='p'?'var(--cold)':'var(--stroke)'}" stroke-width="${k==='g'?1:2}"/>`}return `<polygon points="${pts}" fill="none" stroke="var(--stroke)" stroke-dasharray="3 3"/>`};
+  const lt=(x,y,u,lab)=>`<text x="${x}" y="${y}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="${live(u)?'#0A2540':'var(--muted)'}">${live(u)?u.id:lab}</text>`;
+  const by=sd=>sl&&!sl.bulk?sl.ulds.find(u=>u.side===sd):null;
+  const isMain=!!(sl&&sl.c&&sl.c.key==='main'),isLower=!!(sl&&sl.c&&sl.c.key!=='main');
+  if(kind==='freighter'){const p=isMain&&by('P');
+    if(p)s+=shp('82,76 218,76 218,50 192,26 108,26 82,50',p)+lt(150,56,p);
+    else s+=shp('82,76 148,76 148,26 108,26 82,50',isMain?by('L'):null)+shp('152,76 218,76 218,50 192,26 152,26',isMain?by('R'):null)+(isMain?lt(118,56,by('L'),'L')+lt(184,56,by('R'),'R'):t(150,56,'Main deck'))}
+  else if(kind==='narrow')s+=`<g fill="var(--win)">${[92,108,124,164,180,196].map(x=>`<rect x="${x}" y="58" width="13" height="12" rx="2"/>`).join('')}</g>`+t(150,48,'Cabin seats');
+  else s+=`<g fill="var(--win)"><rect x="88" y="40" width="22" height="10" rx="2"/><rect x="116" y="40" width="30" height="10" rx="2"/><rect x="154" y="40" width="30" height="10" rx="2"/><rect x="190" y="40" width="22" height="10" rx="2"/></g>`+t(150,68,'Cabin seats');
+  if(sl&&sl.bulk||(kind==='narrow'&&!ac.akh)){const h=sl&&sl.bulk?sl.bulk:(build.bulk||[])[0];const pct=h?Math.min(1,h.usedKg/h.kg):0;
+    s+=`<polygon points="92,88 208,88 200,126 172,146 128,146 100,126" fill="none" stroke="var(--stroke)" stroke-dasharray="3 3"/>`;
+    const n=Math.round(pct*24);let bags='';const cols=h?h.items.map(x=>colorOf(x.awb)):[];
+    for(let i=0;i<n;i++){const r=Math.floor(i/8),c=i%8;bags+=`<rect x="${110+c*10}" y="${132-r*11}" width="9" height="10" rx="2" fill="${cols.length?cols[i%cols.length]:PAL[i%5]}"/>`}
+    s+=bags+t(150,100,'Loose cargo · '+Math.round(pct*100)+'% full',10,'var(--fg)')}
+  else{const p=isLower&&by('P');
+    if(p)s+=shp('94,90 206,90 206,122 194,140 106,140 94,122',p)+lt(150,118,p);
+    else s+=shp('94,90 146,90 146,140 106,140 94,122',isLower?by('L'):null)+shp('154,90 206,90 206,122 194,140 154,140',isLower?by('R'):null)+lt(122,118,isLower?by('L'):null,'L')+lt(178,118,isLower?by('R'):null,'R');
+    if(!ac.akh)s+=`<line x1="232" y1="122" x2="208" y2="128" stroke="var(--muted)" stroke-width=".8"/>`+t(236,122,'Sloped',11,null,'start')+t(236,135,'AKE corner',11,null,'start')}
+  $('xs').innerHTML=s;
+  $('xsT').textContent=sl?(sl.bulk?'Cross-section · '+BULKN[sl.bulk.k].toLowerCase():'Cross-section · '+(isMain?'main deck row ':'row ')+sl.lab+' · looking forward'):'Cross-section';
+}
+function awbLines(u){return consign(u).map(c=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${c.col}"></i><span class="mono">${esc(c.awb)}</span><span class="mut">${esc(c.s.nat||'Cargo')} · ${c.p} pcs · ${kgF(c.kg)}</span>${shcHtml(c.s.shc)}${dgChip(c.s)}</div>`).join('')}
+function sideHtml(u){const k=KIND[kindOf(u)];
+  return `<div class="pside"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="mono" style="font-weight:600">${u.pos} · ${u.id}</span><span class="tag" style="background:${k.fill};color:${k.ink}">${k.name}</span><span class="mono mut">${kgF(u.kg)}</span></div><span class="mut" style="font-size:12px">${ULD[u.type].name}${u.manual?' · built by hand':''}</span>${awbLines(u)}</div>`}
+function buildDet(){
+  const el=$('det'),sl=curSlot();
+  if(!sl){el.innerHTML='<span class="mut">Select a position on the aircraft.</span>';return}
+  if(sl.bulk){const h=sl.bulk,pct=Math.round(h.usedKg/h.kg*100);
+    el.innerHTML=`<h2>${BULKN[h.k]}</h2><div class="pside"><span>${h.items.length} shipments · <span class="mono">${kgF(h.usedKg)}</span> of <span class="mono">${kgF(h.kg)}</span></span><div class="meter"><i style="width:${Math.min(100,pct)}%"></i></div><span class="mono mut" style="font-size:12px">${pct}% by weight · ${fmt(h.used,1)} of ${fmt(h.m3,1)} m³ usable</span></div>`+
+      (h.items.length?`<div class="pside">${h.items.map(s=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${colorOf(s.awb)}"></i><span class="mono">${esc(s.awb)}</span><span class="mut">${esc(s.nat||'Cargo')} · ${s.pcs} pcs · ${kgF(s.wt)}</span>${shcHtml(s.shc)}${dgChip(s)}</div>`).join('')}</div>`:'<div class="pside"><span class="mut">Nothing loaded here yet.</span></div>');return}
+  const main=sl.c.key==='main',name=main?'Main deck row '+sl.lab:'Row '+sl.lab+' · '+sl.c.name.toLowerCase();
+  if(sl.gap){el.innerHTML=`<h2>${name}</h2><div class="pside"><span class="mut">Kept empty so dangerous goods are not loaded next to cargo they must be separated from (IATA DGR 9.3.A).</span></div>`;return}
+  if(!sl.ulds.length){el.innerHTML=`<h2>${name}</h2><div class="pside"><span class="mut">Empty · free for 2 × ${main?'PMC pallet':(build.ac.akh?'AKH':'AKE')}${main||build.ac.akh?'':' or 1 lower-deck pallet'}</span></div>`;return}
+  const one=sl.ulds.length===1&&sl.ulds[0].side==='L';
+  el.innerHTML=`<h2>${name}</h2>`+sl.ulds.map(sideHtml).join('')+(one?`<div class="pside"><span class="mono">${sl.lab}R</span><span class="mut">Empty · free for one ${main?'pallet':sl.ulds[0].type}</span></div>`:'');
+}
+function buildList(){
+  const box=$('ulds'),st=$('stats'),bulk=build.bulk||[],bkg=bulk.reduce((s,h)=>s+h.usedKg,0);
+  const bulkRows=bulk.map(h=>`<button type="button" class="ulrow" data-k="B:${h.k}" ${sel2==='B:'+h.k?'aria-current="true"':''}><i class="sw" style="background:#8CC152;width:14px;height:30px"></i><span style="min-width:0">${BULKN[h.k]}<br><span class="mono mut" style="font-size:12px">${h.items.length} shipments loose · ${kgF(h.usedKg)}</span></span><span class="tag" style="background:var(--panel2)">${Math.round(h.usedKg/h.kg*100)}%</span></button>`).join('');
+  if(!plan.C.length){const n=bulk.reduce((s,h)=>s+h.items.length,0);
+    st.innerHTML=`<div class="stat"><b class="mono">0</b><span>ULDs (bulk only)</span></div><div class="stat"><b class="mono">${n}</b><span>shipments loose</span></div><div class="stat"><b class="mono">${kgF(bkg)}</b><span>loaded</span></div>`;box.innerHTML=bulkRows}
+  else{const list=SL.flatMap(sl=>sl.ulds.map(u=>({sl,u}))),kg=list.reduce((s,x)=>s+x.u.kg,0)+bkg,slots=plan.C.reduce((s,c)=>s+Math.round(c.len/(c.key==='main'?318:156))*2,0),awbs=new Set(list.flatMap(x=>x.u.items.map(i=>i.s.awb))).size;
+    st.innerHTML=`<div class="stat"><b class="mono">${list.length}</b><span>ULDs · ${list.length} / ${slots} positions</span></div><div class="stat"><b class="mono">${awbs}</b><span>AWBs on board</span></div><div class="stat"><b class="mono">${kgF(kg)}</b><span>loaded</span></div>`;
+    box.innerHTML=list.map(({sl,u})=>{const cs=consign(u),shcs=[...new Set(cs.flatMap(c=>c.s.shc))].slice(0,3);
+      return `<button type="button" class="ulrow" data-k="${sl.key}" data-s="${u.side}" ${sl.key===sel2&&u.side===side2?'aria-current="true"':''}><span class="stack">${cs.slice().reverse().map(c=>`<i style="flex:${c.share.toFixed(3)};background:${c.col}"></i>`).join('')}</span><span style="min-width:0"><span class="mono" style="font-weight:600">${u.id}</span> · ${esc(cs[0].s.nat||'Cargo')}<br><span class="mono mut" style="font-size:12px">${sl.c.key==='main'?'Main ':''}${u.pos} · ${cs.length} AWB${cs.length>1?'s':''} · ${kgF(u.kg)}</span></span><span class="shcs">${shcHtml(shcs)}${u.flags.has('DG')?'<span class="shc dg">DG</span>':''}</span></button>`}).join('')+bulkRows}
+  box.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>select2(b.dataset.k,b.dataset.s));
+  const lo=R('rIdxF'),hi=R('rIdxA'),v=plan.index,span=Math.max(1,hi-lo),sc=x=>Math.max(2,Math.min(98,(x-lo+span*.3)/(span*1.6)*100));
+  const env=document.querySelector('#cg .env'),pt=document.querySelector('#cg .pt'),ok=v>=lo&&v<=hi;
+  env.style.left=sc(lo)+'%';env.style.width=(sc(hi)-sc(lo))+'%';pt.style.left=sc(v)+'%';pt.style.background=ok?'var(--fg)':'var(--bad)';
+  $('cg').setAttribute('aria-label',`Balance index ${fmt(v,1)}, limits ${lo} to ${hi}`);
+  $('cgT').textContent=plan.C.length?`index ${v>0?'+':''}${fmt(v,1)} · ${ok?'within limits':'outside limits'}`:'bulk loading · balance from the load sheet';$('cgT').style.color=!plan.C.length?'var(--muted)':ok?'var(--ok)':'var(--bad)';
+  $('cgl').innerHTML=`<span style="left:${sc(lo)}%">Nose ${lo}</span><span style="left:${sc(hi)}%">Tail +${hi}</span>`;
+}
+function slotTip(sl){
+  if(sl.bulk){const h=sl.bulk;return `<b>${BULKN[h.k]}</b><br>${h.items.length} shipments loose · ${kgF(h.usedKg)}`}
+  const main=sl.c.key==='main';let h=`<b>${main?'Main deck row ':'Row '}${sl.lab}</b>`;
+  if(sl.gap)return h+'<br><span class="mut">Kept empty · DG separation</span>';
+  if(!sl.ulds.length)return h+`<br><span class="mut">Empty · free for 2 × ${main?'PMC':(build.ac.akh?'AKH':'AKE')}</span>`;
+  return h+sl.ulds.map(uldTip).join('')}
+function uldTip(u){return `<div style="margin-top:6px"><span class="mono">${u.pos} · ${u.id}</span> · ${kgF(u.kg)}</div>`+consign(u).map(c=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${c.col}"></i><span class="mono">${esc(c.awb)}</span>${shcHtml(c.s.shc)}${dgChip(c.s)}</div>`).join('')}
+
+/* ---------- inside the hold: internal contour, positions, door, loader ---------- */
+const A1=.92,B1=.22,A2=.5,B2=.4,DV=[1,-A2/A1,B2+(A2/A1)*B1];
+function inProf(u){switch(u.type){
+  case'AKE':return{p:ULD.AKE.prof,W:201,Dp:153,H:163};case'AKH':return{p:ULD.AKH.prof,W:156,Dp:153,H:114};case'PMCL':return{p:ULD.PMCL.prof,W:318,Dp:244,H:163};
+  case'PGA':return{p:[[0,0],[244,0],[244,220],[200,300],[0,300]],W:244,Dp:606,H:300};case'PMC7':return{p:[[0,0],[244,0],[244,200],[180,300],[0,300]],W:244,Dp:318,H:300};
+  default:return{p:[[0,0],[244,0],[244,160],[174,244],[0,244]],W:244,Dp:318,H:244}}}
+function holdGeo(){
+  const sl=curSlot();if(!sl||sl.bulk||!geo)return null;
+  const c=sl.c,main=c.key==='main',narrow=build.ac.g==='narrow',a=geo.a,X=geo.X,D=geo.D,r=main?a.main:a[c.key],pitch=main?318:156,ys=main?330/318:165/156,first=c.key==='fwd'?11:31;
+  let doorFrac;if(main)doorFrac=(X(a.mainDoor)-X(r[0]))/(X(r[1])-X(r[0]));
+  else{const f=a.doors.reduce((b,q)=>Math.abs(q-(r[0]+r[1])/2)<Math.abs(b-(r[0]+r[1])/2)?q:b);doorFrac=Math.max(.08,Math.min(.92,(X(f)+(narrow?.17:.27)*D-X(r[0]))/(X(r[1])-X(r[0]))))}
+  return{c,main,pitch,ys,rows:Math.round(c.len/pitch),Lh:c.len*ys+20,name:main?'Main deck':c.name,lab:j=>main?String.fromCharCode(65+j):String(first+j),doorFrac,
+    cont:main?[[-15,0],[535,0],[535,200],[450,315],[70,315],[-15,200]]:narrow?[[-20,128],[-20,60],[20,0],[364,0],[404,60],[404,128]]:[[-30,178],[-30,95],[25,0],[405,0],[460,95],[460,178]],
+    lanes:main?{L:6,R:270,P:101}:narrow?{L:22,R:206,P:22}:{L:8,R:222,P:56},doorW:main?370:narrow?182:270,
+    mirror:main?{L:true,R:false,P:false}:{L:false,R:true,P:false},foot:main?{W:244,Dp:318}:narrow?{W:156,Dp:153}:{W:201,Dp:153}}}
+function laneProf(hg,u,dx){const s=inProf(u),m=hg.mirror[u.side];return s.p.map(([x,z])=>[(m?s.W-x:x)+hg.lanes[u.side]+(dx||0),z])}
+const uldY=(hg,u)=>10+u.blk.start*hg.ys+(u.blk.len*hg.ys-inProf(u).Dp)/2;
+function clipPoly(poly,za,zb){
+  const clip=(pts,keep,cross)=>{const out=[];for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length],ip=keep(p),iq=keep(q);if(ip)out.push(p);if(ip!==iq)out.push(cross(p,q))}return out};
+  const at=z=>(p,q)=>{const t=(z-p[1])/(q[1]-p[1]);return[p[0]+(q[0]-p[0])*t,z]};
+  return clip(clip(poly,p=>p[1]>=za,at(za)),p=>p[1]<=zb,at(zb))}
+function bandsOf(u,H){let z=0;return consign(u).map(c=>{const b=[z,z+H*c.share,c.col];z+=H*c.share;return b})}
+function drawExt(P,prof,y0,y1,bands,stroke,sw){
+  let ar=0;for(let i=0;i<prof.length;i++){const p=prof[i],q=prof[(i+1)%prof.length];ar+=p[0]*q[1]-q[0]*p[1]}const ccw=ar>0;let o='';
+  for(let i=0;i<prof.length;i++){
+    const p=prof[i],q=prof[(i+1)%prof.length],ex=q[0]-p[0],ez=q[1]-p[1],n=ccw?[ez,-ex]:[-ez,ex],len=Math.hypot(n[0],n[1])||1;
+    if(n[0]*DV[0]+n[1]*DV[2]<=0)continue;
+    const al=(n[1]/len>0.9?0:0.24).toFixed(2);
+    bands.forEach(([za,zb,col])=>{let a0,a1;
+      if(Math.abs(ez)<1e-6){if(p[1]<za-0.01||p[1]>zb+0.01)return;a0=0;a1=1}
+      else{let t1=(za-p[1])/ez,t2=(zb-p[1])/ez;if(t1>t2)[t1,t2]=[t2,t1];a0=Math.max(0,t1);a1=Math.min(1,t2);if(a1-a0<1e-4)return}
+      const sa=[p[0]+ex*a0,p[1]+ez*a0],sb=[p[0]+ex*a1,p[1]+ez*a1];
+      const pts=[P(sa[0],y0,sa[1]),P(sb[0],y0,sb[1]),P(sb[0],y1,sb[1]),P(sa[0],y1,sa[1])].join(' ');
+      o+=`<polygon points="${pts}" fill="${col}"/><polygon points="${pts}" fill="rgba(0,0,0,${al})"/>`})}
+  bands.forEach(([za,zb,col])=>{const c=clipPoly(prof,za,zb);if(c.length<3)return;const pts=c.map(([x,z])=>P(x,y0,z)).join(' ');o+=`<polygon points="${pts}" fill="${col}"/><polygon points="${pts}" fill="rgba(0,0,0,.12)"/>`});
+  o+=`<polygon points="${prof.map(([x,z])=>P(x,y0,z)).join(' ')}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+  return o}
+function renderHold(){
+  const svg=$('iso2'),VW=640,VH=420,hg=holdGeo();svg.setAttribute('viewBox',`0 0 ${VW} ${VH}`);
+  if(!hg){const sl=curSlot();svg.innerHTML=`<text x="${VW/2}" y="${VH/2}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="14" fill="var(--muted)">${sl&&sl.bulk?'Bulk hold · loose loading, piece by piece':'Select a ULD position'}</text>`;return}
+  const mv=curU2(),mp=mv?inProf(mv):{W:hg.foot.W,Dp:hg.foot.Dp,H:163};
+  const yd=hg.doorFrac*hg.Lh,xs=hg.cont.map(c=>c[0]),zs=hg.cont.map(c=>c[1]),xMax=Math.max(...xs),xMin=Math.min(...xs),zTop=Math.max(...zs),midX=(xMin+xMax)/2;
+  const pts=[];hg.cont.forEach(([x,z])=>[0,hg.Lh].forEach(y=>pts.push([x,y,z])));pts.push([xMax+mp.W+120,yd,-200],[xMax+mp.W+120,yd,mp.H]);
+  let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;pts.forEach(([x,y,z])=>{const X=y*A1+x*A2,Y=-y*B1+x*B2-z;a0=Math.min(a0,X);a1=Math.max(a1,X);b0=Math.min(b0,Y);b1=Math.max(b1,Y)});
+  const s=Math.min((VW-24)/(a1-a0),(VH-48)/(b1-b0)),ox=(VW-(a1-a0)*s)/2-a0*s,oy=(VH-30-(b1-b0)*s)/2-b0*s+6;
+  const P=(x,y,z)=>(ox+(y*A1+x*A2)*s).toFixed(1)+','+(oy+(-y*B1+x*B2-z)*s).toFixed(1);
+  const line=(p,q,st)=>{const[ax,ay]=P(...p).split(','),[bx,by]=P(...q).split(',');return `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" ${st}/>`};
+  let o='';
+  const fl=hg.cont.filter(c=>c[1]===0).map(c=>c[0]),f0=Math.min(...fl),f1=Math.max(...fl);
+  o+=`<polygon points="${[P(f0,0,0),P(f1,0,0),P(f1,hg.Lh,0),P(f0,hg.Lh,0)].join(' ')}" fill="var(--line)" opacity=".6"/>`;
+  for(let x=f0+30;x<f1;x+=45)o+=line([x,0,0],[x,hg.Lh,0],'stroke="var(--stroke)" stroke-width=".6" stroke-dasharray="2 4" opacity=".55"');
+  for(let i=0;i<hg.cont.length;i++){const p=hg.cont[i],q=hg.cont[(i+1)%hg.cont.length];if((p[0]+q[0])/2<midX&&!(p[1]===0&&q[1]===0)&&!(p[1]===zTop&&q[1]===zTop))o+=`<polygon points="${[P(p[0],0,p[1]),P(q[0],0,q[1]),P(q[0],hg.Lh,q[1]),P(p[0],hg.Lh,p[1])].join(' ')}" fill="var(--skin)" opacity=".75"/>`}
+  const rp=hg.pitch*hg.ys;
+  for(let j=0;j<=hg.rows;j++){const y=10+j*rp;o+=`<polyline points="${hg.cont.map(([x,z])=>P(x,y,z)).join(' ')} ${P(hg.cont[0][0],y,hg.cont[0][1])}" fill="none" stroke="var(--contour)" stroke-width=".8" opacity="${j===0||j===hg.rows?.9:.38}"/>`}
+  hg.cont.forEach(([x,z])=>{o+=line([x,0,z],[x,hg.Lh,z],'stroke="var(--contour)" stroke-width=".8" opacity=".55"')});
+  for(let j=0;j<hg.rows;j++){const y0=10+j*rp+(rp-hg.foot.Dp)/2,y1=y0+hg.foot.Dp;['L','R'].forEach(l=>{const x0=hg.lanes[l],x1=x0+hg.foot.W;o+=`<polygon points="${[P(x0,y0,0),P(x1,y0,0),P(x1,y1,0),P(x0,y1,0)].join(' ')}" fill="none" stroke="var(--stroke)" stroke-width=".7" stroke-dasharray="3 2" opacity=".7"/>`});
+    const[tx,ty]=P(f1+40,y0+hg.foot.Dp/2,0).split(',');o+=`<text x="${tx}" y="${ty}" font-family="IBM Plex Mono,monospace" font-size="10" fill="var(--muted)" text-anchor="middle">${hg.lab(j)}</text>`}
+  if(HA&&HA.platform){const z=HA.pz,px0=xMax+20,px1=xMax+20+mp.W+60,py0=yd-mp.Dp/2-30,py1=yd+mp.Dp/2+30;
+    o+=`<polygon points="${[P(px0,py0,z),P(px1,py0,z),P(px1,py1,z),P(px0,py1,z)].join(' ')}" fill="var(--stroke)" opacity=".85"/>`;
+    o+=line([px0+20,py0,z],[px1-20,py1,-200],'stroke="var(--stroke)" stroke-width="1.2"')+line([px1-20,py0,z],[px0+20,py1,-200],'stroke="var(--stroke)" stroke-width="1.2"');
+    o+=`<polygon points="${[P(px0-10,py0-40,-200),P(px1+40,py0-40,-200),P(px1+40,py1+40,-200),P(px0-10,py1+40,-200)].join(' ')}" fill="var(--stroke)" opacity=".35"/>`}
+  const wb=SL.filter(x=>x.c===hg.c).flatMap(x=>x.ulds).filter(u=>u.id!==pendingId&&u.blk).map(u=>{const ip=inProf(u);return{u,prof:laneProf(hg,u),y0:uldY(hg,u),z:0,Dp:ip.Dp,H:ip.H}});
+  if(HA&&mv)wb.push({u:mv,prof:laneProf(hg,mv,HA.dx).map(([x,z])=>[x,z+HA.z]),y0:HA.y,z:HA.z,Dp:mp.Dp,H:mp.H,mv:true});
+  wb.forEach(w=>{const xc=w.prof.reduce((t,p)=>t+p[0],0)/w.prof.length;w.d=xc*DV[0]+(w.y0+w.Dp/2)*DV[1]+(w.z+w.H/2)*DV[2]});
+  wb.sort((p,q)=>p.d-q.d);
+  const selId=mv?mv.id:null;
+  wb.forEach(w=>{const bd=bandsOf(w.u,w.H).map(([za,zb,c])=>[za+w.z,zb+w.z,c]),hi=w.mv||w.u.id===selId;
+    o+=`<g data-u="${w.u.id}" style="cursor:pointer">${drawExt(P,w.prof,w.y0,w.y0+w.Dp,bd,hi?'var(--contour)':'rgba(0,0,0,.5)',hi?1.8:.7)}</g>`});
+  const near=hg.cont.filter(c=>c[0]>midX).sort((p,q)=>p[1]-q[1]);
+  const ya=yd-hg.doorW/2,yb=yd+hg.doorW/2,hinge=near[near.length-1],sill=near[0],Lp=Math.hypot(hinge[0]-sill[0],hinge[1]-sill[1]);
+  const frame=[...near.map(([x,z])=>P(x,ya,z)),...near.slice().reverse().map(([x,z])=>P(x,yb,z))].join(' ');
+  if(doorOpen<0.04)o+=`<polygon points="${frame}" fill="var(--skin)" opacity=".92" stroke="var(--door)" stroke-width="1.6"/>`;
+  else{o+=`<polygon points="${frame}" fill="none" stroke="var(--door)" stroke-width="1.6"/>`;const th=doorOpen*1.9,tx=hinge[0]+Math.sin(th)*Lp,tz=hinge[1]-Math.cos(th)*Lp;
+    o+=`<polygon points="${[P(hinge[0],ya,hinge[1]),P(hinge[0],yb,hinge[1]),P(tx,yb,tz),P(tx,ya,tz)].join(' ')}" fill="var(--skin)" stroke="var(--door)" stroke-width="1.4" opacity=".95"/>`}
+  const[lx,ly]=P(xMin,0,zTop+20).split(',');
+  o+=`<text x="${lx}" y="${ly}" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--muted)">← FWD</text>`;
+  o+=`<text x="12" y="${VH-12}" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--accent-text)">— ${hg.name} internal contour</text><text x="${VW-12}" y="${VH-12}" text-anchor="end" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--door)">Cargo door</text>`;
+  svg.innerHTML=o;
+}
+
+/* ---------- bench: ULD build-up replay, then load into the aircraft ---------- */
+const STEPS=['Pieces received','Build-up','Contour check','Weigh and tag','Load to aircraft'];
+function renderBench(){
+  if(benchMode==='hold'){renderHold();return}
+  const svg=$('iso2'),sl=curSlot();svg.setAttribute('viewBox','0 0 640 420');
+  drawUldTo(svg,curU2(),yaw2,hov2,shown2,dropZ2,hiAwb,!sl?'Select a position':sl.bulk?'Bulk hold · cargo is loaded loose, piece by piece':sl.gap?'Kept empty to separate dangerous goods':'Empty position · nothing built yet');
+}
+function setModeBtns(){$('mU').setAttribute('aria-pressed',String(benchMode==='uld'));$('mH').setAttribute('aria-pressed',String(benchMode==='hold'));
+  document.querySelectorAll('#rotSeg button').forEach(b=>b.disabled=benchMode==='hold');
+  $('isoHint2').textContent=benchMode==='hold'?'Internal contour of the hold · hover a ULD for AWBs and SHC · click to select it':'Drag to turn · hover a box for AWB and SHC · click to highlight one AWB'}
+function setMode2(m){benchMode=m;setModeBtns();tip3.hidden=true;renderBench()}
+function stepIdx(){return{building:1,checked:4,loading:4,done:5}[phase]}
+function renderPanel(){
+  const el=$('bPanel'),bt=$('bT'),sl=curSlot(),u=curU2();
+  if(!sl){bt.textContent='Build-up';el.innerHTML='<p class="mut">Select a position on the aircraft.</p>';return}
+  if(sl.bulk){const h=sl.bulk;bt.textContent='Bulk loading';el.innerHTML=`<h2>${BULKN[h.k]}</h2><p class="mut" style="margin:0">No ULD here. Cargo goes into the hold piece by piece. ${h.items.length} shipments · ${kgF(h.usedKg)} of ${kgF(h.kg)}.</p>`;return}
+  if(!u){bt.textContent='Build-up';el.innerHTML=sl.gap?'<h2>DG separation</h2><p class="mut" style="margin:0">This position stays empty so dangerous goods are not loaded next to cargo they must be kept apart from.</p>':'<h2>Empty position</h2><p class="mut" style="margin:0">Select a loaded position on the aircraft or in the load summary to see how its ULD is built and loaded.</p>';return}
+  const T=ULD[u.type],pk=packUld(u),cs=consign(u),si=stepIdx(),checks=si>=4,k=KIND[kindOf(u)],dgs=cs.filter(c=>c.s.dg),cold=cs.filter(c=>c.s.shc.some(x=>COLD.includes(x)));
+  bt.textContent=`Build-up · ${u.id} → ${u.blk&&u.blk.c==='main'?'main deck ':''}${u.pos}`;
+  const mark=ok=>checks?(ok?'<b>✓</b>':'<b class="no">⚠</b>'):'<span class="mut">…</span>';
+  el.innerHTML=`<h2>${u.id} · ${esc(cs[0].s.nat||'Cargo')}</h2>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="tag" style="background:${k.fill};color:${k.ink}">${k.name}</span><span class="sub">${T.name} · ${cs.length} AWB${cs.length>1?'s':''}${cs.length>1?' consolidated':''}${u.manual?' · built by hand':''}</span></div>
+  <ol class="bsteps">${STEPS.map((n,i)=>`<li class="${i<si?'done':(i===si?'now':'')}">${i<si?'✓ ':''}${n}</li>`).join('')}</ol>
+  <div class="stats"><div class="stat"><b class="mono" id="bPcs"></b><span>pieces placed</span></div><div class="stat"><b class="mono" id="bKg"></b><span>of ${kgF(u.max)} max</span></div><div class="stat"><b class="mono" id="bVol"></b><span>volume used</span></div></div>
+  <div class="check">${mark(pk.top<=T.H+1)} Height <span class="mono" id="bH"></span> within ${esc(T.contour)}</div>
+  <div class="check">${mark(u.kg<=u.max)} Weight within the ${u.type==='PGA'?'PGA':u.type.startsWith('PMC')?'pallet':u.type} limit · ULD tag printed</div>
+  ${dgs.length?`<div class="check">${mark(true)} DG segregation checked · NOTOC updated (${dgs.map(c=>esc((c.s.un||'')+' class '+c.s.dg)).join(', ')})</div>`:''}
+  ${cold.length?`<div class="check">${mark(true)} Cold chain kept · ${cold.map(c=>esc(c.s.shc.filter(x=>COLD.includes(x)).join(' '))).join(', ')}</div>`:''}
+  <div class="awbs" id="awbList">${cs.map(c=>`<button type="button" class="awbb" data-a="${esc(c.awb)}" aria-pressed="${hiAwb===c.awb}"><i class="sw" style="background:${c.col}"></i><span style="min-width:0"><span class="mono" style="font-weight:600">${esc(c.awb)}</span><br><span class="mut" style="font-size:12px">${esc(c.s.nat||'Cargo')} · ${c.p} pcs · ${kgF(c.kg)}</span></span><span class="shcs">${shcHtml(c.s.shc)}${dgChip(c.s)}</span></button>`).join('')}</div>
+  <div class="btns"><button type="button" class="btn" id="bReplay" ${phase==='building'||phase==='loading'?'disabled':''}>▶ ${phase==='done'?'Replay build-up':'Restart build-up'}</button><button type="button" class="btn pri" id="bLoad" ${phase==='checked'||phase==='done'?'':'disabled'}>Load into ${u.blk&&u.blk.c==='main'?'main deck ':''}${u.pos}</button></div>`;
+  $('bReplay').onclick=startBuild;$('bLoad').onclick=startLoad;
+  el.querySelectorAll('.awbb').forEach(b=>b.onclick=()=>{const a=b.dataset.a;hiAwb=hiAwb===a?null:a;el.querySelectorAll('.awbb').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.a===hiAwb)));if(benchMode!=='uld')setMode2('uld');else renderBench()});
+  updNums();
+}
+function updNums(){const u=curU2();if(!u||!$('bPcs'))return;const pk=packUld(u),vis=shown2==null?pk.boxes:pk.boxes.slice(0,shown2),T=ULD[u.type];
+  const kg=vis.reduce((s,b)=>s+b.p.kg,0),vol=vis.reduce((s,b)=>s+(b.x1-b.x0)*(b.y1-b.y0)*(b.z1-b.z0),0)/1e6,h=vis.length?Math.max(...vis.map(b=>b.z1)):0;
+  $('bPcs').textContent=vis.length+' / '+pk.boxes.length;$('bKg').textContent=kgF(kg);$('bVol').textContent=Math.round(vol/T.vol*100)+'%';$('bH').textContent=Math.round(h)+' / '+T.H+' cm'}
+function stopAnim2(){if(anim2)cancelAnimationFrame(anim2);anim2=null;HA=null;doorOpen=0;['mover','truck','sdoor'].forEach(id=>{const e=document.getElementById(id);if(e)e.remove()})}
+function refresh2(){buildSide();buildXs();buildDet();buildList();renderBench();renderPanel()}
+function startBuild(){
+  const u=curU2();if(!u)return;stopAnim2();pendingId=u.id;phase='building';shown2=0;hiAwb=null;hov2=null;benchMode='uld';setModeBtns();
+  buildSide();buildXs();renderPanel();
+  const boxes=packUld(u).boxes,T=ULD[u.type];
+  if(RM||!boxes.length){shown2=null;phase='checked';renderBench();renderPanel();return}
+  const STEP=Math.max(50,Math.min(160,5200/boxes.length)),t0=performance.now();
+  const tick=now=>{const el=now-t0,n=Math.min(boxes.length,Math.floor(el/STEP)+1),p=Math.min(1,(el-(n-1)*STEP)/STEP);
+    shown2=n;dropZ2=Math.pow(1-p,2)*T.H*.35;renderBench();updNums();
+    if(n>=boxes.length&&p>=1){dropZ2=0;shown2=null;anim2=null;phase='checked';renderBench();renderPanel();return}
+    anim2=requestAnimationFrame(tick)};
+  anim2=requestAnimationFrame(tick);
+}
+function startLoad(){
+  const u=curU2();if(!u||!u.blk||!geo||!geo.ur[u.id]||phase==='building'||phase==='loading')return;
+  stopAnim2();pendingId=u.id;phase='loading';shown2=null;hiAwb=null;
+  holdView=false;$('vAll').setAttribute('aria-pressed','true');$('vHold').setAttribute('aria-pressed','false');
+  buildSide();setVB(geo.all);buildXs();benchMode='hold';setModeBtns();renderPanel();
+  const st=document.querySelector('.acstage').getBoundingClientRect();if(st.top<0||st.top>innerHeight*.5)document.querySelector('.acstage').scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});
+  const svg=$('ac'),g=geo.ur[u.id],dx=geo.doorX(u),sd=geo.sdoor(u),D=geo.D,G=geo.G,cs=consign(u);
+  const mk=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||svg).appendChild(e);return e};
+  const sdoor=mk('g',{id:'sdoor'});
+  const hole=mk('rect',{x:sd.x,y:sd.y,width:sd.w,height:sd.h,fill:'var(--glass)',stroke:'var(--door)','stroke-width':1.4},sdoor);
+  const panel=mk('rect',{x:sd.x,y:sd.y,width:sd.w,height:sd.h,fill:'var(--skin)',stroke:'var(--door)','stroke-width':1.4},sdoor);
+  const truck=mk('g',{id:'truck'}),tw=Math.max(g.w+14,1.1*D);
+  mk('rect',{x:0,y:G-0.2*D,width:tw,height:0.11*D,rx:2,fill:'var(--stroke)'},truck);
+  mk('rect',{x:-0.32*D,y:G-0.36*D,width:0.3*D,height:0.27*D,rx:3,fill:'var(--contour)',stroke:'var(--stroke)'},truck);
+  mk('rect',{x:-0.29*D,y:G-0.33*D,width:0.12*D,height:0.09*D,fill:'var(--glass)'},truck);
+  [0.12*D,tw-0.12*D,-0.17*D].forEach(cx=>mk('circle',{cx,cy:G-0.06*D,r:0.065*D,fill:'var(--fg)',opacity:.75},truck));
+  const sc1=mk('line',{stroke:'var(--stroke)','stroke-width':1.6},truck),sc2=mk('line',{stroke:'var(--stroke)','stroke-width':1.6},truck);
+  const plat=mk('rect',{x:-4,width:tw+8,height:3,fill:'var(--fg)',opacity:.8},truck);
+  const mover=mk('g',{id:'mover'});let yy=g.h;
+  cs.forEach(c=>{const bh=g.h*c.share;yy-=bh;mk('rect',{x:0,y:yy,width:g.w,height:bh,fill:c.col},mover)});
+  mk('rect',{x:0,y:0,width:g.w,height:g.h,fill:'none',stroke:'var(--contour)','stroke-width':1.5},mover);
+  const hg=holdGeo(),mp=inProf(u),yd=hg.doorFrac*hg.Lh,xMax=Math.max(...hg.cont.map(c=>c[0])),lane=u.side;
+  const dxOut=xMax+70-hg.lanes[lane],dxR=hg.lanes.R-hg.lanes[lane],yStart=yd-mp.Dp/2,yEnd=uldY(hg,u),zLow=-200;
+  HA={dx:dxOut,y:yStart,z:zLow,platform:true,pz:zLow-4};
+  const ease=q=>q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2,seg=(p,a,b)=>ease(Math.max(0,Math.min(1,(p-a)/(b-a))));
+  const dur=RM?10:9000,t0=performance.now()+(RM?0:500),tx0=-tw-60,txD=dx-tw/2,txOut=-tw-140;
+  const tick=now=>{
+    const p=Math.max(0,Math.min(1,(now-t0)/dur));
+    const drive=seg(p,0,.12),open=seg(p,.02,.14)*(1-seg(p,.86,.97)),lift=seg(p,.13,.27),enter=seg(p,.28,.45),shift=seg(p,.45,.55),roll=seg(p,.55,.84),leave=seg(p,.86,1);
+    doorOpen=open;
+    panel.setAttribute('y',(sd.y-sd.h*open*0.95).toFixed(1));panel.setAttribute('height',(sd.h*(1-open*0.55)).toFixed(1));hole.setAttribute('opacity',open>0.02?1:0);
+    const tx=p<.86?tx0+(txD-tx0)*drive:txD+(txOut-txD)*leave;
+    const bedY=G-0.2*D,platY=bedY-3-(bedY-3-(g.y+g.h))*lift*(p<.86?1:(1-leave));
+    truck.setAttribute('transform',`translate(${tx.toFixed(1)},0)`);plat.setAttribute('y',platY.toFixed(1));
+    sc1.setAttribute('x1',0.15*D);sc1.setAttribute('y1',bedY);sc1.setAttribute('x2',tw-0.15*D);sc1.setAttribute('y2',platY+3);
+    sc2.setAttribute('x1',tw-0.15*D);sc2.setAttribute('y1',bedY);sc2.setAttribute('x2',0.15*D);sc2.setAttribute('y2',platY+3);
+    let mx,my,mo=1;
+    if(p<.28){mx=tx+tw/2-g.w/2;my=platY-g.h}
+    else if(p<.55){mx=dx-g.w/2;my=g.y;mo=1-enter*0.35}
+    else{mx=(dx-g.w/2)+(g.x-(dx-g.w/2))*roll;my=g.y;mo=.65+roll*.35}
+    mover.setAttribute('transform',`translate(${mx.toFixed(1)},${my.toFixed(1)})`);mover.setAttribute('opacity',mo.toFixed(2));
+    HA.z=zLow+(0-zLow)*lift;HA.pz=HA.z-4;HA.dx=dxOut+(dxR-dxOut)*enter+(0-dxR)*shift;HA.y=yStart+(yEnd-yStart)*roll;HA.platform=p<.86;
+    if(benchMode==='hold')renderHold();
+    if(p<1){anim2=requestAnimationFrame(tick);return}
+    stopAnim2();pendingId=null;phase='done';refresh2();
+  };
+  anim2=requestAnimationFrame(tick);
+}
+function select2(key,side){
+  stopAnim2();pendingId=null;phase='done';shown2=null;hiAwb=null;hov2=null;sel2=key;
+  const s=curSlot();side2=side||(s&&s.ulds[0]?s.ulds[0].side:null);const u=curU2();selUid=u?u.id:null;
+  refresh2();
+}
+
+/* ---------- step 2 entry point ---------- */
+function renderLoad(){
+  stopAnim2();pendingId=null;phase='done';shown2=null;
+  const has=!!(build&&plan);$('p2main').hidden=!has;$('p2empty').hidden=has;
+  if(!has){$('st2s').textContent='Positions and weight & balance';$('loadTitle').textContent='Your flight · '+acNow().name;$('loadSub').textContent='';$('hchips').innerHTML='';return}
+  const ac=build.ac,lo=R('rIdxF'),hi=R('rIdxA'),idx=plan.index,bad=plan.issues.some(i=>i.k==='bad')||build.offload.some(o=>o.uld),ok=(!plan.C.length||(idx>=lo&&idx<=hi))&&!bad;
+  $('st2s').textContent=plan.C.length?(ok?'Balanced ✓':'Check balance'):'Bulk loading';
+  SL=slotsOf();
+  const keep=selUid&&findUld(selUid);
+  if(keep){sel2=keep.sl.key;side2=keep.u.side}
+  else if(!curSlot()){const f=SL.find(s=>s.ulds.length)||SL.find(s=>s.bulk)||SL[0];sel2=f?f.key:null;side2=f&&f.ulds[0]?f.ulds[0].side:null;selUid=f&&f.ulds[0]?f.ulds[0].id:null}
+  const a=SIDE[ac.id],role=ac.g==='belly'?'Passenger · lower deck':ac.g==='freighter'?'Freighter · main and lower deck':ac.akh?'Narrow-body · AKH containers and bulk':'Narrow-body · bulk holds';
+  const loaded=SL.flatMap(s=>s.ulds),kg=loaded.reduce((s,u)=>s+u.kg,0)+(build.bulk||[]).reduce((s,h)=>s+h.usedKg,0),dg=loaded.some(u=>u.flags.has('DG'))||(build.bulk||[]).some(h=>h.items.some(s=>s.dg));
+  $('loadTitle').textContent='Your flight · '+ac.name;$('loadSub').textContent='Tonight · '+role;
+  $('hchips').innerHTML=(plan.C.length?`<span class="hchip">${loaded.length} ULDs</span>`:'<span class="hchip">Bulk only</span>')+`<span class="hchip">${kgF(kg)}</span>${dg?'<span class="hchip bad">DG · NOTOC</span>':''}<span class="hchip ${ok?'ok':'bad'}">${ok?'✓ Within limits':'⚠ Check the load'}</span>`;
+  const lowRows=(ac.low?ac.low.fwd.rows+ac.low.aft.rows:ac.akh?ac.akh.fwd.rows+ac.akh.aft.rows:0);
+  $('facts').textContent=`${ac.name} · length ${a.len} m · fuselage ${a.dia} m`+(ac.main?` · main deck ${ac.main.rows*2} pallet positions`:'')+(lowRows?` · lower deck ${lowRows*2} ${ac.akh?'AKH':'LD3'} positions`:'')+(build.bulk?` · bulk ${fmt(Object.values(ac.bulkHolds).reduce((s,h)=>s+h.m3,0),1)} m³`:'');
+  setModeBtns();refresh2();
+  const al=[...build.offload.filter(o=>o.uld).map(o=>({k:'bad',t:`${o.uld.id}: ${o.why}`})),...plan.issues];
+  $('loadAlerts').innerHTML=al.length?al.map(x=>`<div class="alert ${x.k}">${x.k==='bad'?'⛔':'ℹ'}<span>${esc(x.t)}</span></div>`).join(''):'<div class="alert ok">✓<span>All ULDs placed, within limits, dangerous goods kept apart.</span></div>';
+  $('comp').innerHTML=plan.C.length?`<div class="tbl"><table><thead><tr><th>Hold</th><th class="num">Used</th><th class="num">kg</th><th class="num">Limit</th></tr></thead><tbody>${plan.C.map(c=>`<tr><td>${c.name}</td><td class="num">${Math.round((c.used-(c.lead||0))/c.len*100)}%</td><td class="num">${fmt(c.kg)}</td><td class="num">${fmt(c.maxKg)}</td></tr>`).join('')}</tbody></table></div><p class="note">Planning aid with placeholder limits; the load sheet comes from the airline's approved weight-and-balance system.</p>`:'';
+}
+
+/* ---------- step 2 interaction ---------- */
+const tip2=$('tip2'),tip3=$('tip3'),acSvg=$('ac'),iso2=$('iso2');
+function placeTip(el,box,cx,cy){el.hidden=false;const r=box.getBoundingClientRect(),w=el.offsetWidth,h=el.offsetHeight;let x=cx-r.left+14,y=cy-r.top+14;if(x+w>r.width)x=cx-r.left-w-14;if(y+h>r.height)y=Math.max(4,cy-r.top-h-14);el.style.left=Math.max(4,x)+'px';el.style.top=y+'px'}
+let acDrag=null;
+acSvg.addEventListener('pointerdown',e=>{if(!VB)return;acDrag={x:e.clientX,y:e.clientY,vx:VB.x,vy:VB.y,moved:false}});
+window.addEventListener('pointermove',e=>{if(!acDrag)return;const dx=e.clientX-acDrag.x,dy=e.clientY-acDrag.y;if(!acDrag.moved&&Math.hypot(dx,dy)>4){acDrag.moved=true;acSvg.classList.add('dragging');tip2.hidden=true}
+  if(acDrag.moved){const k=VB.w/acSvg.getBoundingClientRect().width;VB.x=acDrag.vx-dx*k;VB.y=acDrag.vy-dy*k;applyVB()}});
+window.addEventListener('pointerup',e=>{if(!acDrag)return;const moved=acDrag.moved;acDrag=null;acSvg.classList.remove('dragging');
+  if(!moved&&phase!=='loading'){const g=document.elementFromPoint(e.clientX,e.clientY);const s=g&&g.closest&&g.closest('#ac [data-k]');if(s)select2(s.dataset.k)}});
+acSvg.addEventListener('pointermove',e=>{if(acDrag&&acDrag.moved)return;const g=e.target.closest&&e.target.closest('[data-k]');if(!g){tip2.hidden=true;return}
+  const sl=SL.find(x=>x.key===g.dataset.k);if(!sl){tip2.hidden=true;return}tip2.innerHTML=slotTip(sl);placeTip(tip2,document.querySelector('.acstage'),e.clientX,e.clientY)});
+acSvg.addEventListener('pointerleave',()=>{tip2.hidden=true});
+acSvg.addEventListener('keydown',e=>{const g=e.target.closest&&e.target.closest('[data-k]');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();const k=g.dataset.k;select2(k);const n=acSvg.querySelector(`[data-k="${k}"]`);if(n)n.focus()}});
+$('zIn').onclick=()=>zoomBy(0.7);$('zOut').onclick=()=>zoomBy(1/0.7);
+function view(h){if(!geo)return;holdView=h;setVB(h?geo.hold:geo.all);$('vAll').setAttribute('aria-pressed',String(!h));$('vHold').setAttribute('aria-pressed',String(h))}
+$('vAll').onclick=()=>view(false);$('vHold').onclick=()=>view(true);
+iso2.addEventListener('pointerdown',e=>{isoDrag2={x:e.clientX,y0:yaw2,moved:false}});
+window.addEventListener('pointermove',e=>{if(!isoDrag2||benchMode==='hold')return;const dx=e.clientX-isoDrag2.x;if(!isoDrag2.moved&&Math.abs(dx)>4){isoDrag2.moved=true;iso2.classList.add('dragging');setSpin2(false);tip3.hidden=true}
+  if(isoDrag2.moved){yaw2=isoDrag2.y0+dx*.012;renderBench()}});
+window.addEventListener('pointerup',e=>{if(!isoDrag2)return;const moved=isoDrag2.moved;isoDrag2=null;iso2.classList.remove('dragging');if(moved)return;
+  const g=document.elementFromPoint(e.clientX,e.clientY);
+  if(benchMode==='hold'){if(phase==='loading')return;const s=g&&g.closest&&g.closest('#iso2 [data-u]');if(s){const f=findUld(s.dataset.u);if(f)select2(f.sl.key,f.u.side)}return}
+  const s=g&&g.closest&&g.closest('#iso2 [data-i]'),u=curU2();
+  if(s&&u){const a=packUld(u).boxes[+s.dataset.i].p.s.awb;hiAwb=hiAwb===a?null:a}else hiAwb=null;
+  document.querySelectorAll('#awbList .awbb').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.a===hiAwb)));renderBench()});
+iso2.addEventListener('pointermove',e=>{
+  if(benchMode==='hold'){const g=e.target.closest&&e.target.closest('[data-u]');const f=g&&findUld(g.dataset.u);if(!f){tip3.hidden=true;return}tip3.innerHTML=uldTip(f.u);placeTip(tip3,iso2.parentElement,e.clientX,e.clientY);return}
+  if(isoDrag2&&isoDrag2.moved)return;const g=e.target.closest&&e.target.closest('[data-i]'),u=curU2();
+  if(!g||!u){if(hov2!==null){hov2=null;renderBench()}tip3.hidden=true;return}
+  const i=+g.dataset.i,b=packUld(u).boxes[i];if(!b)return;const s=b.p.s;if(hov2!==i){hov2=i;renderBench()}
+  tip3.innerHTML=`<div style="display:flex;gap:6px;align-items:center"><i class="sw" style="background:${colorOf(s.awb)}"></i><b class="mono">AWB ${esc(s.awb)}</b></div><div>${esc(s.nat||'Cargo')}</div><div style="margin:3px 0">${shcHtml(s.shc)} ${dgChip(s)}</div><div class="mono mut">${Math.round(b.x1-b.x0)}×${Math.round(b.y1-b.y0)}×${Math.round(b.z1-b.z0)} cm · ${kgF(b.p.kg)}</div>`;
+  placeTip(tip3,iso2.parentElement,e.clientX,e.clientY)});
+iso2.addEventListener('pointerleave',()=>{tip3.hidden=true;if(hov2!==null){hov2=null;renderBench()}});
+iso2.addEventListener('keydown',e=>{if(benchMode!=='uld')return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setSpin2(false);yaw2+=e.key==='ArrowLeft'?-.15:.15;renderBench()}});
+function setSpin2(on){spin2=on;$('rSpin').setAttribute('aria-pressed',String(on))}
+$('rSpin').onclick=()=>setSpin2(!spin2);
+$('rL').onclick=()=>{setSpin2(false);yaw2-=Math.PI/4;renderBench()};$('rR').onclick=()=>{setSpin2(false);yaw2+=Math.PI/4;renderBench()};
+$('mU').onclick=()=>setMode2('uld');$('mH').onclick=()=>setMode2('hold');
+setSpin2(spin2);
+
+/* ---------- interaction ---------- */
+const iso=$('iso'),tip=$('tip');
+iso.addEventListener('pointerdown',e=>{drag={x:e.clientX,y0:yaw,moved:false}});
+window.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x;if(Math.abs(dx)>4){drag.moved=true;tip.hidden=true}if(drag.moved){yaw=drag.y0+dx*.012;drawIso()}});
+window.addEventListener('pointerup',()=>{drag=null});
+iso.addEventListener('pointermove',e=>{if(drag&&drag.moved)return;const g=e.target.closest&&e.target.closest('[data-i]');const u=build&&build.ulds.find(x=>x.id===selU);
+  if(!g||!u){if(hoverI!==null){hoverI=null;drawIso()}tip.hidden=true;return}const i=+g.dataset.i,b=packUld(u).boxes[i],s=b.p.s;if(hoverI!==i){hoverI=i;drawIso()}
+  tip.innerHTML=`<b style="font-family:var(--mono)">${esc(s.awb)}</b><br>${esc(s.nat)}<br>${s.l}×${s.w}×${s.h} cm · ${fmt(b.p.kg)} kg${s.shc.length?'<br>'+s.shc.map(c=>`<span class="chip">${esc(c)}</span>`).join(''):''}${s.dg?`<br><span class="chip dg">DG ${esc(s.dg)} ${esc(s.un)}</span>`:''}`;
+  const r=iso.parentElement.getBoundingClientRect();tip.hidden=false;let x=e.clientX-r.left+12,y=e.clientY-r.top+12;if(x+tip.offsetWidth>r.width)x-=tip.offsetWidth+24;tip.style.left=Math.max(4,x)+'px';tip.style.top=y+'px'});
+iso.addEventListener('pointerleave',()=>{tip.hidden=true;if(hoverI!==null){hoverI=null;drawIso()}});
+iso.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();yaw+=e.key==='ArrowLeft'?-.2:.2;drawIso()}});
+$('spin').onclick=()=>{spinOn=!spinOn;$('spin').setAttribute('aria-pressed',String(spinOn))};
+$('flagBtn').onclick=()=>{const f=$('flags');f.hidden=!f.hidden;$('flagBtn').setAttribute('aria-expanded',String(!f.hidden))};
+function go(n){$('st1').setAttribute('aria-selected',String(n===1));$('st2').setAttribute('aria-selected',String(n===2));$('p1').hidden=n!==1;$('p2').hidden=n!==2;window.scrollTo({top:0,behavior:'smooth'})}
+$('st1').onclick=()=>go(1);$('st2').onclick=()=>{if(!build){toast('Add cargo first');return}go(2);savePlan();reportPlan()};
+$('toLoad').onclick=()=>{go(2);savePlan();reportPlan()};$('back').onclick=()=>go(1);
+$('reassign').onclick=()=>{if(!build)return;plan=planLoad(build);render();savePlan();reportPlan();toast(`Rebalanced · index ${fmt(plan.index,1)}`)};
+$('acSel').onchange=()=>{refresh();toast(`Rebuilt for the ${acNow().name}`)};
+document.querySelectorAll('.settings input').forEach(i=>i.addEventListener('change',()=>{PCACHE.clear();refresh()}));
+function panel(id,open){const p=$(id),b=$(id==='addPanel'?'addToggle':'listToggle');p.hidden=!open;b.setAttribute('aria-expanded',String(open));$('drawers').hidden=$('addPanel').hidden&&$('listPanel').hidden;if(open&&id==='addPanel')setTimeout(()=>$('sAwb').focus(),50)}
+$('addToggle').onclick=()=>panel('addPanel',$('addPanel').hidden);
+$('listToggle').onclick=()=>panel('listPanel',$('listPanel').hidden);
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>panel(b.dataset.close,false));
+$('moreBtn').onclick=()=>{const m=$('more'),o=m.hidden;m.hidden=!o;$('moreBtn').setAttribute('aria-expanded',String(o));$('moreBtn').textContent=o?'− Less':'+ More'};
+$('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:+$('sWt').value,nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
+  const er=validate(s);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';const pin=$('sPin').value;addShips([s]);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
+['sAwb','sWt','sL','sW','sH','sUn'].forEach(k=>$(k).addEventListener('input',()=>$('sErr').textContent=''));
+$('upBtn').onclick=()=>$('file').click();
+$('file').onchange=()=>{const f=$('file').files[0];$('file').value='';if(!f)return;const r=new FileReader();
+  const done=rows=>{const{list,errs}=rowsToShips(rows);if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);$('upMsg').textContent=errs.length?`Skipped: ${errs.slice(0,2).join('; ')}${errs.length>2?' …':''}`:''};
+  if(/\.xlsx?$/i.test(f.name)){if(!window.XLSX){toast('Save the file as CSV and upload again');return}r.onload=()=>{const wb=XLSX.read(r.result,{type:'array'});done(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false}))};r.readAsArrayBuffer(f)}
+  else{r.onload=()=>done(parseCSV(String(r.result)));r.readAsText(f)}};
+$('sampleBtn').onclick=()=>{const S=[['071-18402213',10,120,80,90,1450,'Auto parts','GEN','','',0,0],['071-18405526',30,100,40,30,620,'Fresh flowers','PEF,COL','','',0,0],['071-18410031',40,60,40,40,1200,'Coffee','EAT','','',0,0],['071-55201184',60,50,40,30,380,'E-commerce parcels','ECC','','',0,0],['071-18417745',12,80,60,50,410,'Electronics','VUN','','',0,0],['071-18420962',8,50,40,40,160,'Paint','RFL','3','UN1263',0,0],['071-18433310',6,60,40,40,210,'Pool chlorine','ROX','5.1','UN2880',0,0],['071-18440015',4,60,40,40,120,'Lithium-ion batteries','RLI,CAO','9','UN3480',0,0],['071-18451120',5,50,40,40,150,'Pesticide','RPB','6.1','UN2588',0,0],['071-18462277',1,290,220,150,1250,'Machinery','HEA','','',1,0],['071-18473390',1,300,230,210,3800,'Generator','HEA','','',1,0],['071-18480012',2,380,40,40,900,'Steel pipe','HEA','','',1,40],['071-18491104',1,340,230,140,1800,'Machinery crate (overhang)','HEA','','',1,30],['071-18502215',1,360,220,120,950,'Boat (overhang)','','','',1,60],
+  ['071-18513326',20,80,60,60,700,'Textiles','GEN','','',0,0,'PMC:1'],['071-18524430',18,60,50,50,520,'Spare parts','GEN','','',0,0,'PMC:1']]
+  .map(r=>mk({awb:r[0],pcs:r[1],l:r[2],w:r[3],h:r[4],wt:r[5],nat:r[6],shc:r[7],dg:r[8],un:r[9],excl:!!r[10],ohg:r[11],pin:r[12]||''}));addShips(S.filter(s=>!ships.some(x=>x.awb===s.awb)));toast('Sample cargo added, including overhang and a hand-built pallet')};
+$('clearBtn').onclick=async()=>{if(!ships.length)return;report('Shipments!A1',ships.map(s=>shipRow(s,'deleted')));for(const id of ships.map(s=>s.id))await delShip(id,true);refresh()};
+refresh();initStore().then(()=>{if(!ships.length)panel('addPanel',true)});spinId=requestAnimationFrame(spinTick);
+})();
+</script>
+
+</body>
+</html>

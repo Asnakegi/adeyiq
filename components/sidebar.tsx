@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 
 const navItems = [
-  { label: "Dashboard", href: "/", badge: null, icon: LayoutDashboard },
+  { label: "Dashboard", href: "/dashboard", badge: null, icon: LayoutDashboard },
   { label: "Flights", href: "/flights", badge: 6, icon: Plane },
   { label: "Shipments", href: "/shipments", badge: 142, icon: Package },
   { label: "3D View", href: "/3dview", badge: null, icon: View },
@@ -85,7 +85,7 @@ export default function Sidebar() {
       {/* Nav Items */}
       <nav style={{ padding: collapsed ? "12px 8px" : "12px 8px", flex: 1 }}>
         {navItems.map((item) => {
-          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+          const isActive = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href)
           const Icon = item.icon
           return (
             <Link key={item.label} href={item.href}
