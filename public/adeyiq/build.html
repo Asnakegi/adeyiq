@@ -235,7 +235,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <div class="card" id="addPanel" hidden>
       <div class="addhd"><b>Add cargo</b><button class="x" type="button" data-close="addPanel" aria-label="Close">×</button></div>
       <form id="f" class="form" novalidate>
-        <label class="span2">AWB<input id="sAwb" placeholder="071-18402213" autocomplete="off" inputmode="numeric"></label>
+        <label class="span2">AWB <span style="font-weight:400">(optional)</span><input id="sAwb" placeholder="071-18402213" autocomplete="off" inputmode="numeric"></label>
         <label class="span2">Goods<input id="sNat" placeholder="Auto parts"></label>
         <label>Pieces<input id="sPcs" type="number" min="1" value="1"></label>
         <label>Weight kg<input id="sWt" type="number" min="0" step="0.1" placeholder="1450"></label>
@@ -429,11 +429,18 @@ const HDR={awb:['awb','awbno','awbnumber','airwaybill','mawb'],pcs:['pcs','piece
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 function rowsToShips(rows){if(rows.length<2)return{list:[],errs:['the file needs a header row and at least one line']};
   const m={};rows[0].forEach((h,i)=>{const n=norm(h);for(const k in HDR)if(HDR[k].includes(n)&&m[k]==null)m[k]=i});const list=[],errs=[];
-  if(m.awb==null)errs.push('no AWB column');
+  const notes=[];
   rows.slice(1).forEach((r,i)=>{if(!r||r.every(c=>String(c||'').trim()===''))return;const g=k=>m[k]!=null?r[m[k]]:'';
     let l=+g('l'),w=+g('w'),h=+g('h');if((!l||!w||!h)&&m.dims!=null){const d=String(g('dims')).toLowerCase().match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)/);if(d){l=+d[1];w=+d[2];h=+d[3]}}
-    const s=mk({awb:String(g('awb')).trim(),pcs:+g('pcs')||1,l,w,h,wt:+String(g('wt')).replace(/[^0-9.]/g,''),nat:String(g('nat')||'').trim(),shc:String(g('shc')||''),dg:String(g('dg')||'').trim(),un:String(g('un')||'').trim(),excl:/^(y|yes|true|1|x)$/i.test(String(g('excl')).trim()),ohg:+g('ohg')||0});
-    const e=validate(s);if(e)errs.push(`line ${i+2}: ${e}`);else list.push(s)});return{list,errs}}
+    const dgRaw=String(g('dg')||'').trim();
+    const s=mk({awb:String(g('awb')).trim(),pcs:+g('pcs')||1,l,w,h,wt:+String(g('wt')).replace(/[^0-9.]/g,''),nat:String(g('nat')||'').trim(),shc:String(g('shc')||''),dg:dgRaw,un:String(g('un')||'').trim(),excl:/^(y|yes|true|1|x)$/i.test(String(g('excl')).trim()),ohg:+g('ohg')||0});
+    /* no DG class in the file = not dangerous goods */
+    if(!s.dg&&dgRaw&&!/^(no|n|none|nil|non[\s-]?dg|gen|general|-|0|na|n\/a)$/i.test(dgRaw))notes.push(`line ${i+2}: DG "${dgRaw}" has no class, loaded as non-DG, check it`);
+    const e=validate(s,true);if(e){errs.push(`line ${i+2}: ${e}`);return}
+    if(s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))notes.push(`line ${i+2}: DG class ${s.dg} has no UN number`);
+    if(!s.awb)s.awb=nextNoAwb(list);list.push(s)});return{list,errs,notes}}
+/* shipments without an AWB get a running label, "No AWB 1", "No AWB 2" … */
+function nextNoAwb(extra){const used=new Set([...ships,...(extra||[])].map(s=>s.awb));let n=1;while(used.has('No AWB '+n))n++;return'No AWB '+n}
 function parseCSV(t){const f=t.split('\n')[0],sep=f.includes('\t')?'\t':(f.split(';').length>f.split(',').length?';':',');const out=[];let row=[],cur='',q=false;
   for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===sep){row.push(cur);cur=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cur);out.push(row);row=[];cur=''}else cur+=c}
   if(cur!==''||row.length){row.push(cur);out.push(row)}return out}
@@ -447,7 +454,8 @@ function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boole
   return opts.map(([v,t])=>`<option value="${v}"${v===cur?' selected':''}>${t}</option>`).join('')}
 async function updateShip(id,patch){const s=ships.find(x=>x.id===id);if(!s)return;Object.assign(s,patch);
   if(db&&storeOk&&canWrite!==false){try{const{id:_,...b}=s;await db.doc('shipments/'+id).set(b);savedFlash();return}catch(e){}}saveLocal();refresh()}
-function validate(s){if(!/^\d{3}-?\d{8}$/.test(s.awb.replace(/\s/g,'')))return'AWB should look like 071-12345675';if(!(s.wt>0))return'enter the weight in kg';if(!(s.l>0&&s.w>0&&s.h>0))return'enter length, width and height';if(s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))return'dangerous goods need a UN number, like UN1263';return null}
+/* AWB is optional; when typed by hand it must look like an AWB. Files are lenient (any AWB text, DG without UN is flagged, not rejected). */
+function validate(s,fromFile){if(!fromFile&&s.awb&&!/^\d{3}-?\d{8}$/.test(s.awb.replace(/\s/g,'')))return'AWB should look like 071-12345675, or leave it empty';if(!(s.wt>0))return'enter the weight in kg';if(!(s.l>0&&s.w>0&&s.h>0))return'enter length, width and height';if(!fromFile&&s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))return'dangerous goods need a UN number, like UN1263';return null}
 
 /* ---------- saving (quiet) ---------- */
 const GS={server:'Google Sheets',id:'1-jMbYE7sy6ikGYviHWyP2L-txICiTru2_ue7HdG4AxQ'};
@@ -1128,11 +1136,12 @@ $('listToggle').onclick=()=>panel('listPanel',$('listPanel').hidden);
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>panel(b.dataset.close,false));
 $('moreBtn').onclick=()=>{const m=$('more'),o=m.hidden;m.hidden=!o;$('moreBtn').setAttribute('aria-expanded',String(o));$('moreBtn').textContent=o?'− Less':'+ More'};
 $('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:+$('sWt').value,nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
-  const er=validate(s);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';const pin=$('sPin').value;addShips([s]);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
+  const er=validate(s);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';if(!s.awb)s.awb=nextNoAwb();const pin=$('sPin').value;addShips([s]);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
 ['sAwb','sWt','sL','sW','sH','sUn'].forEach(k=>$(k).addEventListener('input',()=>$('sErr').textContent=''));
 $('upBtn').onclick=()=>$('file').click();
 $('file').onchange=()=>{const f=$('file').files[0];$('file').value='';if(!f)return;const r=new FileReader();
-  const done=rows=>{const{list,errs}=rowsToShips(rows);if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);$('upMsg').textContent=errs.length?`Skipped: ${errs.slice(0,2).join('; ')}${errs.length>2?' …':''}`:''};
+  const done=rows=>{const{list,errs,notes}=rowsToShips(rows);if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);
+    const nn=notes||[];$('upMsg').textContent=[errs.length?`Skipped: ${errs.slice(0,2).join('; ')}${errs.length>2?' …':''}`:'',nn.length?`Check: ${nn.slice(0,2).join('; ')}${nn.length>2?` … (+${nn.length-2})`:''}`:''].filter(Boolean).join(' · ')};
   if(/\.xlsx?$/i.test(f.name)){if(!window.XLSX){toast('Save the file as CSV and upload again');return}r.onload=()=>{const wb=XLSX.read(r.result,{type:'array'});done(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false}))};r.readAsArrayBuffer(f)}
   else{r.onload=()=>done(parseCSV(String(r.result)));r.readAsText(f)}};
 $('sampleBtn').onclick=()=>{const S=[['071-18402213',10,120,80,90,1450,'Auto parts','GEN','','',0,0],['071-18405526',30,100,40,30,620,'Fresh flowers','PEF,COL','','',0,0],['071-18410031',40,60,40,40,1200,'Coffee','EAT','','',0,0],['071-55201184',60,50,40,30,380,'E-commerce parcels','ECC','','',0,0],['071-18417745',12,80,60,50,410,'Electronics','VUN','','',0,0],['071-18420962',8,50,40,40,160,'Paint','RFL','3','UN1263',0,0],['071-18433310',6,60,40,40,210,'Pool chlorine','ROX','5.1','UN2880',0,0],['071-18440015',4,60,40,40,120,'Lithium-ion batteries','RLI,CAO','9','UN3480',0,0],['071-18451120',5,50,40,40,150,'Pesticide','RPB','6.1','UN2588',0,0],['071-18462277',1,290,220,150,1250,'Machinery','HEA','','',1,0],['071-18473390',1,300,230,210,3800,'Generator','HEA','','',1,0],['071-18480012',2,380,40,40,900,'Steel pipe','HEA','','',1,40],['071-18491104',1,340,230,140,1800,'Machinery crate (overhang)','HEA','','',1,30],['071-18502215',1,360,220,120,950,'Boat (overhang)','','','',1,60],
