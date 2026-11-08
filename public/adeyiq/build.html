@@ -345,6 +345,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <label>AKH max kg<input id="rAkh" type="number" value="1134"></label>
     <label>Lower-deck pallet max kg<input id="rPmcL" type="number" value="4626"></label>
     <label>Main-deck pallet max kg<input id="rPmcM" type="number" value="6804"></label>
+    <label>737 freighter pallet max kg<input id="rPagN" type="number" value="2500"></label>
     <label>PGA 20 ft max kg<input id="rPga" type="number" value="11340"></label>
     <label>Balance fwd limit<input id="rIdxF" type="number" value="-60"></label>
     <label>Balance aft limit<input id="rIdxA" type="number" value="60"></label>
@@ -374,6 +375,7 @@ const ULD={
   AKH:{name:'AKH container',contour:'LD3-45 contour 114 cm',h:110,vol:3.5,maxKey:'rAkh',len:156,half:true,W:156,Dp:153,H:114,prof:[[0,0],[156,0],[156,114],[0,114]]},
   PMCL:{name:'PMC pallet · lower deck',contour:'Lower-deck contour 163 cm',h:160,vol:11.5,maxKey:'rPmcL',len:244,W:318,Dp:244,H:163,prof:[[0,0],[318,0],[318,140],[300,163],[18,163],[0,140]]},
   PMC6:{name:'PMC pallet · main deck',contour:'Main-deck Q6 contour 244 cm',h:244,vol:17,maxKey:'rPmcM',len:318,main:true,W:318,Dp:244,H:244,prof:[[0,0],[318,0],[318,160],[250,244],[0,244]]},
+  PAGN:{name:'PAG pallet · 737 freighter main deck',contour:'737 freighter main-deck contour 208 cm',h:205,vol:11,maxKey:'rPagN',len:224,main:true,W:318,Dp:224,H:208,prof:[[0,0],[318,0],[318,150],[268,208],[50,208],[0,150]]},
   PMC7:{name:'PMC pallet · main deck',contour:'Main-deck Q7 contour 300 cm',h:300,vol:21,maxKey:'rPmcM',len:318,main:true,W:318,Dp:244,H:300,prof:[[0,0],[318,0],[318,200],[250,300],[0,300]]},
   PGA:{name:'PGA 20 ft pallet · main deck',contour:'20 ft pallet, 300 cm contour',h:300,vol:40,maxKey:'rPga',len:606,main:true,W:244,Dp:606,H:300,prof:[[0,0],[244,0],[244,220],[200,300],[0,300]]}
 };
@@ -382,7 +384,9 @@ const AC=[
  {id:'A350-900',g:'belly',name:'Airbus A350-900',low:{fwd:{rows:10},aft:{rows:8}}},{id:'A350-1000',g:'belly',name:'Airbus A350-1000',low:{fwd:{rows:12},aft:{rows:10}}},{id:'B777-300ER',g:'belly',name:'Boeing 777-300ER',low:{fwd:{rows:12},aft:{rows:10}}},{id:'A330-300',g:'belly',name:'Airbus A330-300',low:{fwd:{rows:9},aft:{rows:7}}},
  {id:'B737-800',g:'narrow',name:'Boeing 737-800',bulkHolds:{fwd:{m3:19.6,kg:3500},aft:{m3:24.4,kg:4500}},door:'122 × 89',doorWH:[122,84]},{id:'B737-8',g:'narrow',name:'Boeing 737-8 (MAX)',bulkHolds:{fwd:{m3:19.6,kg:3500},aft:{m3:24.4,kg:4500}},door:'122 × 89',doorWH:[122,84]},
  {id:'A320neo',g:'narrow',name:'Airbus A320neo',akh:{fwd:{rows:3},aft:{rows:4}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124]},{id:'A321neo',g:'narrow',name:'Airbus A321neo',akh:{fwd:{rows:5},aft:{rows:5}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124]},
- {id:'B777F',g:'freighter',name:'Boeing 777 Freighter',low:{fwd:{rows:9},aft:{rows:7}},main:{rows:14}},{id:'B747-8F',g:'freighter',name:'Boeing 747-8F',low:{fwd:{rows:10},aft:{rows:8}},main:{rows:16}}
+ {id:'B777F',g:'freighter',name:'Boeing 777 Freighter',low:{fwd:{rows:9},aft:{rows:7}},main:{rows:14}},{id:'B747-8F',g:'freighter',name:'Boeing 747-8F',low:{fwd:{rows:10},aft:{rows:8}},main:{rows:16}},
+ {id:'B767-300F',g:'freighter',name:'Boeing 767-300F',low:{fwd:{rows:7},aft:{rows:6}},main:{rows:12},mainTypes:['PMC6']},
+ {id:'B737-800BCF',g:'freighter',name:'Boeing 737-800BCF (converted)',main:{rows:11,pitch:224,single:true},mainTypes:['PAGN'],noPGA:true}
 ];
 const GROUPS={belly:'Wide-body (belly)',narrow:'Narrow-body',freighter:'Freighter'};
 $('acSel').innerHTML=Object.entries(GROUPS).map(([g,t])=>`<optgroup label="${t}">${AC.filter(a=>a.g===g).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}</optgroup>`).join('');
@@ -401,6 +405,9 @@ function category(s){const{l,w,h}=s;if(!l||!w||!h)return'X';
   if(h<=300&&(fitsBase(l,w,606,244)||s.ohg>0))return'C';return'X'}
 const CATTXT={A:'Container',B:'Lower-deck pallet',C:'Freighter main deck',X:'Out of gauge'};
 const longPiece=s=>!fitsBase(s.l,s.w,318,244);
+const mainTypes=ac=>ac.mainTypes||['PMC6','PMC7'];
+const MP=ac=>(ac.main&&ac.main.pitch)||318;
+const pitchOf=(ac,key)=>key==='main'?MP(ac):156;
 function fitsDoor(s,wh){const d=[s.l,s.w,s.h].sort((a,b)=>a-b);return d[0]<=Math.min(...wh)&&d[1]<=Math.max(...wh)}
 const volM3=s=>s.pcs*s.l*s.w*s.h/1e6,volKg=s=>volM3(s)*1e6/R('rDiv'),chg=s=>Math.max(s.wt,volKg(s));
 const isCAO=s=>CAO_UN.includes((s.un||'').toUpperCase().replace(/\s/g,''))||s.shc.includes('CAO');
@@ -490,7 +497,8 @@ function buildUlds(){
       if(pax&&isCAO(s)){offload.push({s,why:'Cargo Aircraft Only, book it on a freighter'});return false}return true});
     if(!list.length)return;
     let t;if(kind==='AKE')t=g==='narrow'?(ac.akh?'AKH':null):'AKE';
-    else if(g==='narrow')t=null;else if(g==='belly')t='PMCL';else t=list.some(longPiece)?'PGA':(Math.max(...list.map(s=>s.h))>244?'PMC7':'PMC6');
+    else if(g==='narrow')t=null;else if(g==='belly')t='PMCL';else{const MT=mainTypes(ac),mh=Math.max(...list.map(s=>s.h));t=list.some(longPiece)?(ac.noPGA?null:'PGA'):(MT.find(x=>ULD[x].h>=mh)||MT[MT.length-1])}
+    if(kind==='AKE'&&g==='freighter'&&!ac.low)t=null;
     if(!t){list.forEach(s=>offload.push({s,why:`the ${ac.name} has no ${kind==='AKE'?'containers':'pallets'}; set Load on to Auto`}));return}
     const u={id:`${kind}-M${num}`,type:t,items:[],kg:0,m3:0,max:R(ULD[t].maxKey),cap:ULD[t].vol*eff,h:ULD[t].h,flags:new Set(),manual:true,warn:[]};
     list.forEach(s=>{add(u,s,s.pcs);if(s.ohg)u.ohg=Math.max(u.ohg||0,s.ohg)});ulds.push(u);
@@ -507,9 +515,12 @@ function buildUlds(){
     if(g==='belly'&&(cat==='C'||(longPiece(s)&&!s.ohg)))return offload.push({s,why:longPiece(s)?'too long for a PMC: book a freighter, PGA 20 ft or connected pallets':`${s.h} cm high: book a freighter main-deck pallet`});
     if(g==='narrow'){if(!fitsDoor(s,ac.doorWH))return offload.push({s,why:`does not fit the ${ac.door} cm cargo door`});
       if(ac.akh&&s.h<=110&&fitsBase(s.l,s.w,150,150)&&!s.excl)place(s,['AKH']);else bulkLoads.push(s);return}
-    if(g==='freighter'&&longPiece(s)){const u=newUld('PGA');u.excl=true;add(u,s,s.pcs);return}
-    const types=g==='belly'?(cat==='A'?['AKE','PMCL']:['PMCL']):(cat==='A'?['AKE','PMCL','PMC6']:cat==='B'?['PMCL','PMC6','PMC7']:(s.h<=244?['PMC6','PMC7']:['PMC7']));
-    if(s.excl||s.ohg>0){const ok=types.filter(t=>!(ULD[t].half&&s.ohg>0));const u=newUld(ok.find(t=>packItems(t,[{s,p:s.pcs}],s.ohg).notShown===0)||ok[0]||types[0]);u.excl=true;u.ohg=s.ohg;add(u,s,s.pcs);return}
+    if(g==='freighter'&&longPiece(s)){if(ac.noPGA)return offload.push({s,why:`too long for the ${ac.name}: book a wide-body freighter with 20 ft pallets`});const u=newUld('PGA');u.excl=true;add(u,s,s.pcs);return}
+    let types;if(g==='belly')types=cat==='A'?['AKE','PMCL']:['PMCL'];
+    else{const MT=mainTypes(ac).filter(t=>ULD[t].h>=s.h),low=ac.low?(cat==='A'?['AKE','PMCL']:cat==='B'?['PMCL']:[]):[];types=[...low,...MT];
+      if(!types.length)return offload.push({s,why:`${s.h} cm high: taller than the ${ac.name} main-deck contour`})}
+    if(s.excl||s.ohg>0){const ok=types.filter(t=>!(ULD[t].half&&s.ohg>0)),fit=ok.find(t=>packItems(t,[{s,p:s.pcs}],s.ohg).notShown===0);
+      if(!fit)return offload.push({s,why:`${s.l}×${s.w}×${s.h} cm does not fit inside the ${ac.name} ULD contours${g==='freighter'?' (needs a centreline main-deck position)':''}`});const u=newUld(fit);u.excl=true;u.ohg=s.ohg;add(u,s,s.pcs);return}
     place(s,types)});
   ships.forEach((a,i)=>ships.slice(i+1).forEach(b=>{const c=conflict(a,b);if(c)apart.push({a,b,c})}));
   let bulk=null;if(g==='narrow'){bulk=Object.entries(ac.bulkHolds).map(([k,v])=>({k,m3:v.m3*eff,kg:v.kg,used:0,usedKg:0,items:[]}));
@@ -520,28 +531,28 @@ function buildUlds(){
 function planLoad(b){
   const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-20,16]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
   const lower=ac.low||ac.akh;if(lower)for(const k of['fwd','aft']){const r=lower[k].rows;C.push({key:k,name:k==='fwd'?'Forward hold':'Aft hold',len:r*156,used:0,blocks:[],a:arm[k],maxKg:r*2*R(ac.akh?'rAkh':'rAke')*(ac.akh?1:.9)})}
-  if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*318,used:0,blocks:[],a:arm.main,maxKg:ac.main.rows*2*R('rPmcM')*.85});
+  if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:arm.main,maxKg:ac.main.rows*(ac.main.single?1:2)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
   const issues=[];let mom=0;if(!C.length)return{C,index:0,total:0,issues};
   const clash=(a,c)=>a.items.some(i=>c.items.some(j=>conflict(i.s,j.s)));
   const pairs=[];b.ulds.filter(u=>ULD[u.type].half).sort((x,y)=>y.kg-x.kg).forEach(u=>{const p=pairs.find(p=>p.length===1&&!clash(p[0],u));if(p)p.push(u);else pairs.push([u])});
   /* main-deck pallets go two abreast (left and right), a PGA pairs with another PGA over two rows */
-  const mains=[];b.ulds.filter(u=>ULD[u.type].main).sort((x,y)=>y.kg-x.kg).forEach(u=>{const pga=u.type==='PGA',p=mains.find(p=>p.length===1&&(p[0].type==='PGA')===pga&&!clash(p[0],u));if(p)p.push(u);else mains.push([u])});
-  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?636:318,kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>y.w-x.w);
+  const mains=[];b.ulds.filter(u=>ULD[u.type].main).sort((x,y)=>y.kg-x.kg).forEach(u=>{const pga=u.type==='PGA',p=!ac.main.single&&mains.find(p=>p.length===1&&(p[0].type==='PGA')===pga&&!clash(p[0],u));if(p)p.push(u);else mains.push([u])});
+  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>y.w-x.w);
   const posArm=(c,st,len)=>{const f=(st+len/2)/c.len;return c.key==='fwd'?c.a[1]-(c.a[1]-c.a[0])*f:c.a[0]+(c.a[1]-c.a[0])*f};
   const lowC=C.filter(c=>c.key!=='main'),mainC=C.filter(c=>c.key==='main');
   for(const un of units){
-    const tiers=un.kind==='main'?[mainC]:un.kind==='ake'?[lowC]:[lowC,mainC],L=c=>c.key==='main'&&un.kind==='pal'?318:un.len;let ok=false;
+    const tiers=un.kind==='main'?[mainC]:un.kind==='ake'?[lowC]:[lowC,mainC],L=c=>c.key==='main'&&un.kind==='pal'?MP(ac):un.len;let ok=false;
     for(const tier of tiers){if(ok)break;
       const cands=tier.map(c=>({c,arm:posArm(c,c.used,L(c))})).sort((x,y)=>Math.abs(mom+un.w*x.arm)-Math.abs(mom+un.w*y.arm)).map(x=>x.c);
-      for(const c of cands){const len=L(c),pitch=c.key==='main'?318:156,prev=[...c.blocks].reverse().find(x=>!x.gap);let st=c.used,gap=prev&&prev.ulds.some(a=>un.ulds.some(x=>clash(a,x)));if(gap)st+=pitch;if(st+len>c.len)continue;
+      for(const c of cands){const len=L(c),pitch=pitchOf(ac,c.key),prev=[...c.blocks].reverse().find(x=>!x.gap);let st=c.used,gap=prev&&prev.ulds.some(a=>un.ulds.some(x=>clash(a,x)));if(gap)st+=pitch;if(st+len>c.len)continue;
         if(gap){c.blocks.push({start:c.used,len:pitch,ulds:[],gap:true});issues.push({k:'info',t:`One position left empty in the ${c.name.toLowerCase()} to keep dangerous goods apart`})}
         const a=posArm(c,st,len);c.blocks.push({start:st,len,ulds:un.ulds,arm:a,w:un.w});c.used=st+len;mom+=un.w*a;
         const row=Math.floor(st/pitch+1e-6),lab=c.key==='main'?String.fromCharCode(65+row):String((c.key==='fwd'?11:31)+row);
-        un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'?'P':'L');u.pos=lab+u.side;u.blk={c:c.key,start:st,len}});ok=true;break}}
+        un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'||(c.key==='main'&&ac.main.single)?'P':'L');u.pos=lab+u.side;u.blk={c:c.key,start:st,len}});ok=true;break}}
     if(!ok)un.ulds.forEach(u=>b.offload.push({s:u.items[0].s,why:`no free position for ${u.id}`,uld:u}));
   }
   /* main deck: slide the whole pallet load aft row by row to the spot that best centres the balance */
-  mainC.forEach(c=>{const pitch=318,free=Math.floor((c.len-c.used)/pitch+1e-6);if(free<1||!c.blocks.length)return;
+  mainC.forEach(c=>{const pitch=MP(ac),free=Math.floor((c.len-c.used)/pitch+1e-6);if(free<1||!c.blocks.length)return;
     const base=mom-c.blocks.reduce((s,bk)=>s+(bk.w||0)*(bk.arm||0),0);let best=0,bv=Infinity;
     for(let k=0;k<=free;k++){const m=base+c.blocks.reduce((s,bk)=>s+(bk.gap?0:bk.w*posArm(c,bk.start+k*pitch,bk.len)),0);if(Math.abs(m)<bv-1e-6){bv=Math.abs(m);best=k}}
     if(!best)return;mom=base;c.lead=best*pitch;c.used+=c.lead;
@@ -671,7 +682,9 @@ const SIDE={
  'A320neo':{len:37.6,dia:3.95,wing:.46,cockpit:'mask',fwd:[.18,.40],aft:[.55,.73],bulk:[.74,.79],doors:[.2,.6],pdoors:[.08,.86]},
  'A321neo':{len:44.5,dia:3.95,wing:.47,cockpit:'mask',fwd:[.16,.41],aft:[.55,.75],bulk:[.76,.8],doors:[.19,.62],pdoors:[.07,.3,.66,.87]},
  'B777F':{len:63.7,dia:6.2,wing:.475,main:[.13,.80],fwd:[.17,.42],aft:[.53,.71],bulk:[.72,.77],doors:[.2,.57],mainDoor:.765,pdoors:[.07]},
- 'B747-8F':{len:76.3,dia:6.5,wing:.47,hump:true,main:[.08,.82],fwd:[.17,.43],aft:[.55,.73],bulk:[.74,.78],doors:[.2,.58],mainDoor:.79,pdoors:[.07]}
+ 'B747-8F':{len:76.3,dia:6.5,wing:.47,hump:true,main:[.08,.82],fwd:[.17,.43],aft:[.55,.73],bulk:[.74,.78],doors:[.2,.58],mainDoor:.79,pdoors:[.07]},
+ 'B767-300F':{len:54.9,dia:5.41,wing:.47,main:[.12,.82],fwd:[.18,.42],aft:[.55,.72],bulk:[.73,.77],doors:[.21,.58],mainDoor:.16,pdoors:[.07]},
+ 'B737-800BCF':{len:39.5,dia:3.76,wing:.47,main:[.13,.83],fwd:[.17,.40],aft:[.56,.78],bulkLow:true,doors:[.2,.66],mainDoor:.17,pdoors:[.08]}
 };
 const BULKN={fwd:'Forward hold',aft:'Aft hold',bulk:'Bulk hold'};
 const COLD=['COL','PIL','PEM','PEF','PER','PES'];
@@ -691,7 +704,7 @@ let SL=[],sel2=null,side2=null,selUid=null,holdView=false,geo=null,VB=null,bench
 
 /* every loading position on the aircraft: loaded blocks, DG gaps, free rows, bulk holds */
 function slotsOf(){const out=[];
-  plan.C.forEach(c=>{const pitch=c.key==='main'?318:156,first=c.key==='fwd'?11:31,lab=st=>{const r=Math.floor(st/pitch+1e-6);return c.key==='main'?String.fromCharCode(65+r):String(first+r)};
+  plan.C.forEach(c=>{const pitch=pitchOf(build.ac,c.key),first=c.key==='fwd'?11:31,lab=st=>{const r=Math.floor(st/pitch+1e-6);return c.key==='main'?String.fromCharCode(65+r):String(first+r)};
     for(let st=0;st+pitch<=(c.lead||0)+1e-6;st+=pitch)out.push({key:c.key+':e'+st,c,start:st,len:pitch,empty:true,ulds:[],lab:lab(st)});
     c.blocks.forEach((b,i)=>out.push({key:c.key+':'+i,c,start:b.start,len:b.len,gap:!!b.gap,ulds:b.ulds||[],lab:lab(b.start)}));
     for(let st=Math.ceil(c.used/pitch-1e-6)*pitch;st+pitch<=c.len+1e-6;st+=pitch)out.push({key:c.key+':e'+st,c,start:st,len:pitch,empty:true,ulds:[],lab:lab(st)})});
@@ -733,6 +746,7 @@ function buildSide(){
   if(a.main){s+=`<rect x="${X(a.main[0])}" y="${T+0.1*D}" width="${X(a.main[1])-X(a.main[0])}" height="${floor-T-0.11*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/>`;
     s+=`<rect x="${X(a.mainDoor)-0.3*D}" y="${floor-0.52*D}" width="${0.6*D}" height="${0.5*D}" fill="none" stroke="var(--door)" stroke-width="2"/>`}
   const holds=ac.low||ac.akh?[['fwd','Forward hold'],['aft','Aft hold']]:[];
+  if(a.bulkLow)[['fwd','Bulk'],['aft','Bulk']].forEach(([hk,nm])=>{const r=a[hk];s+=`<rect x="${X(r[0])}" y="${floor+0.04*D}" width="${X(r[1])-X(r[0])}" height="${holdBot-floor-0.08*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/><text x="${(X(r[0])+X(r[1]))/2}" y="${(floor+holdBot)/2+fs*0.35}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="${fs*0.85}" fill="var(--muted)">Lower deck · bulk</text>`});
   holds.forEach(([hk])=>{const r=a[hk];s+=`<rect x="${X(r[0])}" y="${floor+0.02*D}" width="${X(r[1])-X(r[0])}" height="${holdBot-floor-0.01*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/>`});
   if(a.bulk&&!(build.bulk||[]).some(h=>h.k==='bulk'))s+=`<rect x="${X(a.bulk[0])}" y="${floor+0.08*D}" width="${X(a.bulk[1])-X(a.bulk[0])}" height="${holdBot-floor-0.16*D}" rx="2" fill="var(--cut)" stroke="var(--stroke)" stroke-width=".8" stroke-dasharray="3 2"/><text x="${(X(a.bulk[0])+X(a.bulk[1]))/2}" y="${(floor+holdBot)/2+fs*0.35}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="${fs*0.85}" fill="var(--muted)">Bulk</text>`;
   s+=`<line x1="${x0+0.4*D}" y1="${floor}" x2="${X(.79)}" y2="${floor}" stroke="var(--stroke)" stroke-width="1.4"/>`;
@@ -758,7 +772,7 @@ function buildSide(){
   s+=`<path d="M${ex},${ey} L${ex+el*0.82},${ey} Q${ex+el*1.02},${ey+eh*0.15} ${ex+el*1.08},${ey+eh/2} Q${ex+el*1.02},${ey+eh*0.85} ${ex+el*0.82},${ey+eh} L${ex},${ey+eh} Q${ex-el*0.06},${ey+eh/2} ${ex},${ey} Z" fill="var(--skin)" stroke="var(--stroke)" stroke-width="1.1"/><ellipse cx="${ex}" cy="${ey+eh/2}" rx="${eh*0.16}" ry="${eh*0.48}" fill="var(--stroke)"/>`;
   s+=`<g font-family="IBM Plex Sans,sans-serif"><text x="${x0}" y="${T-0.45*D-(a.hump?.3*D:0)}" font-size="10" fill="var(--muted)">← FWD</text>`;
   if(!a.main)holds.forEach(([hk,nm])=>{const r=a[hk];s+=`<text x="${(X(r[0])+X(r[1]))/2}" y="${floor-2}" text-anchor="middle" font-size="${fs}" fill="var(--fg)">${nm}</text>`});
-  if(a.main)s+=`<text x="${(X(a.main[0])+X(a.main[1]))/2}" y="${T+0.1*D-3}" text-anchor="middle" font-size="${fs}" fill="var(--fg)">Main deck · pallets two abreast   ·   lower deck · containers and pallets</text>`;
+  if(a.main)s+=`<text x="${(X(a.main[0])+X(a.main[1]))/2}" y="${T+0.1*D-3}" text-anchor="middle" font-size="${fs}" fill="var(--fg)">Main deck · ${ac.main.single?'pallets single file':'pallets two abreast'}   ·   lower deck · ${ac.low?'containers and pallets':'loose bulk'}</text>`;
   if(kind==='pax')s+=`<text x="${X(.45)}" y="${T-0.45*D}" text-anchor="middle" font-size="10" fill="var(--muted)">Passenger cabin above the floor · cargo only below</text>`;
   if(kind==='narrow')s+=`<text x="${X(.45)}" y="${T-0.45*D}" text-anchor="middle" font-size="10" fill="var(--muted)">${ac.akh?'Narrow-body · AKH containers and a bulk hold':'Narrow-body · loose bulk loading, no ULDs'}</text>`;
   s+=`<text x="${xe}" y="${G+12}" text-anchor="end" font-size="9" fill="var(--muted)">Length ${a.len} m · drawn to scale</text></g>`;
@@ -812,7 +826,7 @@ function buildDet(){
       (h.items.length?`<div class="pside">${h.items.map(s=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${colorOf(s.awb)}"></i><span class="mono">${esc(s.awb)}</span><span class="mut">${esc(s.nat||'Cargo')} · ${s.pcs} pcs · ${kgF(s.wt)}</span>${shcHtml(s.shc)}${dgChip(s)}</div>`).join('')}</div>`:'<div class="pside"><span class="mut">Nothing loaded here yet.</span></div>');return}
   const main=sl.c.key==='main',name=main?'Main deck row '+sl.lab:'Row '+sl.lab+' · '+sl.c.name.toLowerCase();
   if(sl.gap){el.innerHTML=`<h2>${name}</h2><div class="pside"><span class="mut">Kept empty so dangerous goods are not loaded next to cargo they must be separated from (IATA DGR 9.3.A).</span></div>`;return}
-  if(!sl.ulds.length){el.innerHTML=`<h2>${name}</h2><div class="pside"><span class="mut">Empty · free for 2 × ${main?'PMC pallet':(build.ac.akh?'AKH':'AKE')}${main||build.ac.akh?'':' or 1 lower-deck pallet'}</span></div>`;return}
+  if(!sl.ulds.length){el.innerHTML=`<h2>${name}</h2><div class="pside"><span class="mut">Empty · free for ${main&&build.ac.main.single?'1':'2'} × ${main?'PMC pallet':(build.ac.akh?'AKH':'AKE')}${main||build.ac.akh?'':' or 1 lower-deck pallet'}</span></div>`;return}
   const one=sl.ulds.length===1&&sl.ulds[0].side==='L';
   el.innerHTML=`<h2>${name}</h2>`+sl.ulds.map(sideHtml).join('')+(one?`<div class="pside"><span class="mono">${sl.lab}R</span><span class="mut">Empty · free for one ${main?'pallet':sl.ulds[0].type}</span></div>`:'');
 }
@@ -821,7 +835,7 @@ function buildList(){
   const bulkRows=bulk.map(h=>`<button type="button" class="ulrow" data-k="B:${h.k}" ${sel2==='B:'+h.k?'aria-current="true"':''}><i class="sw" style="background:#8CC152;width:14px;height:30px"></i><span style="min-width:0">${BULKN[h.k]}<br><span class="mono mut" style="font-size:12px">${h.items.length} shipments loose · ${kgF(h.usedKg)}</span></span><span class="tag" style="background:var(--panel2)">${Math.round(h.usedKg/h.kg*100)}%</span></button>`).join('');
   if(!plan.C.length){const n=bulk.reduce((s,h)=>s+h.items.length,0);
     st.innerHTML=`<div class="stat"><b class="mono">0</b><span>ULDs (bulk only)</span></div><div class="stat"><b class="mono">${n}</b><span>shipments loose</span></div><div class="stat"><b class="mono">${kgF(bkg)}</b><span>loaded</span></div>`;box.innerHTML=bulkRows}
-  else{const list=SL.flatMap(sl=>sl.ulds.map(u=>({sl,u}))),kg=list.reduce((s,x)=>s+x.u.kg,0)+bkg,slots=plan.C.reduce((s,c)=>s+Math.round(c.len/(c.key==='main'?318:156))*2,0),awbs=new Set(list.flatMap(x=>x.u.items.map(i=>i.s.awb))).size;
+  else{const list=SL.flatMap(sl=>sl.ulds.map(u=>({sl,u}))),kg=list.reduce((s,x)=>s+x.u.kg,0)+bkg,slots=plan.C.reduce((s,c)=>s+Math.round(c.len/pitchOf(build.ac,c.key))*(c.key==='main'&&build.ac.main.single?1:2),0),awbs=new Set(list.flatMap(x=>x.u.items.map(i=>i.s.awb))).size;
     st.innerHTML=`<div class="stat"><b class="mono">${list.length}</b><span>ULDs · ${list.length} / ${slots} positions</span></div><div class="stat"><b class="mono">${awbs}</b><span>AWBs on board</span></div><div class="stat"><b class="mono">${kgF(kg)}</b><span>loaded</span></div>`;
     box.innerHTML=list.map(({sl,u})=>{const cs=consign(u),shcs=[...new Set(cs.flatMap(c=>c.s.shc))].slice(0,3);
       return `<button type="button" class="ulrow" data-k="${sl.key}" data-s="${u.side}" ${sl.key===sel2&&u.side===side2?'aria-current="true"':''}><span class="stack">${cs.slice().reverse().map(c=>`<i style="flex:${c.share.toFixed(3)};background:${c.col}"></i>`).join('')}</span><span style="min-width:0"><span class="mono" style="font-weight:600">${u.id}</span> · ${esc(cs[0].s.nat||'Cargo')}<br><span class="mono mut" style="font-size:12px">${sl.c.key==='main'?'Main ':''}${u.pos} · ${cs.length} AWB${cs.length>1?'s':''} · ${kgF(u.kg)}</span></span><span class="shcs">${shcHtml(shcs)}${u.flags.has('DG')?'<span class="shc dg">DG</span>':''}</span></button>`}).join('')+bulkRows}
@@ -845,17 +859,17 @@ function uldTip(u){return `<div style="margin-top:6px"><span class="mono">${u.po
 const A1=.92,B1=.22,A2=.5,B2=.4,DV=[1,-A2/A1,B2+(A2/A1)*B1];
 function inProf(u){switch(u.type){
   case'AKE':return{p:ULD.AKE.prof,W:201,Dp:153,H:163};case'AKH':return{p:ULD.AKH.prof,W:156,Dp:153,H:114};case'PMCL':return{p:ULD.PMCL.prof,W:318,Dp:244,H:163};
-  case'PGA':return{p:[[0,0],[244,0],[244,220],[200,300],[0,300]],W:244,Dp:606,H:300};case'PMC7':return{p:[[0,0],[244,0],[244,200],[180,300],[0,300]],W:244,Dp:318,H:300};
+  case'PAGN':return{p:ULD.PAGN.prof,W:318,Dp:224,H:208};case'PGA':return{p:[[0,0],[244,0],[244,220],[200,300],[0,300]],W:244,Dp:606,H:300};case'PMC7':return{p:[[0,0],[244,0],[244,200],[180,300],[0,300]],W:244,Dp:318,H:300};
   default:return{p:[[0,0],[244,0],[244,160],[174,244],[0,244]],W:244,Dp:318,H:244}}}
 function holdGeo(){
   const sl=curSlot();if(!sl||sl.bulk||!geo)return null;
-  const c=sl.c,main=c.key==='main',narrow=build.ac.g==='narrow',a=geo.a,X=geo.X,D=geo.D,r=main?a.main:a[c.key],pitch=main?318:156,ys=main?330/318:165/156,first=c.key==='fwd'?11:31;
+  const c=sl.c,main=c.key==='main',narrow=build.ac.g==='narrow',a=geo.a,X=geo.X,D=geo.D,r=main?a.main:a[c.key],pitch=pitchOf(build.ac,c.key),ys=main?(pitch+12)/pitch:165/156,single=main&&!!build.ac.main.single,mid=main&&build.ac.id==='B767-300F',first=c.key==='fwd'?11:31;
   let doorFrac;if(main)doorFrac=(X(a.mainDoor)-X(r[0]))/(X(r[1])-X(r[0]));
   else{const f=a.doors.reduce((b,q)=>Math.abs(q-(r[0]+r[1])/2)<Math.abs(b-(r[0]+r[1])/2)?q:b);doorFrac=Math.max(.08,Math.min(.92,(X(f)+(narrow?.17:.27)*D-X(r[0]))/(X(r[1])-X(r[0]))))}
   return{c,main,pitch,ys,rows:Math.round(c.len/pitch),Lh:c.len*ys+20,name:main?'Main deck':c.name,lab:j=>main?String.fromCharCode(65+j):String(first+j),doorFrac,
-    cont:main?[[-15,0],[535,0],[535,200],[450,315],[70,315],[-15,200]]:narrow?[[-20,128],[-20,60],[20,0],[364,0],[404,60],[404,128]]:[[-30,178],[-30,95],[25,0],[405,0],[460,95],[460,178]],
-    lanes:main?{L:6,R:270,P:101}:narrow?{L:22,R:206,P:22}:{L:8,R:222,P:56},doorW:main?370:narrow?182:270,
-    mirror:main?{L:true,R:false,P:false}:{L:false,R:true,P:false},foot:main?{W:244,Dp:318}:narrow?{W:156,Dp:153}:{W:201,Dp:153}}}
+    single,cont:single?[[-12,0],[330,0],[330,150],[278,222],[40,222],[-12,150]]:mid?[[-22,0],[482,0],[482,170],[410,258],[50,258],[-22,170]]:main?[[-15,0],[535,0],[535,200],[450,315],[70,315],[-15,200]]:narrow?[[-20,128],[-20,60],[20,0],[364,0],[404,60],[404,128]]:[[-30,178],[-30,95],[25,0],[405,0],[460,95],[460,178]],
+    lanes:single?{L:0,R:0,P:0}:mid?{L:-16,R:232,P:80}:main?{L:6,R:270,P:101}:narrow?{L:22,R:206,P:22}:{L:8,R:222,P:56},doorW:single?330:main?370:narrow?182:270,
+    mirror:main?{L:true,R:false,P:false}:{L:false,R:true,P:false},foot:single?{W:318,Dp:224}:main?{W:244,Dp:318}:narrow?{W:156,Dp:153}:{W:201,Dp:153}}}
 function laneProf(hg,u,dx){const s=inProf(u),m=hg.mirror[u.side];return s.p.map(([x,z])=>[(m?s.W-x:x)+hg.lanes[u.side]+(dx||0),z])}
 const uldY=(hg,u)=>10+u.blk.start*hg.ys+(u.blk.len*hg.ys-inProf(u).Dp)/2;
 function clipPoly(poly,za,zb){
@@ -896,7 +910,7 @@ function renderHold(){
   const rp=hg.pitch*hg.ys;
   for(let j=0;j<=hg.rows;j++){const y=10+j*rp;o+=`<polyline points="${hg.cont.map(([x,z])=>P(x,y,z)).join(' ')} ${P(hg.cont[0][0],y,hg.cont[0][1])}" fill="none" stroke="var(--contour)" stroke-width=".8" opacity="${j===0||j===hg.rows?.9:.38}"/>`}
   hg.cont.forEach(([x,z])=>{o+=line([x,0,z],[x,hg.Lh,z],'stroke="var(--contour)" stroke-width=".8" opacity=".55"')});
-  for(let j=0;j<hg.rows;j++){const y0=10+j*rp+(rp-hg.foot.Dp)/2,y1=y0+hg.foot.Dp;['L','R'].forEach(l=>{const x0=hg.lanes[l],x1=x0+hg.foot.W;o+=`<polygon points="${[P(x0,y0,0),P(x1,y0,0),P(x1,y1,0),P(x0,y1,0)].join(' ')}" fill="none" stroke="var(--stroke)" stroke-width=".7" stroke-dasharray="3 2" opacity=".7"/>`});
+  for(let j=0;j<hg.rows;j++){const y0=10+j*rp+(rp-hg.foot.Dp)/2,y1=y0+hg.foot.Dp;(hg.single?['P']:['L','R']).forEach(l=>{const x0=hg.lanes[l],x1=x0+hg.foot.W;o+=`<polygon points="${[P(x0,y0,0),P(x1,y0,0),P(x1,y1,0),P(x0,y1,0)].join(' ')}" fill="none" stroke="var(--stroke)" stroke-width=".7" stroke-dasharray="3 2" opacity=".7"/>`});
     const[tx,ty]=P(f1+40,y0+hg.foot.Dp/2,0).split(',');o+=`<text x="${tx}" y="${ty}" font-family="IBM Plex Mono,monospace" font-size="10" fill="var(--muted)" text-anchor="middle">${hg.lab(j)}</text>`}
   if(HA&&HA.platform){const z=HA.pz,px0=xMax+20,px1=xMax+20+mp.W+60,py0=yd-mp.Dp/2-30,py1=yd+mp.Dp/2+30;
     o+=`<polygon points="${[P(px0,py0,z),P(px1,py0,z),P(px1,py1,z),P(px0,py1,z)].join(' ')}" fill="var(--stroke)" opacity=".85"/>`;
@@ -1037,12 +1051,12 @@ function renderLoad(){
   const keep=selUid&&findUld(selUid);
   if(keep){sel2=keep.sl.key;side2=keep.u.side}
   else if(!curSlot()){const f=SL.find(s=>s.ulds.length)||SL.find(s=>s.bulk)||SL[0];sel2=f?f.key:null;side2=f&&f.ulds[0]?f.ulds[0].side:null;selUid=f&&f.ulds[0]?f.ulds[0].id:null}
-  const a=SIDE[ac.id],role=ac.g==='belly'?'Passenger · lower deck':ac.g==='freighter'?'Freighter · main and lower deck':ac.akh?'Narrow-body · AKH containers and bulk':'Narrow-body · bulk holds';
+  const a=SIDE[ac.id],role=ac.g==='belly'?'Passenger · lower deck':ac.g==='freighter'?(ac.low?'Freighter · main and lower deck':'Converted freighter · main deck, bulk lower deck'):ac.akh?'Narrow-body · AKH containers and bulk':'Narrow-body · bulk holds';
   const loaded=SL.flatMap(s=>s.ulds),kg=loaded.reduce((s,u)=>s+u.kg,0)+(build.bulk||[]).reduce((s,h)=>s+h.usedKg,0),dg=loaded.some(u=>u.flags.has('DG'))||(build.bulk||[]).some(h=>h.items.some(s=>s.dg));
   $('loadTitle').textContent='Your flight · '+ac.name;$('loadSub').textContent='Tonight · '+role;
   $('hchips').innerHTML=(plan.C.length?`<span class="hchip">${loaded.length} ULDs</span>`:'<span class="hchip">Bulk only</span>')+`<span class="hchip">${kgF(kg)}</span>${dg?'<span class="hchip bad">DG · NOTOC</span>':''}<span class="hchip ${ok?'ok':'bad'}">${ok?'✓ Within limits':'⚠ Check the load'}</span>`;
   const lowRows=(ac.low?ac.low.fwd.rows+ac.low.aft.rows:ac.akh?ac.akh.fwd.rows+ac.akh.aft.rows:0);
-  $('facts').textContent=`${ac.name} · length ${a.len} m · fuselage ${a.dia} m`+(ac.main?` · main deck ${ac.main.rows*2} pallet positions`:'')+(lowRows?` · lower deck ${lowRows*2} ${ac.akh?'AKH':'LD3'} positions`:'')+(build.bulk?` · bulk ${fmt(Object.values(ac.bulkHolds).reduce((s,h)=>s+h.m3,0),1)} m³`:'');
+  $('facts').textContent=`${ac.name} · length ${a.len} m · fuselage ${a.dia} m`+(ac.main?` · main deck ${ac.main.rows*(ac.main.single?1:2)} pallet positions`:'')+(lowRows?` · lower deck ${lowRows*2} ${ac.akh?'AKH':'LD3'} positions`:'')+(build.bulk?` · bulk ${fmt(Object.values(ac.bulkHolds).reduce((s,h)=>s+h.m3,0),1)} m³`:'');
   setModeBtns();refresh2();
   const al=[...build.offload.filter(o=>o.uld).map(o=>({k:'bad',t:`${o.uld.id}: ${o.why}`})),...plan.issues];
   $('loadAlerts').innerHTML=al.length?al.map(x=>`<div class="alert ${x.k}">${x.k==='bad'?'⛔':'ℹ'}<span>${esc(x.t)}</span></div>`).join(''):'<div class="alert ok">✓<span>All ULDs placed, within limits, dangerous goods kept apart.</span></div>';

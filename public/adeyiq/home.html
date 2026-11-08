@@ -242,6 +242,7 @@ footer{font-size:12px;color:var(--muted);max-width:85ch}
     </div>
     <div id="formBox">
       <form id="reqForm" novalidate>
+        <input type="text" name="website" id="fWeb" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
         <fieldset class="full" style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px">
           <legend style="font-size:13px;font-weight:500;margin-bottom:6px">Modules</legend>
           <div class="chks">
@@ -516,6 +517,8 @@ footer{font-size:12px;color:var(--muted);max-width:85ch}
 (function(){
 const $=id=>document.getElementById(id);
 let db=null,user=null,uid=null,canWrite=null;
+/* Access requests go to the Access requests tab of the AdeyIQ Cargo Data sheet through its Apps Script web app (scripts/access-requests.gs). Empty = copy fallback. */
+const REQ_URL='';
 function openAccess(v){
   $('access').hidden=false;
   if(v)['m2','m3'].forEach(id=>{if($(id).value===v)$(id).checked=true});
@@ -550,7 +553,12 @@ function showFallback(p){
 $('reqForm').addEventListener('submit',async e=>{
   e.preventDefault();$('eSend').textContent='';if(!validate())return;
   const p=payload();
-  if(!db||!uid||canWrite===false){showFallback(p);return}
+  if(!db||!uid||canWrite===false){
+    if(!REQ_URL){showFallback(p);return}
+    $('fSend').disabled=true;$('fSend').textContent='Sending…';
+    try{await fetch(REQ_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({},p,{page:location.href,website:$('fWeb').value}))});showDone(p)}
+    catch(err){$('fSend').disabled=false;$('fSend').textContent='Send request';showFallback(p)}
+    return}
   $('fSend').disabled=true;$('fSend').textContent='Sending…';
   try{await db.doc('requests/'+uid).set(p);showDone(p)}
   catch(err){$('fSend').disabled=false;$('fSend').textContent='Send request';
