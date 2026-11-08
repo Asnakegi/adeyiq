@@ -314,7 +314,7 @@ footer{font-size:12px;color:var(--muted);max-width:85ch}
   <div style="display:flex;justify-content:center;margin-top:18px"><button type="button" class="btn" id="moreNews" aria-expanded="false" aria-controls="news">Explore more news</button></div>
 </section>
 
-<footer>Forecast and market figures come from the publishers linked on each post. AdeyIQ is not affiliated with Boeing, Airbus or IATA. Module 2 and Module 3 descriptions describe planned capabilities.</footer>
+<footer>Forecast and market figures come from the publishers linked on each post. AdeyIQ is not affiliated with Boeing, Airbus or IATA. Module 2 and Module 3 descriptions describe planned capabilities. To improve AdeyIQ we count page visits and tool use with an anonymous id and the country and city of the visitor's network; we don't store IP addresses or the cargo you enter.</footer>
 </div>
 
 <script>
@@ -518,7 +518,7 @@ footer{font-size:12px;color:var(--muted);max-width:85ch}
 const $=id=>document.getElementById(id);
 let db=null,user=null,uid=null,canWrite=null;
 /* Access requests go to the Access requests tab of the AdeyIQ Cargo Data sheet through its Apps Script web app (scripts/access-requests.gs). Empty = copy fallback. */
-const REQ_URL='';
+const REQ_URL='/api/request';
 function openAccess(v){
   $('access').hidden=false;
   if(v)['m2','m3'].forEach(id=>{if($(id).value===v)$(id).checked=true});
@@ -554,9 +554,9 @@ $('reqForm').addEventListener('submit',async e=>{
   e.preventDefault();$('eSend').textContent='';if(!validate())return;
   const p=payload();
   if(!db||!uid||canWrite===false){
-    if(!REQ_URL){showFallback(p);return}
     $('fSend').disabled=true;$('fSend').textContent='Sending…';
-    try{await fetch(REQ_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({},p,{page:location.href,website:$('fWeb').value}))});showDone(p)}
+    try{const r=await fetch(REQ_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({},p,{page:location.href,website:$('fWeb').value}))});
+      if(r.ok)showDone(p);else{$('fSend').disabled=false;$('fSend').textContent='Send request';showFallback(p)}}
     catch(err){$('fSend').disabled=false;$('fSend').textContent='Send request';showFallback(p)}
     return}
   $('fSend').disabled=true;$('fSend').textContent='Sending…';
@@ -584,5 +584,7 @@ function startInbox(){
 })();
 </script>
 
+<script defer src="/adeyiq/track.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
