@@ -62,7 +62,17 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#i
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;box-shadow:0 2px 5px -1px rgba(50,50,93,.08),0 1px 3px -1px rgba(0,0,0,.06)}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .drawers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;align-items:start}
-.ship select{font-size:12px;padding:4px 6px;border-radius:7px;width:auto;max-width:150px}
+.ship select{font-size:12px;padding:4px 6px;border-radius:7px;width:200px;max-width:100%}
+@media (max-width:560px){.ship{grid-template-columns:12px minmax(0,1fr) auto auto}.ship select{grid-column:2/-1;grid-row:2;width:100%}}
+/* toolbar pills */
+.btn.outline{background:transparent;border:2px solid var(--accent);color:var(--fg)}
+.btn.outline:hover{background:rgba(255,210,31,.14)}
+.btn.ghost{background:transparent;border:1px solid var(--line);border-radius:999px;color:var(--fg);text-decoration:none}
+.btn.ghost:hover{border-color:var(--link);color:var(--link)}
+/* primary step CTA */
+#toLoad{background:#4F46E5;border-color:#4F46E5;color:#fff;box-shadow:0 6px 16px -6px rgba(79,70,229,.6);transition:transform .15s,box-shadow .15s}
+#toLoad:hover:not(:disabled),#toLoad:focus-visible{transform:translateY(-2px);box-shadow:0 12px 24px -8px rgba(79,70,229,.75)}
+#toLoad:focus-visible{outline:2px solid #A5B4FC;outline-offset:3px}
 .side{display:flex;flex-direction:column;gap:10px}
 .addhd{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
@@ -236,10 +246,11 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 <!-- STEP 1 · ULD BUILD-UP -->
 <section id="p1" role="tabpanel" aria-labelledby="st1" style="display:flex;flex-direction:column;gap:12px">
 <div class="toolbar">
-  <button class="btn pri" id="addToggle" type="button" aria-expanded="false" aria-controls="addPanel">＋ Add cargo</button>
-  <button class="btn" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
-  <button class="btn" id="upBtn" type="button">⬆ Upload file</button><input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden>
-  <button class="btn" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">⚙ Engines &amp; gear</button>
+  <button class="btn outline" id="addToggle" type="button" aria-expanded="false" aria-controls="addPanel">＋ Add Cargo</button>
+  <button class="btn ghost" id="upBtn" type="button">↑ Import Manifest / CSV</button><input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden>
+  <a class="btn ghost" id="specBtn" href="/aircraft-data" title="Doors, holds, contours and ULDs for this aircraft">⚙ Aircraft Spec: <span id="specAc">B787-9</span></a>
+  <button class="btn ghost" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
+  <button class="btn ghost" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">✈ Engines &amp; gear</button>
   <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
   <span class="note" id="upMsg" role="status"></span>
 </div>
@@ -247,8 +258,8 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <div class="card" id="addPanel" hidden>
       <div class="addhd"><b>Add cargo</b><button class="x" type="button" data-close="addPanel" aria-label="Close">×</button></div>
       <form id="f" class="form" novalidate>
-        <label class="span2">AWB <span style="font-weight:400">(optional)</span><input id="sAwb" placeholder="071-18402213" autocomplete="off" inputmode="numeric"></label>
-        <label class="span2">Goods<input id="sNat" placeholder="Auto parts"></label>
+        <label class="span2">AWB <span style="font-weight:400">(optional)</span><input id="sAwb" placeholder="071-88129031" autocomplete="off" inputmode="numeric"></label>
+        <label class="span2">Goods<input id="sNat" placeholder="Gen Cargo"></label>
         <label>Pieces<input id="sPcs" type="number" min="1" value="1"></label>
         <label>Weight kg<input id="sWt" type="number" min="0" step="0.1" placeholder="1450"></label>
         <label class="span2">Dimensions per piece (cm)<div class="dims"><input id="sL" type="number" min="1" placeholder="L" aria-label="Length cm"><input id="sW" type="number" min="1" placeholder="W" aria-label="Width cm"><input id="sH" type="number" min="1" placeholder="H" aria-label="Height cm"></div></label>
@@ -266,7 +277,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     </div>
     <div class="card" id="listPanel" hidden>
       <div class="addhd"><b>Cargo</b><div style="display:flex;gap:6px;align-items:center"><button class="btn link" id="clearBtn" type="button">Clear all</button><button class="x" type="button" data-close="listPanel" aria-label="Close">×</button></div></div>
-      <p class="note" style="margin:4px 0 0">Pick a pallet or container in “Load on” to place a shipment by hand. “Auto” lets AdeyIQ choose.</p>
+      <p class="note" style="margin:4px 0 0">Pick a pallet or container in “Load on” to place a shipment by hand. “Auto-Assign ULD” lets AdeyIQ choose.</p>
       <div class="list" id="cargo"></div>
     </div>
     <div class="card" id="engPanel" hidden>
@@ -476,7 +487,7 @@ function mk(o){const dg=String(o.dg||'').replace(/^class\s*/i,''),known=DG.map(d
 /* manual placement: "Load on" choices */
 function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boolean))].sort();const next=k=>k+':'+(1+Math.max(0,...used.filter(p=>p.startsWith(k)).map(p=>+p.split(':')[1])));
   const label=p=>{const[k,n]=p.split(':');return k==='PMC'?`Manual pallet ${n}`:`Manual container ${n}`};
-  const opts=[['','Auto (AdeyIQ chooses)'],...used.map(p=>[p,label(p)]),[next('PMC'),'+ New manual pallet'],[next('AKE'),'+ New manual container']];
+  const opts=[['','Auto-Assign ULD'],...used.map(p=>[p,label(p)]),[next('PMC'),'+ New manual pallet'],[next('AKE'),'+ New manual container']];
   if(cur&&!opts.some(o=>o[0]===cur))opts.splice(1,0,[cur,label(cur)]);
   return opts.map(([v,t])=>`<option value="${v}"${v===cur?' selected':''}>${t}</option>`).join('')}
 async function updateShip(id,patch){const s=ships.find(x=>x.id===id);if(!s)return;Object.assign(s,patch);
@@ -685,10 +696,16 @@ function drawUldTo(svg,u,yw,hovI,shownN,dz,hi,msg){
     const top=[P(b.x0,b.y0,z1),P(b.x1,b.y0,z1),P(b.x1,b.y1,z1),P(b.x0,b.y1,z1)];g+=poly(top,col,stk)+poly(top,`rgba(255,255,255,${b.v})`);
     if(b.p.s.dg){const cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2,r=Math.min(b.x1-b.x0,b.y1-b.y0)/4;g+=`<polygon points="${P(cx-r,cy,z1)} ${P(cx,cy-r,z1)} ${P(cx+r,cy,z1)} ${P(cx,cy+r,z1)}" fill="#fff" stroke="#c0392b" stroke-width="1"/>`}
     o+=g+'</g>'});
-  const ws='fill="none" stroke="var(--contour)" stroke-width="1.6" stroke-dasharray="6 4" opacity=".9"';
+  /* contour clearance: green when every piece is inside the contour, amber for a declared overhang, red when a piece breaks it */
+  const over=Math.round(pk.top-T.H),ovh=Math.round(Math.max(0,...pk.boxes.map(b=>Math.max(-b.y0,b.y1-T.Dp,-b.x0,b.x1-T.W)))),bad=over>0||pk.notShown>0||(ovh>0&&!u.ohg);
+  const cc=bad?'#EF4444':ovh>0?'#F59E0B':'#10B981';
+  const ws=`fill="none" stroke="${cc}" stroke-width="1.7" stroke-dasharray="6 4" opacity=".95"`;
   [0,T.Dp].forEach(y=>{o+=`<polygon points="${T.prof.map(([x,z])=>P(x,y,z)).join(' ')}" ${ws}/>`});
   T.prof.forEach(([x,z])=>{const[a1,a2]=P(x,0,z).split(','),[b1,b2]=P(x,T.Dp,z).split(',');o+=`<line x1="${a1}" y1="${a2}" x2="${b1}" y2="${b2}" ${ws}/>`});
-  o+=`<text x="12" y="${VH-12}" font-family="IBM Plex Sans" font-size="12" fill="var(--contour)">— ${T.contour}</text>`;
+  const badge=over>0?`✕ Above the contour by ${over} cm`:pk.notShown>0?`✕ ${pk.notShown} pieces do not fit the contour`:ovh>0?`${u.ohg?'⚠ Declared overhang':'✕ Overhang'}: ${ovh} cm beyond the pallet edge`:`✓ Clears contour: ${Math.max(0,Math.round(T.H-pk.top))} cm headroom remaining`;
+  const[bx0,by0]=P(T.W/2,T.Dp/2,T.H).split(',').map(Number),bw=badge.length*6.3+20,bxl=Math.max(6,Math.min(VW-bw-6,bx0-bw/2)),byt=Math.max(6,by0-34);
+  o+=`<g aria-hidden="true"><rect x="${bxl.toFixed(1)}" y="${byt.toFixed(1)}" width="${bw.toFixed(1)}" height="22" rx="11" fill="${cc}"/><text x="${(bxl+bw/2).toFixed(1)}" y="${(byt+15).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#fff">${badge}</text></g>`;
+  o+=`<text x="12" y="${VH-12}" font-family="IBM Plex Sans" font-size="12" fill="${cc}">— ${T.contour}</text>`;
   svg.innerHTML=o;
 }
 function spinTick(){if(spinOn&&hoverI===null&&!drag&&!$('p1').hidden){yaw+=.004;drawIso()}
@@ -700,7 +717,7 @@ const PAL=['#8CC152','#6FB1F0','#E58FA6','#B39DF0','#F5A623','#5CC8BE','#FFD21F'
 const awbColor={};function colorOf(awb){if(!awbColor[awb])awbColor[awb]=PAL[Object.keys(awbColor).length%PAL.length];return awbColor[awb]}
 function refresh(){build=ships.length?buildUlds():null;plan=build?planLoad(build):null;if(build&&!build.ulds.some(u=>u.id===selU))selU=build.ulds[0]?build.ulds[0].id:null;if(!build)selU=null;render()}
 function render(){
-  const ac=acNow();
+  const ac=acNow();$("specAc").textContent=ac.id;
   $('cargoN').textContent=ships.length?`${ships.length} · ${fmt(ships.reduce((s,x)=>s+x.wt,0))} kg`:'';
   $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);
     return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
@@ -728,8 +745,8 @@ function renderInfo(){
   el.innerHTML=`<div class="id">${u.id}</div><div class="ty">${T.name}${u.pos?` · position ${u.pos}`:''}${u.manual?' · <b>built by hand</b>'+(u.cont?' · continues '+u.cont:''):''}</div>
    ${ov>0?`<div class="warnline" style="background:var(--warn-bg)">Overhang: cargo sticks out ${ov} cm beyond the pallet edge${u.ohg?` · OHG ${u.ohg}% of the next position`:''}.</div>`:''}
    ${u.warn&&u.warn.length?`<div class="warnline">✋ Check: ${u.warn.map(esc).join('; ')}.</div>`:''}
-   <div class="kv" style="margin-top:12px"><span>Weight</span><span><b>${fmt(u.kg)}</b> / ${fmt(u.max)} kg</span></div><div class="bar"><i class="${pw>100?'over':pw>90?'hi':''}" style="width:${Math.min(100,pw)}%"></i></div>
-   <div class="kv"><span>Volume</span><span><b>${fmt(pv)}%</b> of usable ${fmt(u.cap,1)} m³</span></div><div class="bar"><i class="${pv>100?'over':pv>90?'hi':''}" style="width:${Math.min(100,pv)}%"></i></div>
+   <div class="kv" style="margin-top:12px"><span>Volume fill</span><span><b>${pv<1&&pv>0?pv.toFixed(1):fmt(pv)}%</b> (${fmt(u.m3,1)} / ${fmt(u.cap,1)} m³)</span></div><div class="bar" role="img" aria-label="Volume fill ${fmt(pv)}%"><i class="${pv>100?'over':pv>90?'hi':''}" style="width:${Math.min(100,pv)}%"></i></div>
+   <div class="kv"><span>Max weight</span><span><b>${pw<1&&pw>0?pw.toFixed(1):fmt(pw)}%</b> (${fmt(u.kg)} / ${fmt(u.max)} kg)</span></div><div class="bar" role="img" aria-label="Weight ${fmt(pw)}% of maximum"><i class="${pw>100?'over':pw>90?'hi':''}" style="width:${Math.min(100,pw)}%"></i></div>
    <div class="${hOk?'okline':'err'}">${hOk?'✓':'⚠'} Height ${fmt(pk.top)} cm within ${esc(T.contour)}</div>
    ${u.type==='PGA'?'<div class="note" style="margin-top:4px">Long cargo on a 20 ft pallet (or two connected pallets) on the main deck.</div>':''}
    <div style="margin-top:12px">${awbs.map(s=>{const it=u.items.find(i=>i.s===s),ch=charge(s,u);return `<div class="awb"><span class="sw" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><b style="font-family:var(--mono);font-size:12px">${esc(s.awb)}</b> · ${esc(s.nat)}<br><span class="note">${it.p}/${s.pcs} pcs · ${fmt(s.wt/s.pcs*it.p)} kg${s.shc.length?' · '+s.shc.map(c=>`<span class="chip">${esc(c)}</span>`).join(''):''}${s.dg?`<span class="chip dg">DG ${esc(s.dg)} ${esc(s.un)}</span>`:''}</span></div><span class="note" title="Charge basis: ${esc(ch.why)}" style="text-align:right">charge<br><b>${fmt(ch.kg)}</b></span></div>`}).join('')}</div>
