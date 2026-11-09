@@ -239,7 +239,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <button class="btn pri" id="addToggle" type="button" aria-expanded="false" aria-controls="addPanel">＋ Add cargo</button>
   <button class="btn" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
   <button class="btn" id="upBtn" type="button">⬆ Upload file</button><input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden>
-  <button class="btn" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">⚙ Engines</button>
+  <button class="btn" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">⚙ Engines &amp; gear</button>
   <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
   <span class="note" id="upMsg" role="status"></span>
 </div>
@@ -270,17 +270,17 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
       <div class="list" id="cargo"></div>
     </div>
     <div class="card" id="engPanel" hidden>
-      <div class="addhd"><b>Engine transport · will it fit?</b><button class="x" type="button" data-close="engPanel" aria-label="Close">×</button></div>
+      <div class="addhd"><b>Engines &amp; landing gear · will it fit?</b><button class="x" type="button" data-close="engPanel" aria-label="Close">×</button></div>
       <div class="engtop">
-        <label>Engine<select id="engSel"></select></label>
-        <label>In stand L cm<input id="eL" type="number" min="1"></label>
+        <label>Engine or landing gear<select id="engSel"></select></label>
+        <label>Shipping L cm<input id="eL" type="number" min="1"></label>
         <label>W cm<input id="eW" type="number" min="1"></label>
         <label>H cm<input id="eH" type="number" min="1"></label>
-        <label>Engine + stand kg<input id="eKg" type="number" min="1"></label>
+        <label>Shipping kg<input id="eKg" type="number" min="1"></label>
       </div>
       <p class="engspec" id="engSpec"></p>
       <div class="tbl" style="margin-top:8px"><table class="fit"><thead><tr><th>Aircraft</th><th>Result</th><th>Why</th><th></th></tr></thead><tbody id="engFit"></tbody></table></div>
-      <p class="note" style="margin:8px 0 0">Bare-engine size and dry weight are approximate public manufacturer figures. The in-stand size and weight are estimates (the stand adds about 60 cm length, 35 cm width, 55 cm height and 20% + 500 kg). Main-deck engines are planned on a centreline position, limited by the door height. When no aircraft fits, the engine needs a special freighter or a split into modules: check with the engine shop; replace them with the stand drawing from the engine shop. Doors, contours and pallet limits are working values; position and floor limits come from the airline. Planning aid only.</p>
+      <p class="note" style="margin:8px 0 0">Landing gear sizes are rough planning sizes for a gear leg in its shipping fixture with the wheels off; they are not manufacturer data, so enter the real fixture size. Bare-engine size and dry weight are approximate public manufacturer figures. The in-stand size and weight are estimates (the stand adds about 60 cm length, 35 cm width, 55 cm height and 20% + 500 kg). Main-deck engines are planned on a centreline position, limited by the door height. When no aircraft fits, the engine needs a special freighter or a split into modules: check with the engine shop; replace them with the stand drawing from the engine shop. Doors, contours and pallet limits are working values; position and floor limits come from the airline. Planning aid only.</p>
     </div>
 </div>
   <div class="card">
@@ -1219,7 +1219,15 @@ const ENG=[
  ['Rolls-Royce','RB211-524G/H','747-400, 767',2.19,3.17,4400]
 ].map(([maker,name,on,fan,len,kg])=>({maker,name,on,fan,len,kg}));
 /* estimated transport envelope: casing over the fan, plus the stand; a turboprop sits on a small cradle */
-function engEnv(e){const tp=e.fan<1;const W=Math.round(e.fan*100+(tp?60:35)),H=Math.round(e.fan*100+(tp?70:55)),L=Math.round(e.len*100+(tp?40:60)),kg=Math.round(e.kg*1.2+(tp?150:500));return{L,W,H,kg}}
+/* landing gear legs in their shipping fixture, wheels off: rough planning sizes [L, W, H cm, kg incl. fixture], not manufacturer data */
+const GEAR=[
+ ['A220','A220 family',[260,100,110,650],[180,80,90,250]],['A320 family','A318–A321',[300,120,130,1000],[200,90,100,350]],['737NG / 737 MAX','737-600 to 737-10',[290,120,120,900],[190,80,90,300]],
+ ['767','767-200/-300/-400, 767F',[400,170,180,2500],[240,100,110,550]],['A330 / A340','A330, A340',[430,180,190,3000],[250,110,120,650]],['787','787-8/-9/-10',[440,180,190,3200],[260,110,120,700]],
+ ['A350','A350-900/-1000',[460,200,200,3800],[270,120,130,800]],['777','777-200/-300, 777F',[480,200,220,4500],[280,120,130,900]],['747','747-400, 747-8, 747-8F',[420,180,190,3000],[270,120,130,900]],
+ ['A380','A380',[500,220,230,5500],[300,130,140,1000]],['ATR 72','ATR 42/72',[160,80,90,250],[120,60,70,120]],['E-Jet','E170/E175/E190/E195',[230,100,100,450],[150,70,80,180]]
+].flatMap(([t,on,mlg,nlg])=>[{maker:'Landing gear (rough sizes)',name:t+' main gear leg',on,gear:mlg},{maker:'Landing gear (rough sizes)',name:t+' nose gear leg',on,gear:nlg}]);
+const PARTS=[...ENG,...GEAR];
+function engEnv(e){if(e.gear){const[L,W,H,kg]=e.gear;return{L,W,H,kg}}const tp=e.fan<1;const W=Math.round(e.fan*100+(tp?60:35)),H=Math.round(e.fan*100+(tp?70:55)),L=Math.round(e.len*100+(tp?40:60)),kg=Math.round(e.kg*1.2+(tp?150:500));return{L,W,H,kg}}
 /* cargo doors W×H cm and decks per aircraft (working values, see Aircraft & ULD data) */
 const DECKS={
  'B787-8':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],'B787-9':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],'B787-10':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],
@@ -1240,21 +1248,21 @@ function engFit(ac,v){const out=[];for(const d of DECKS[ac.id]||[]){const why=[]
     const lim=d.kgFix||(pmc?R(d.kg):R('rPga'));if(v.kg>lim)why.push(`${fmt(v.kg)} kg, above the ${fmt(lim)} kg ${d.kgFix?d.d:pmc?d.u:'PGA'} limit`);
     out.push({d,ok:!why.length,why,uld:(pmc?d.u:pga?'PGA 20 ft pallet, '+d.d:d.u)+(cl&&(v.H>d.H||wide)?' · centreline position'+(v.H>d.H?' (above the '+d.H+' cm side contour)':'')+(wide?` · overhangs the pallet sides (${nar} cm wide), confirm with the airline`:''):'')})}
   const ok=out.find(o=>o.ok);return ok?{ok:true,txt:`Fits on a ${ok.uld}`,o:ok}:{ok:false,txt:out.length?out.map(o=>`${o.d.d}: ${o.why.join('; ')}`).join(' · '):'no data for this aircraft'}}
-function engCur(){return ENG[+$('engSel').value]||ENG[0]}
+function engCur(){return PARTS[+$('engSel').value]||PARTS[0]}
 function engVals(){return{L:+$('eL').value||0,W:+$('eW').value||0,H:+$('eH').value||0,kg:+$('eKg').value||0}}
 function engPick(){const e=engCur(),v=engEnv(e);$('eL').value=v.L;$('eW').value=v.W;$('eH').value=v.H;$('eKg').value=v.kg;renderEng()}
 function renderEng(){const e=engCur(),v=engVals();
-  $('engSpec').innerHTML=`<b>${esc(e.name)}</b> · ${esc(e.maker)} · on ${esc(e.on)} · bare engine about ${e.fan<1?'':'fan '+e.fan.toFixed(2)+' m, '}length ${e.len.toFixed(2)} m, dry ${fmt(e.kg)} kg`;
+  $('engSpec').innerHTML=e.gear?`<b>${esc(e.name)}</b> · on ${esc(e.on)} · shipped in its fixture, wheels off · <b style="color:var(--warn)">rough planning size</b>: manufacturers don't publish shipping sizes, so enter the fixture dimensions from your MRO or the gear shop`:`<b>${esc(e.name)}</b> · ${esc(e.maker)} · on ${esc(e.on)} · bare engine about ${e.fan<1?'':'fan '+e.fan.toFixed(2)+' m, '}length ${e.len.toFixed(2)} m, dry ${fmt(e.kg)} kg`;
   const rows=AC.map(ac=>({ac,f:engFit(ac,v)})).sort((a,b)=>b.f.ok-a.f.ok);
   $('engFit').innerHTML=rows.map(({ac,f})=>`<tr><td>${esc(ac.name)}</td><td class="${f.ok?'y':'n'}">${f.ok?'✓ Fits':'✗ No'}</td><td>${esc(f.txt)}</td><td>${f.ok?`<button class="btn sm" type="button" data-eng="${ac.id}">Load it →</button>`:''}</td></tr>`).join('');
   document.querySelectorAll('[data-eng]').forEach(b=>b.onclick=()=>engLoad(b.dataset.eng))}
 function engLoad(acId){const e=engCur(),v=engVals();$('acSel').value=acId;
-  addShips([mk({awb:'',pcs:1,l:v.L,w:v.W,h:v.H,wt:v.kg,nat:e.name+' engine in stand',shc:'HEA',excl:true,eng:true})].map(s=>(s.awb=nextNoAwb(),s)));
-  panel('engPanel',false);setTimeout(()=>{refresh();const u=build&&build.ulds.find(x=>x.items.some(i=>/engine in stand/.test(i.s.nat)&&i.s.l===v.L&&i.s.wt===v.kg));if(u)selU=u.id;go(2);
+  addShips([mk({awb:'',pcs:1,l:v.L,w:v.W,h:v.H,wt:v.kg,nat:e.gear?e.name+' in shipping fixture':e.name+' engine in stand',shc:'HEA',excl:true,eng:!e.gear})].map(s=>(s.awb=nextNoAwb(),s)));
+  panel('engPanel',false);setTimeout(()=>{refresh();const u=build&&build.ulds.find(x=>x.items.some(i=>/engine in stand|in shipping fixture/.test(i.s.nat)&&i.s.l===v.L&&i.s.wt===v.kg));if(u)selU=u.id;go(2);
     const f=u&&findUld(u.id);if(f)select2(f.sl.key,f.u.side);savePlan();reportPlan();toast(`${e.name} loaded on the ${acNow().name}`)},120)}
-const makers=[...new Set(ENG.map(e=>e.maker))];
-$('engSel').innerHTML=makers.map(m=>`<optgroup label="${esc(m)}">${ENG.map((e,i)=>e.maker===m?`<option value="${i}">${esc(e.name)} · ${esc(e.on)}</option>`:'').join('')}</optgroup>`).join('');
-$('engSel').value=String(ENG.findIndex(e=>e.name==='GEnx-1B'));$('engSel').onchange=engPick;['eL','eW','eH','eKg'].forEach(id=>$(id).addEventListener('input',renderEng));engPick();
+const makers=[...new Set(PARTS.map(e=>e.maker))];
+$('engSel').innerHTML=makers.map(m=>`<optgroup label="${esc(m)}">${PARTS.map((e,i)=>e.maker===m?`<option value="${i}">${esc(e.name)} · ${esc(e.on)}</option>`:'').join('')}</optgroup>`).join('');
+$('engSel').value=String(PARTS.findIndex(e=>e.name==='GEnx-1B'));$('engSel').onchange=engPick;['eL','eW','eH','eKg'].forEach(id=>$(id).addEventListener('input',renderEng));engPick();
 $('sampleBtn').onclick=()=>{const S=[['071-18402213',10,120,80,90,1450,'Auto parts','GEN','','',0,0],['071-18405526',30,100,40,30,620,'Fresh flowers','PEF,COL','','',0,0],['071-18410031',40,60,40,40,1200,'Coffee','EAT','','',0,0],['071-55201184',60,50,40,30,380,'E-commerce parcels','ECC','','',0,0],['071-18417745',12,80,60,50,410,'Electronics','VUN','','',0,0],['071-18420962',8,50,40,40,160,'Paint','RFL','3','UN1263',0,0],['071-18433310',6,60,40,40,210,'Pool chlorine','ROX','5.1','UN2880',0,0],['071-18440015',4,60,40,40,120,'Lithium-ion batteries','RLI,CAO','9','UN3480',0,0],['071-18451120',5,50,40,40,150,'Pesticide','RPB','6.1','UN2588',0,0],['071-18462277',1,290,220,150,1250,'Machinery','HEA','','',1,0],['071-18473390',1,300,230,210,3800,'Generator','HEA','','',1,0],['071-18480012',2,380,40,40,900,'Steel pipe','HEA','','',1,40],['071-18491104',1,340,230,140,1800,'Machinery crate (overhang)','HEA','','',1,30],['071-18502215',1,360,220,120,950,'Boat (overhang)','','','',1,60],
   ['071-18513326',20,80,60,60,700,'Textiles','GEN','','',0,0,'PMC:1'],['071-18524430',18,60,50,50,520,'Spare parts','GEN','','',0,0,'PMC:1']]
   .map(r=>mk({awb:r[0],pcs:r[1],l:r[2],w:r[3],h:r[4],wt:r[5],nat:r[6],shc:r[7],dg:r[8],un:r[9],excl:!!r[10],ohg:r[11],pin:r[12]||''}));addShips(S.filter(s=>!ships.some(x=>x.awb===s.awb)));toast('Sample cargo added, including overhang and a hand-built pallet')};

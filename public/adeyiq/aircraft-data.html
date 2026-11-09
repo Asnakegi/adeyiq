@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AdeyIQ Aircraft & ULD data</title>
-<meta name="description" content="Doors, holds, contours, ULDs and engines for active commercial aircraft.">
+<meta name="description" content="Doors, holds, contours, ULDs, engines and landing gear for active commercial aircraft.">
 <link rel="icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -54,7 +54,12 @@ tr.g td{background:var(--panel2);font-weight:600;font-family:var(--display);font
 <div class="card">
   <h2>Aircraft engines</h2>
   <p class="note">Bare-engine figures are approximate public manufacturer values. The in-stand size and weight are AdeyIQ estimates (stand adds about 60 cm length, 35 cm width, 55 cm height and 20% + 500 kg); use the engine shop's stand drawing for real shipments. Check any engine against every aircraft in the Cargo Builder under ⚙ Engines.</p>
-  <div class="tbl"><table><thead><tr><th>Maker</th><th>Engine</th><th>Used on</th><th class="num">Fan Ø m</th><th class="num">Length m</th><th class="num">Dry kg</th><th>In stand L × W × H cm (est.)</th><th class="num">With stand kg (est.)</th></tr></thead><tbody id="eng"></tbody></table></div>
+  <div class="tbl" data-anchor="eng"><table><thead><tr><th>Maker</th><th>Engine</th><th>Used on</th><th class="num">Fan Ø m</th><th class="num">Length m</th><th class="num">Dry kg</th><th>In stand L × W × H cm (est.)</th><th class="num">With stand kg (est.)</th></tr></thead><tbody id="eng"></tbody></table></div>
+</div>
+<div class="card">
+  <h2>Landing gear</h2>
+  <p class="note">Rough planning sizes for a gear leg in its shipping fixture with the wheels off, including the fixture weight. Manufacturers do not publish shipping sizes, so use the fixture drawing from the MRO or gear shop for real shipments. Check any gear against every aircraft in the Cargo Builder under ⚙ Engines &amp; gear.</p>
+  <div class="tbl"><table><thead><tr><th>Gear</th><th>Used on</th><th>Shipping L × W × H cm (rough)</th><th class="num">Shipping kg (rough)</th></tr></thead><tbody id="gear"></tbody></table></div>
 </div>
 </div>
 <script>
@@ -99,6 +104,16 @@ const ENG=[
 ].map(([maker,name,on,fan,len,kg])=>({maker,name,on,fan,len,kg}));
 function engEnv(e){const tp=e.fan<1;const W=Math.round(e.fan*100+(tp?60:35)),H=Math.round(e.fan*100+(tp?70:55)),L=Math.round(e.len*100+(tp?40:60)),kg=Math.round(e.kg*1.2+(tp?150:500));return{L,W,H,kg}}
 document.getElementById('eng').innerHTML=ENG.map(x=>{const v=engEnv(x);return `<tr><td>${x.maker}</td><td><b>${x.name}</b></td><td>${x.on}</td><td class="num">${x.fan<1?"—":x.fan.toFixed(2)}</td><td class="num">${x.len.toFixed(2)}</td><td class="num">${x.kg.toLocaleString("en-US")}</td><td class="mono">${v.L} × ${v.W} × ${v.H}</td><td class="num">${v.kg.toLocaleString("en-US")}</td></tr>`}).join("");
+
+/* landing gear: same figures as the Cargo Builder */
+const GEAR=[
+ ['A220','A220 family',[260,100,110,650],[180,80,90,250]],['A320 family','A318–A321',[300,120,130,1000],[200,90,100,350]],['737NG / 737 MAX','737-600 to 737-10',[290,120,120,900],[190,80,90,300]],
+ ['767','767-200/-300/-400, 767F',[400,170,180,2500],[240,100,110,550]],['A330 / A340','A330, A340',[430,180,190,3000],[250,110,120,650]],['787','787-8/-9/-10',[440,180,190,3200],[260,110,120,700]],
+ ['A350','A350-900/-1000',[460,200,200,3800],[270,120,130,800]],['777','777-200/-300, 777F',[480,200,220,4500],[280,120,130,900]],['747','747-400, 747-8, 747-8F',[420,180,190,3000],[270,120,130,900]],
+ ['A380','A380',[500,220,230,5500],[300,130,140,1000]],['ATR 72','ATR 42/72',[160,80,90,250],[120,60,70,120]],['E-Jet','E170/E175/E190/E195',[230,100,100,450],[150,70,80,180]]
+].flatMap(([t,on,mlg,nlg])=>[{maker:'Landing gear (rough sizes)',name:t+' main gear leg',on,gear:mlg},{maker:'Landing gear (rough sizes)',name:t+' nose gear leg',on,gear:nlg}]);
+
+document.getElementById('gear').innerHTML=GEAR.map(g=>`<tr><td><b>${g.name}</b></td><td>${g.on}</td><td class="mono">${g.gear[0]} × ${g.gear[1]} × ${g.gear[2]}</td><td class="num">${g.gear[3].toLocaleString("en-US")}</td></tr>`).join("");
 </script>
 
 <script defer src="/adeyiq/track.js"></script>
