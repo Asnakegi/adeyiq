@@ -540,7 +540,7 @@ function buildUlds(){
     if(T.every(x=>s.h>x.H))return part+`${s.h} cm high, above the ${Math.max(...T.map(x=>x.H))} cm contour of ${types.map(tname).join(' / ')}`;
     return part+`a ${s.l}×${s.w}×${s.h} cm piece does not fit inside the contour of ${types.map(t=>`${tname(t)} (${ULD[t].W}×${ULD[t].Dp} cm, ${ULD[t].H} cm high)`).join(' or ')}`}
   /* 1 · shipments placed by hand on a chosen pallet or container */
-  const manualWarn=[];const groups={};
+  const manualWarn=[],autoFallback=new Set();const groups={};
   ships.filter(s=>s.pin).forEach(s=>{(groups[s.pin]=groups[s.pin]||[]).push(s)});
   Object.keys(groups).sort().forEach(pin=>{const[kind,num]=pin.split(':'),list=groups[pin].filter(s=>{
       if(category(s)==='X'){offload.push({s,why:`${s.l}×${s.w}×${s.h} cm is out of gauge: larger than any ULD (max base 606×244 cm on a 20 ft pallet, max 300 cm high on a freighter main deck)`});return false}
@@ -549,16 +549,23 @@ function buildUlds(){
     let t;if(kind==='AKE')t=g==='narrow'?(ac.akh?'AKH':null):'AKE';
     else if(g==='narrow')t=null;else if(g==='belly')t='PMCL';else{const MT=mainTypes(ac),mh=Math.max(...list.map(s=>s.h));t=list.some(longPiece)?(ac.noPGA?null:'PGA'):(MT.find(x=>ULD[x].h>=mh)||MT[MT.length-1])}
     if(kind==='AKE'&&g==='freighter'&&!ac.low)t=null;
-    if(!t){list.forEach(s=>offload.push({s,why:`the ${ac.name} has no ${kind==='AKE'?'containers':'pallets'}; set Load on to Auto`}));return}
-    const u={id:`${kind}-M${num}`,type:t,items:[],kg:0,m3:0,max:R(ULD[t].maxKey),cap:ULD[t].vol*eff,h:ULD[t].h,flags:new Set(),manual:true,warn:[]};
-    list.forEach(s=>{add(u,s,s.pcs);if(s.ohg)u.ohg=Math.max(u.ohg||0,s.ohg)});ulds.push(u);
-    if(u.kg>u.max)u.warn.push(`over the ${fmt(u.max)} kg limit (${fmt(u.kg)} kg)`);
-    if(packItems(t,u.items,u.ohg).notShown>0)u.warn.push('some pieces do not fit inside the contour');
-    list.forEach((a,i)=>list.slice(i+1).forEach(b=>{const c=conflict(a,b);if(c)u.warn.push(`${a.awb.slice(-4)} and ${b.awb.slice(-4)}: ${c}`)}));
-    if(list.some(s=>s.h>ULD[t].H))u.warn.push(`a piece is taller than the ${ULD[t].H} cm contour`);
-    u.warn.forEach(w=>manualWarn.push(`${u.id}: ${w}`))});
+    /* the aircraft has no ULD of the chosen kind: AdeyIQ places the cargo automatically instead of offloading it */
+    if(!t){list.forEach(s=>autoFallback.add(s));manualWarn.push(`${kind==='AKE'?'Manual container':'Manual pallet'} ${num}: the ${ac.name} has no ${kind==='AKE'?'containers':'pallets'}, so AdeyIQ placed this cargo automatically`);return}
+    /* fill the chosen ULD; when it is full (weight, volume or contour), continue in AKE-M1b, AKE-M1c … of the same type */
+    const made=[];const open=()=>{const u={id:`${kind}-M${num}${made.length?String.fromCharCode(97+made.length):''}`,type:t,items:[],kg:0,m3:0,max:R(ULD[t].maxKey),cap:ULD[t].vol*eff,h:ULD[t].h,flags:new Set(),manual:true,warn:[],cont:made.length?made[0].id:null};made.push(u);ulds.push(u);return u};
+    let u=open();
+    list.forEach(s=>{
+      if(s.ohg){if(u.items.length&&!u.ohg)u=open();add(u,s,s.pcs);u.ohg=Math.max(u.ohg||0,s.ohg);return}
+      let left=s.pcs;
+      while(left>0){const k=fitCount(u,s,left);
+        if(k>0){add(u,s,k);left-=k;continue}
+        if(!u.items.length){add(u,s,left);if(s.h>ULD[t].H)u.warn.push(`${s.awb.slice(-4)} is ${s.h} cm high, above the ${ULD[t].H} cm contour`);else if(s.wt/s.pcs>u.max)u.warn.push(`${s.awb.slice(-4)}: one piece is heavier than the ${fmt(u.max)} kg limit`);else u.warn.push(`${s.awb.slice(-4)}: a ${s.l}×${s.w}×${s.h} cm piece does not fit inside the contour`);left=0;break}
+        u=open()}});
+    made.forEach(m=>{const ls=[...new Set(m.items.map(i=>i.s))];ls.forEach((a,i)=>ls.slice(i+1).forEach(b=>{const c=conflict(a,b);if(c)m.warn.push(`${a.awb.slice(-4)} and ${b.awb.slice(-4)}: ${c}`)}));
+      if(m.kg>m.max)m.warn.push(`over the ${fmt(m.max)} kg limit (${fmt(m.kg)} kg)`);m.warn.forEach(w=>manualWarn.push(`${m.id}: ${w}`))});
+    if(made.length>1)manualWarn.push(`${made[0].id}: the cargo did not fit in one ${ULD[t].name.split(' ·')[0]}, so it continues in ${made.slice(1).map(m=>m.id).join(', ')}`)});
   /* 2 · everything else is built automatically */
-  ships.filter(s=>!s.pin).sort((a,b)=>(b.excl-a.excl)||((b.dg?1:0)-(a.dg?1:0))||chg(b)-chg(a)).forEach(s=>{
+  ships.filter(s=>!s.pin||autoFallback.has(s)).sort((a,b)=>(b.excl-a.excl)||((b.dg?1:0)-(a.dg?1:0))||chg(b)-chg(a)).forEach(s=>{
     const cat=category(s);
     if(cat==='X')return offload.push({s,why:`${s.l}×${s.w}×${s.h} cm is out of gauge: larger than any ULD (max base 606×244 cm on a 20 ft pallet, max 300 cm high on a freighter main deck)`});
     if(pax&&isCAO(s))return offload.push({s,why:`Cargo Aircraft Only (${s.un||'CAO'}): IATA DGR does not allow it on a passenger aircraft. Book it on a freighter`});
@@ -718,7 +725,7 @@ function renderInfo(){
   const awbs=[...new Set(u.items.map(i=>i.s))];
   const apart=build.apart.filter(x=>u.items.some(i=>i.s===x.a||i.s===x.b));
   const ov=Math.round(Math.max(0,...pk.boxes.map(b=>Math.max(-b.y0,b.y1-T.Dp,-b.x0,b.x1-T.W))));
-  el.innerHTML=`<div class="id">${u.id}</div><div class="ty">${T.name}${u.pos?` · position ${u.pos}`:''}${u.manual?' · <b>built by hand</b>':''}</div>
+  el.innerHTML=`<div class="id">${u.id}</div><div class="ty">${T.name}${u.pos?` · position ${u.pos}`:''}${u.manual?' · <b>built by hand</b>'+(u.cont?' · continues '+u.cont:''):''}</div>
    ${ov>0?`<div class="warnline" style="background:var(--warn-bg)">Overhang: cargo sticks out ${ov} cm beyond the pallet edge${u.ohg?` · OHG ${u.ohg}% of the next position`:''}.</div>`:''}
    ${u.warn&&u.warn.length?`<div class="warnline">✋ Check: ${u.warn.map(esc).join('; ')}.</div>`:''}
    <div class="kv" style="margin-top:12px"><span>Weight</span><span><b>${fmt(u.kg)}</b> / ${fmt(u.max)} kg</span></div><div class="bar"><i class="${pw>100?'over':pw>90?'hi':''}" style="width:${Math.min(100,pw)}%"></i></div>
