@@ -488,21 +488,36 @@ function buildUlds(){
   const pax=g!=='freighter';
   const add=(u,s,p)=>{const it=u.items.find(i=>i.s===s);if(it)it.p+=p;else u.items.push({s,p});u.kg+=s.wt/s.pcs*p;u.m3+=s.l*s.w*s.h/1e6*p;if(s.dg)u.flags.add('DG');s.shc.forEach(c=>u.flags.add(c))};
   /* how many more pieces of s physically fit in u: weight, volume, then a real 3D stacking check inside the contour */
-  function fitCount(u,s,left){const kp=s.wt/s.pcs,mp=s.l*s.w*s.h/1e6;let k=Math.min(left,Math.floor((u.max-u.kg)/kp),Math.floor((u.cap-u.m3)/mp));
+  function fitCount(u,s,left){const kp=s.wt/s.pcs,mp=s.l*s.w*s.h/1e6;let k=Math.min(left,Math.floor((u.max-u.kg)/kp+1e-9),Math.floor((u.cap-u.m3)/mp+1e-9));
+    if(k<=0)return 0;
+    /* very large builds: the 3D check draws at most 160 pieces, so weight and usable volume decide */
+    if(u.items.reduce((t,i)=>t+i.p,0)+k>150){const one=packItems(u.type,[{s,p:1}]);return one.notShown===0?k:0}
     while(k>0){const items=u.items.map(i=>({s:i.s,p:i.p}));const it=items.find(i=>i.s===s);if(it)it.p+=k;else items.push({s,p:k});if(packItems(u.type,items).notShown===0)return k;k=k>8?Math.floor(k*.75):k-1}return 0}
+  const blank=t=>({type:t,items:[],kg:0,m3:0,max:R(ULD[t].maxKey),cap:ULD[t].vol*eff,h:ULD[t].h});
+  /* space a ULD type would use for the remaining pieces: ULDs needed × usable volume (5 AKE = 21.5 m³ loses to 1 PMC = 11.5 m³) */
+  function spaceCost(t,s,left){let n=0,rest=left;while(rest>0&&n<6){const k=fitCount(blank(t),s,rest);if(k<=0)return{n:Infinity,cost:Infinity};rest-=k;n++}
+    if(rest>0)n+=Math.ceil(rest*s.l*s.w*s.h/1e6/(ULD[t].vol*eff));return{n,cost:n*ULD[t].vol}}
   function place(s,types){let left=s.pcs;
     while(left>0){const ok=u=>!u.excl&&types.includes(u.type)&&u.h>=s.h&&u.items.every(i=>!conflict(i.s,s));
-      const cands=ulds.filter(ok).sort((a,b)=>(b.items.some(i=>i.s===s))-(a.items.some(i=>i.s===s)));let done=false;
-      for(const u of cands){const k=fitCount(u,s,left);if(k>0){add(u,s,k);left-=k;done=true;break}}
-      if(done)continue;
-      let made=false;for(const t of types.filter(t=>ULD[t].h>=s.h)){const u=newUld(t);const k=fitCount(u,s,left);if(k>0){add(u,s,k);left-=k;made=true;break}ulds.pop();n--}
-      if(!made){offload.push({s,why:'a piece does not fit inside the ULD contour'});return}}}
+      /* 1 · spare space in ULDs already built: prefer one that takes all remaining pieces, else the one that takes most */
+      const cands=ulds.filter(ok).sort((a,b)=>(b.items.some(i=>i.s===s))-(a.items.some(i=>i.s===s)));let best=null,bk=0;
+      for(const u of cands){const k=fitCount(u,s,left);if(k===left){best=u;bk=k;break}if(k>bk){best=u;bk=k}}
+      if(best){add(best,s,bk);left-=bk;continue}
+      /* 2 · a new ULD: the type that uses the least space for what is left */
+      const opts=types.filter(t=>ULD[t].h>=s.h).map(t=>Object.assign({t},spaceCost(t,s,left))).filter(o=>isFinite(o.cost)).sort((a,b)=>a.cost-b.cost||a.n-b.n);
+      if(!opts.length){offload.push({s,why:whyNoFit(s,types,left)});return}
+      const u=newUld(opts[0].t),k=fitCount(u,s,left);add(u,s,k);left-=k}}
+  const tname=t=>ULD[t].name.replace(' · lower deck',' (lower deck)').replace(' · main deck',' (main deck)');
+  function whyNoFit(s,types,left){const kp=s.wt/s.pcs,part=left<s.pcs?`${left} of ${s.pcs} pieces not loaded: `:'',T=types.map(t=>ULD[t]);
+    if(T.every(x=>kp>R(x.maxKey)))return part+`one piece weighs ${fmt(kp)} kg, above the ${fmt(Math.max(...T.map(x=>R(x.maxKey))))} kg maximum of ${types.map(tname).join(' / ')}`;
+    if(T.every(x=>s.h>x.H))return part+`${s.h} cm high, above the ${Math.max(...T.map(x=>x.H))} cm contour of ${types.map(tname).join(' / ')}`;
+    return part+`a ${s.l}×${s.w}×${s.h} cm piece does not fit inside the contour of ${types.map(t=>`${tname(t)} (${ULD[t].W}×${ULD[t].Dp} cm, ${ULD[t].H} cm high)`).join(' or ')}`}
   /* 1 · shipments placed by hand on a chosen pallet or container */
   const manualWarn=[];const groups={};
   ships.filter(s=>s.pin).forEach(s=>{(groups[s.pin]=groups[s.pin]||[]).push(s)});
   Object.keys(groups).sort().forEach(pin=>{const[kind,num]=pin.split(':'),list=groups[pin].filter(s=>{
-      if(category(s)==='X'){offload.push({s,why:'out of gauge for any ULD'});return false}
-      if(pax&&isCAO(s)){offload.push({s,why:'Cargo Aircraft Only, book it on a freighter'});return false}return true});
+      if(category(s)==='X'){offload.push({s,why:`${s.l}×${s.w}×${s.h} cm is out of gauge: larger than any ULD (max base 606×244 cm on a 20 ft pallet, max 300 cm high on a freighter main deck)`});return false}
+      if(pax&&isCAO(s)){offload.push({s,why:`Cargo Aircraft Only (${s.un||'CAO'}): IATA DGR does not allow it on a passenger aircraft. Book it on a freighter`});return false}return true});
     if(!list.length)return;
     let t;if(kind==='AKE')t=g==='narrow'?(ac.akh?'AKH':null):'AKE';
     else if(g==='narrow')t=null;else if(g==='belly')t='PMCL';else{const MT=mainTypes(ac),mh=Math.max(...list.map(s=>s.h));t=list.some(longPiece)?(ac.noPGA?null:'PGA'):(MT.find(x=>ULD[x].h>=mh)||MT[MT.length-1])}
@@ -518,21 +533,21 @@ function buildUlds(){
   /* 2 · everything else is built automatically */
   ships.filter(s=>!s.pin).sort((a,b)=>(b.excl-a.excl)||((b.dg?1:0)-(a.dg?1:0))||chg(b)-chg(a)).forEach(s=>{
     const cat=category(s);
-    if(cat==='X')return offload.push({s,why:'out of gauge for any ULD'});
-    if(pax&&isCAO(s))return offload.push({s,why:'Cargo Aircraft Only, book it on a freighter'});
-    if(g==='belly'&&(cat==='C'||(longPiece(s)&&!s.ohg)))return offload.push({s,why:longPiece(s)?'too long for a PMC: book a freighter, PGA 20 ft or connected pallets':`${s.h} cm high: book a freighter main-deck pallet`});
-    if(g==='narrow'){if(!fitsDoor(s,ac.doorWH))return offload.push({s,why:`does not fit the ${ac.door} cm cargo door`});
+    if(cat==='X')return offload.push({s,why:`${s.l}×${s.w}×${s.h} cm is out of gauge: larger than any ULD (max base 606×244 cm on a 20 ft pallet, max 300 cm high on a freighter main deck)`});
+    if(pax&&isCAO(s))return offload.push({s,why:`Cargo Aircraft Only (${s.un||'CAO'}): IATA DGR does not allow it on a passenger aircraft. Book it on a freighter`});
+    if(g==='belly'&&(cat==='C'||(longPiece(s)&&!s.ohg)))return offload.push({s,why:longPiece(s)?`${Math.max(s.l,s.w)} cm long: a lower-deck PMC is 318×244 cm and the ${ac.name} has no 20 ft positions. Book a freighter (PGA 20 ft or connected pallets), or set an overhang %`:`${s.h} cm high: the ${ac.name} lower deck takes pallets up to 160 cm (163 cm contour). Book a freighter main-deck pallet (up to 300 cm)`});
+    if(g==='narrow'){if(!fitsDoor(s,ac.doorWH))return offload.push({s,why:`${s.l}×${s.w}×${s.h} cm does not fit through the ${ac.door} cm cargo door of the ${ac.name}`});
       if(ac.akh&&s.h<=110&&fitsBase(s.l,s.w,150,150)&&!s.excl)place(s,['AKH']);else bulkLoads.push(s);return}
     if(g==='freighter'&&longPiece(s)){if(ac.noPGA)return offload.push({s,why:`too long for the ${ac.name}: book a wide-body freighter with 20 ft pallets`});const u=newUld('PGA');u.excl=true;add(u,s,s.pcs);return}
     let types;if(g==='belly')types=cat==='A'?['AKE','PMCL']:['PMCL'];
     else{const MT=mainTypes(ac).filter(t=>ULD[t].h>=s.h),low=ac.low?(cat==='A'?['AKE','PMCL']:cat==='B'?['PMCL']:[]):[];types=[...low,...MT];
-      if(!types.length)return offload.push({s,why:`${s.h} cm high: taller than the ${ac.name} main-deck contour`})}
+      if(!types.length)return offload.push({s,why:`${s.h} cm high: above the ${Math.max(...mainTypes(ac).map(t=>ULD[t].H))} cm main-deck contour of the ${ac.name}`})}
     if(s.excl||s.ohg>0){const ok=types.filter(t=>!(ULD[t].half&&s.ohg>0)),fit=ok.find(t=>packItems(t,[{s,p:s.pcs}],s.ohg).notShown===0);
       if(!fit)return offload.push({s,why:`${s.l}×${s.w}×${s.h} cm does not fit inside the ${ac.name} ULD contours${g==='freighter'?' (needs a centreline main-deck position)':''}`});const u=newUld(fit);u.excl=true;u.ohg=s.ohg;add(u,s,s.pcs);return}
     place(s,types)});
   ships.forEach((a,i)=>ships.slice(i+1).forEach(b=>{const c=conflict(a,b);if(c)apart.push({a,b,c})}));
   let bulk=null;if(g==='narrow'){bulk=Object.entries(ac.bulkHolds).map(([k,v])=>({k,m3:v.m3*eff,kg:v.kg,used:0,usedKg:0,items:[]}));
-    bulkLoads.forEach(s=>{const v=volM3(s);const h=bulk.filter(h=>h.items.every(i=>!conflict(i,s))).sort((a,b)=>a.usedKg/a.kg-b.usedKg/b.kg).find(h=>h.used+v<=h.m3&&h.usedKg+s.wt<=h.kg);if(h){h.items.push(s);h.used+=v;h.usedKg+=s.wt}else offload.push({s,why:'no room left in the bulk holds'})})}
+    bulkLoads.forEach(s=>{const v=volM3(s);const h=bulk.filter(h=>h.items.every(i=>!conflict(i,s))).sort((a,b)=>a.usedKg/a.kg-b.usedKg/b.kg).find(h=>h.used+v<=h.m3&&h.usedKg+s.wt<=h.kg);if(h){h.items.push(s);h.used+=v;h.usedKg+=s.wt}else offload.push({s,why:`no room left in the bulk holds: ${bulk.map(h=>`${BULKN?BULKN[h.k]||h.k:h.k} ${fmt(h.usedKg)}/${fmt(h.kg)} kg, ${fmt(h.used,1)}/${fmt(h.m3,1)} m³`).join('; ')}`})})}
   return{ac,ulds,offload,apart,bulk,manualWarn};
 }
 /* ---------- load plan + balance ---------- */
@@ -557,7 +572,7 @@ function planLoad(b){
         const a=posArm(c,st,len);c.blocks.push({start:st,len,ulds:un.ulds,arm:a,w:un.w});c.used=st+len;mom+=un.w*a;
         const row=Math.floor(st/pitch+1e-6),lab=c.key==='main'?String.fromCharCode(65+row):String((c.key==='fwd'?11:31)+row);
         un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'||(c.key==='main'&&ac.main.single)?'P':'L');u.pos=lab+u.side;u.blk={c:c.key,start:st,len}});ok=true;break}}
-    if(!ok)un.ulds.forEach(u=>b.offload.push({s:u.items[0].s,why:`no free position for ${u.id}`,uld:u}));
+    if(!ok){const tried=tiers.flat(),full=tried.map(c=>`${c.name.toLowerCase()} ${Math.round(c.used/c.len*100)}% used`).join(', ');un.ulds.forEach(u=>b.offload.push({s:u.items[0].s,why:`no free ${un.kind==='main'?'main-deck':un.kind==='ake'?'container':'pallet'} position left for ${u.id} (${fmt(u.kg)} kg): ${full||'no matching hold on this aircraft'}`,uld:u}))}
   }
   /* main deck: slide the whole pallet load aft row by row to the spot that best centres the balance */
   mainC.forEach(c=>{const pitch=MP(ac),free=Math.floor((c.len-c.used)/pitch+1e-6);if(free<1||!c.blocks.length)return;
@@ -640,8 +655,8 @@ function refresh(){build=ships.length?buildUlds():null;plan=build?planLoad(build
 function render(){
   const ac=acNow();
   $('cargoN').textContent=ships.length?`${ships.length} · ${fmt(ships.reduce((s,x)=>s+x.wt,0))} kg`:'';
-  $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.s===s&&!o.uld);
-    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div></div>
+  $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);
+    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
     <select data-pin="${s.id}" aria-label="Load ${esc(s.awb)} on">${pinOptions(s.pin)}</select>
     <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:'—'}</span></div><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delShip(b.dataset.del));
@@ -649,9 +664,9 @@ function render(){
   const keepPin=$('sPin').value;$('sPin').innerHTML=pinOptions(keepPin);
   const bt=build;$('st1s').textContent=bt?`${bt.ulds.length} ULDs built`:'Add cargo and build ULDs';
   $('sum').innerHTML=bt?`<div><b>${bt.ulds.length}</b><span>ULDs</span></div><div><b>${fmt(bt.ulds.reduce((s,u)=>s+u.kg,0))}</b><span>kg built</span></div>${bt.bulk?`<div><b>${fmt(bt.bulk.reduce((s,h)=>s+h.usedKg,0))}</b><span>kg loose (bulk)</span></div>`:''}`:'';
-  const off=bt?bt.offload.filter(o=>!o.uld):[],mw=bt?bt.manualWarn:[];const fb=$('flagBtn'),nf=off.length+mw.length;fb.hidden=!nf;
+  const off=bt?bt.offload:[],mw=bt?bt.manualWarn:[];const fb=$('flagBtn'),nf=off.length+mw.length;fb.hidden=!nf;
   fb.textContent=`⚠ ${[off.length?`${off.length} not loaded`:'',mw.length?`${mw.length} to check`:''].filter(Boolean).join(' · ')}`;
-  $('flags').innerHTML=off.map(o=>`<div><b>${esc(o.s.awb)}</b> ${esc(o.s.nat)}: ${esc(o.why)}.</div>`).join('')+mw.map(w=>`<div>✋ ${esc(w)}</div>`).join('');if(!nf)$('flags').hidden=true;
+  $('flags').innerHTML=off.map(o=>o.uld?`<div><b>${esc(o.uld.id)}</b> (${esc([...new Set(o.uld.items.map(i=>i.s.awb))].join(', '))}) not loaded: ${esc(o.why)}.</div>`:`<div><b>${esc(o.s.awb)}</b> ${esc(o.s.nat)} not loaded: ${esc(o.why)}.</div>`).join('')+mw.map(w=>`<div>✋ ${esc(w)}</div>`).join('');if(!nf)$('flags').hidden=true;else if(nf>(render.nf||0))$('flags').hidden=false;render.nf=nf;$('flagBtn').setAttribute('aria-expanded',String(!$('flags').hidden));
   $('strip').innerHTML=bt?bt.ulds.map(u=>{const pv=Math.round(Math.max(u.kg/u.max,u.m3/u.cap)*100);return `<button class="uchip ${u.flags.has('DG')?'dg':''}" type="button" data-u="${u.id}" aria-pressed="${u.id===selU}"><span style="display:flex;gap:2px">${[...new Set(u.items.map(i=>i.s.awb))].slice(0,4).map(a=>`<i style="width:8px;height:14px;border-radius:2px;background:${colorOf(a)}"></i>`).join('')}</span>${u.id}<span class="pct">${pv}%</span></button>`}).join('')+(bt.bulk?bt.bulk.map(h=>`<span class="uchip" style="cursor:default">Bulk ${h.k}<span class="pct">${fmt(h.usedKg)} kg</span></span>`).join(''):''):'';
   document.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{selU=b.dataset.u;hoverI=null;render()});
   renderInfo();drawIso();$('toLoad').disabled=!bt;renderLoad();
