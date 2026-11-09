@@ -63,7 +63,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#i
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .drawers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;align-items:start}
 .ship select{font-size:12px;padding:4px 6px;border-radius:7px;width:200px;max-width:100%}
-@media (max-width:560px){.ship{grid-template-columns:12px minmax(0,1fr) auto auto}.ship select{grid-column:2/-1;grid-row:2;width:100%}}
+@media (max-width:560px){.ship{grid-template-columns:12px minmax(0,1fr) auto auto auto}.ship select{grid-column:2/-1;grid-row:2;width:100%}}
 /* toolbar pills */
 .btn.outline{background:transparent;border:2px solid var(--accent);color:var(--fg)}
 .btn.outline:hover{background:rgba(255,210,31,.14)}
@@ -83,7 +83,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#i
 .err{color:var(--bad);font-size:12px}
 .note{font-size:12px;color:var(--muted)}
 .list{display:flex;flex-direction:column;gap:5px;max-height:380px;overflow-y:auto;margin-top:8px}
-.ship{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto auto;gap:8px;align-items:center;padding:7px 8px;border:1px solid var(--line);border-radius:9px;font-size:13px}
+.ship{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto auto auto;gap:8px;align-items:center;padding:7px 8px;border:1px solid var(--line);border-radius:9px;font-size:13px}
 .ship .dot{width:12px;height:12px;border-radius:3px}
 .ship .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ship .m{font-size:11px;color:var(--muted);font-family:var(--mono)}
@@ -256,12 +256,12 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 </div>
 <div class="drawers" id="drawers" hidden>
     <div class="card" id="addPanel" hidden>
-      <div class="addhd"><b>Add cargo</b><button class="x" type="button" data-close="addPanel" aria-label="Close">×</button></div>
+      <div class="addhd"><b id="addTitle">Add cargo</b><button class="x" type="button" data-close="addPanel" aria-label="Close">×</button></div>
       <form id="f" class="form" novalidate>
         <label class="span2">AWB <span style="font-weight:400">(optional)</span><input id="sAwb" placeholder="071-88129031" autocomplete="off" inputmode="numeric"></label>
         <label class="span2">Goods<input id="sNat" placeholder="Gen Cargo"></label>
         <label>Pieces<input id="sPcs" type="number" min="1" value="1"></label>
-        <label>Weight kg<input id="sWt" type="number" min="0" step="0.1" placeholder="1450"></label>
+        <label class="span2">Weight kg<span style="display:flex;gap:6px"><input id="sWt" type="number" min="0" step="0.1" placeholder="1450"><select id="sWtMode" aria-label="Weight entered as" style="width:auto;flex:none"><option value="t">Total</option><option value="p">Per piece</option></select></span><span class="note" id="wtHint" style="font-weight:400;min-height:16px"></span></label>
         <label class="span2">Dimensions per piece (cm)<div class="dims"><input id="sL" type="number" min="1" placeholder="L" aria-label="Length cm"><input id="sW" type="number" min="1" placeholder="W" aria-label="Width cm"><input id="sH" type="number" min="1" placeholder="H" aria-label="Height cm"></div></label>
         <label>DG class<select id="sDg"></select></label>
         <label>UN no.<input id="sUn" placeholder="UN1263" maxlength="6"></label>
@@ -271,7 +271,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
           <label style="flex-direction:row;align-items:center;gap:6px;margin-top:18px"><input type="checkbox" id="sExcl"> Own ULD</label>
         </div>
         <label class="span2">Load on<select id="sPin"></select></label>
-        <div class="span2" style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><button class="btn link" id="moreBtn" type="button" aria-expanded="false">+ More</button><button class="btn pri" type="submit">Add</button></div>
+        <div class="span2" style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><button class="btn link" id="moreBtn" type="button" aria-expanded="false">+ More</button><span style="display:flex;gap:6px"><button class="btn" id="editCancel" type="button" hidden>Cancel</button><button class="btn pri" type="submit" id="fSubmit">Add</button></span></div>
         <span class="err full" id="sErr" role="alert"></span>
       </form>
     </div>
@@ -463,7 +463,7 @@ function charge(s,u){const c=chg(s);const kind=u?(u.type==='PGA'?'PGA':ULD[u.typ
   const useOhg=s.ohg>0&&kind!=='PGA',ohg=useOhg?c*(s.ohg<T?R('rOhgLo'):R('rOhgHi'))/100:0;if(ohg)why+=` + OHG ${s.ohg<T?R('rOhgLo'):R('rOhgHi')}%`;return{kg:base+ohg,why}}
 
 /* ---------- reading files ---------- */
-const HDR={awb:['awb','awbno','awbnumber','airwaybill','mawb'],pcs:['pcs','pieces','piece','qty','quantity','nop'],l:['l','length','len','lengthcm'],w:['w','width','widthcm'],h:['h','height','heightcm'],dims:['dims','dim','dimensions','size','lxwxh'],wt:['weight','wt','gross','grossweight','grosskg','kg','weightkg'],nat:['nature','natureofgoods','goods','description','commodity','nog'],shc:['shc','handling','specialhandling','shcs'],dg:['dg','dgclass','class','hazardclass'],un:['un','unnumber','unno'],excl:['exclusive','ownuld','excl'],ohg:['ohg','overhang','overhangpct']};
+const HDR={awb:['awb','awbno','awbnumber','airwaybill','mawb'],pcs:['pcs','pieces','piece','qty','quantity','nop'],l:['l','length','len','lengthcm'],w:['w','width','widthcm'],h:['h','height','heightcm'],dims:['dims','dim','dimensions','size','lxwxh'],wt:['weight','wt','gross','grossweight','grosskg','kg','weightkg','totalweight','totalkg'],wpp:['weightperpiece','weightperpc','weightpc','wtperpc','wtperpiece','kgperpiece','kgperpc','pieceweight','pcweight','unitweight'],nat:['nature','natureofgoods','goods','description','commodity','nog'],shc:['shc','handling','specialhandling','shcs'],dg:['dg','dgclass','class','hazardclass'],un:['un','unnumber','unno'],excl:['exclusive','ownuld','excl'],ohg:['ohg','overhang','overhangpct']};
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 function rowsToShips(rows){if(rows.length<2)return{list:[],errs:['the file needs a header row and at least one line']};
   const m={};rows[0].forEach((h,i)=>{const n=norm(h);for(const k in HDR)if(HDR[k].includes(n)&&m[k]==null)m[k]=i});const list=[],errs=[];
@@ -471,7 +471,7 @@ function rowsToShips(rows){if(rows.length<2)return{list:[],errs:['the file needs
   rows.slice(1).forEach((r,i)=>{if(!r||r.every(c=>String(c||'').trim()===''))return;const g=k=>m[k]!=null?r[m[k]]:'';
     let l=+g('l'),w=+g('w'),h=+g('h');if((!l||!w||!h)&&m.dims!=null){const d=String(g('dims')).toLowerCase().match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)/);if(d){l=+d[1];w=+d[2];h=+d[3]}}
     const dgRaw=String(g('dg')||'').trim();
-    const s=mk({awb:String(g('awb')).trim(),pcs:+g('pcs')||1,l,w,h,wt:+String(g('wt')).replace(/[^0-9.]/g,''),nat:String(g('nat')||'').trim(),shc:String(g('shc')||''),dg:dgRaw,un:String(g('un')||'').trim(),excl:/^(y|yes|true|1|x)$/i.test(String(g('excl')).trim()),ohg:+g('ohg')||0});
+    const s=mk({awb:String(g('awb')).trim(),pcs:+g('pcs')||1,l,w,h,wt:(+String(g('wt')).replace(/[^0-9.]/g,''))||(+String(g('wpp')).replace(/[^0-9.]/g,''))*(+g('pcs')||1),nat:String(g('nat')||'').trim(),shc:String(g('shc')||''),dg:dgRaw,un:String(g('un')||'').trim(),excl:/^(y|yes|true|1|x)$/i.test(String(g('excl')).trim()),ohg:+g('ohg')||0});
     /* no DG class in the file = not dangerous goods */
     if(!s.dg&&dgRaw&&!/^(no|n|none|nil|non[\s-]?dg|gen|general|-|0|na|n\/a)$/i.test(dgRaw))notes.push(`line ${i+2}: DG "${dgRaw}" has no class, loaded as non-DG, check it`);
     const e=validate(s,true);if(e){errs.push(`line ${i+2}: ${e}`);return}
@@ -722,8 +722,9 @@ function render(){
   $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);
     return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
     <select data-pin="${s.id}" aria-label="Load ${esc(s.awb)} on">${pinOptions(s.pin)}</select>
-    <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:(build&&build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s))?'Bulk':'—')}</span></div><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
-  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delShip(b.dataset.del));
+    <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:(build&&build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s))?'Bulk':'—')}</span></div><button class="x" type="button" data-edit="${s.id}" aria-label="Edit ${esc(s.awb)}" title="Edit">✎</button><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(b.dataset.del===editId)endEdit();delShip(b.dataset.del)});
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>startEdit(b.dataset.edit));
   document.querySelectorAll('[data-pin]').forEach(sl=>sl.onchange=()=>{updateShip(sl.dataset.pin,{pin:sl.value});toast(sl.value?`Placed by hand on ${sl.options[sl.selectedIndex].text.replace('+ New ','')}`:'Back to automatic build')});
   const keepPin=$('sPin').value;$('sPin').innerHTML=pinOptions(keepPin);
   const bt=build;$('st1s').textContent=bt?`${bt.ulds.length} ULDs built`:'Add cargo and build ULDs';
@@ -1212,15 +1213,32 @@ $('toLoad').onclick=()=>{go(2);savePlan();reportPlan()};$('back').onclick=()=>go
 $('reassign').onclick=()=>{if(!build)return;plan=planLoad(build);render();savePlan();reportPlan();toast(`Rebalanced · index ${fmt(plan.index,1)}`)};
 $('acSel').onchange=()=>{refresh();toast(`Rebuilt for the ${acNow().name}`)};
 document.querySelectorAll('.settings input').forEach(i=>i.addEventListener('change',()=>{PCACHE.clear();refresh()}));
-function panel(id,open){const p=$(id),b=$({addPanel:'addToggle',listPanel:'listToggle',engPanel:'engToggle'}[id]);p.hidden=!open;b.setAttribute('aria-expanded',String(open));$('drawers').hidden=$('addPanel').hidden&&$('listPanel').hidden&&$('engPanel').hidden;if(open&&id==='engPanel')renderEng();if(open&&id==='addPanel')setTimeout(()=>$('sAwb').focus(),50)}
+function panel(id,open){if(!open&&id==='addPanel'&&editId)endEdit();const p=$(id),b=$({addPanel:'addToggle',listPanel:'listToggle',engPanel:'engToggle'}[id]);p.hidden=!open;b.setAttribute('aria-expanded',String(open));$('drawers').hidden=$('addPanel').hidden&&$('listPanel').hidden&&$('engPanel').hidden;if(open&&id==='engPanel')renderEng();if(open&&id==='addPanel')setTimeout(()=>$('sAwb').focus(),50)}
 $('addToggle').onclick=()=>panel('addPanel',$('addPanel').hidden);
 $('listToggle').onclick=()=>panel('listPanel',$('listPanel').hidden);
 $('engToggle').onclick=()=>panel('engPanel',$('engPanel').hidden);
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>panel(b.dataset.close,false));
 $('moreBtn').onclick=()=>{const m=$('more'),o=m.hidden;m.hidden=!o;$('moreBtn').setAttribute('aria-expanded',String(o));$('moreBtn').textContent=o?'− Less':'+ More'};
-$('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:+$('sWt').value,nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
-  const er=validate(s);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';if(!s.awb)s.awb=nextNoAwb();const pin=$('sPin').value;addShips([s]);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
+$('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:wtFromForm(),nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
+  const er=validate(s);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';
+  if(editId){const old=ships.find(x=>x.id===editId);if(old){if(!s.awb)s.awb=/^No AWB \d+$/.test(old.awb)?old.awb:nextNoAwb();const{id:_i,at:_a,...patch}=s;updateShip(old.id,patch);report('Shipments!A1',[shipRow(old,'edited')]);toast(`${s.awb} updated`)}endEdit();panel('addPanel',false);return}
+  if(!s.awb)s.awb=nextNoAwb();const pin=$('sPin').value;addShips([s]);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);wtHint();$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
 ['sAwb','sWt','sL','sW','sH','sUn'].forEach(k=>$(k).addEventListener('input',()=>$('sErr').textContent=''));
+/* weight typed as total or per piece; the shipment always stores the total */
+function wtFromForm(){const v=+$('sWt').value||0,p=Math.max(1,Math.round(+$('sPcs').value||1));return $('sWtMode').value==='p'?Math.round(v*p*10)/10:v}
+function wtHint(){const v=+$('sWt').value||0,p=Math.max(1,Math.round(+$('sPcs').value||1));$('wtHint').textContent=!v?'':$('sWtMode').value==='p'?`= ${fmt(v*p,v*p%1?1:0)} kg total for ${p} pcs`:`= ${fmt(v/p,1)} kg per piece`}
+['sWt','sPcs'].forEach(k=>$(k).addEventListener('input',wtHint));$('sWtMode').addEventListener('change',wtHint);
+/* edit a shipment: the Add cargo form opens with its values; Save changes rebuilds the ULDs */
+let editId=null;
+function startEdit(id){const s=ships.find(x=>x.id===id);if(!s)return;editId=id;panel('addPanel',true);
+  $('addTitle').textContent='Edit cargo · '+s.awb;$('fSubmit').textContent='Save changes';$('editCancel').hidden=false;$('sErr').textContent='';
+  $('sAwb').value=/^No AWB \d+$/.test(s.awb)?'':s.awb;$('sNat').value=s.nat;$('sPcs').value=s.pcs;$('sWtMode').value='t';$('sWt').value=s.wt;
+  $('sL').value=s.l;$('sW').value=s.w;$('sH').value=s.h;$('sDg').value=s.dg;$('sUn').value=s.un;$('sShc').value=s.shc.join(', ');$('sOhg').value=s.ohg;$('sExcl').checked=s.excl;
+  $('sPin').innerHTML=pinOptions(s.pin);$('sPin').value=s.pin;
+  if(s.shc.length||s.ohg||s.excl){$('more').hidden=false;$('moreBtn').setAttribute('aria-expanded','true');$('moreBtn').textContent='− Less'}
+  wtHint();setTimeout(()=>{$('sNat').focus();$('addPanel').scrollIntoView({block:'nearest',behavior:RM?'auto':'smooth'})},80)}
+function endEdit(){editId=null;$('addTitle').textContent='Add cargo';$('fSubmit').textContent='Add';$('editCancel').hidden=true;$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sWtMode').value='t';wtHint()}
+$('editCancel').onclick=()=>endEdit();
 $('upBtn').onclick=()=>$('file').click();
 $('file').onchange=()=>{const f=$('file').files[0];$('file').value='';if(!f)return;const r=new FileReader();
   const done=rows=>{const{list,errs,notes}=rowsToShips(rows);if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);
