@@ -383,7 +383,7 @@ const AC=[
  {id:'B787-8',g:'belly',name:'Boeing 787-8',low:{fwd:{rows:8},aft:{rows:6}}},{id:'B787-9',g:'belly',name:'Boeing 787-9',low:{fwd:{rows:10},aft:{rows:8}}},{id:'B787-10',g:'belly',name:'Boeing 787-10',low:{fwd:{rows:11},aft:{rows:9}}},
  {id:'A350-900',g:'belly',name:'Airbus A350-900',low:{fwd:{rows:10},aft:{rows:8}}},{id:'A350-1000',g:'belly',name:'Airbus A350-1000',low:{fwd:{rows:12},aft:{rows:10}}},{id:'B777-300ER',g:'belly',name:'Boeing 777-300ER',low:{fwd:{rows:12},aft:{rows:10}}},{id:'A330-300',g:'belly',name:'Airbus A330-300',low:{fwd:{rows:9},aft:{rows:7}}},
  {id:'B737-800',g:'narrow',name:'Boeing 737-800',bulkHolds:{fwd:{m3:19.6,kg:3500},aft:{m3:24.4,kg:4500}},door:'122 × 89',doorWH:[122,84]},{id:'B737-8',g:'narrow',name:'Boeing 737-8 (MAX)',bulkHolds:{fwd:{m3:19.6,kg:3500},aft:{m3:24.4,kg:4500}},door:'122 × 89',doorWH:[122,84]},
- {id:'A320neo',g:'narrow',name:'Airbus A320neo',akh:{fwd:{rows:3},aft:{rows:4}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124]},{id:'A321neo',g:'narrow',name:'Airbus A321neo',akh:{fwd:{rows:5},aft:{rows:5}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124]},
+ {id:'A320neo',g:'narrow',name:'Airbus A320neo',akh:{fwd:{rows:3},aft:{rows:4}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124],bulkDoor:'95 × 77',bulkDoorWH:[95,77]},{id:'A321neo',g:'narrow',name:'Airbus A321neo',akh:{fwd:{rows:5},aft:{rows:5}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124],bulkDoor:'95 × 77',bulkDoorWH:[95,77]},
  {id:'B777F',g:'freighter',name:'Boeing 777 Freighter',low:{fwd:{rows:9},aft:{rows:7}},main:{rows:14}},{id:'B747-8F',g:'freighter',name:'Boeing 747-8F',low:{fwd:{rows:10},aft:{rows:8}},main:{rows:16}},
  {id:'B767-300F',g:'freighter',name:'Boeing 767-300F',low:{fwd:{rows:7},aft:{rows:6}},main:{rows:12},mainTypes:['PMC6']},
  {id:'B737-800BCF',g:'freighter',name:'Boeing 737-800BCF (converted)',main:{rows:11,pitch:224,single:true},mainTypes:['PAGN'],noPGA:true}
@@ -562,6 +562,7 @@ function planLoad(b){
   const mains=[];b.ulds.filter(u=>ULD[u.type].main).sort((x,y)=>y.kg-x.kg).forEach(u=>{const pga=u.type==='PGA',p=!ac.main.single&&mains.find(p=>p.length===1&&(p[0].type==='PGA')===pga&&!clash(p[0],u));if(p)p.push(u);else mains.push([u])});
   const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>y.w-x.w);
   const posArm=(c,st,len)=>{const f=(st+len/2)/c.len;return c.key==='fwd'?c.a[1]-(c.a[1]-c.a[0])*f:c.a[0]+(c.a[1]-c.a[0])*f};
+  const noPos=[];
   const lowC=C.filter(c=>c.key!=='main'),mainC=C.filter(c=>c.key==='main');
   for(const un of units){
     const tiers=un.kind==='main'?[mainC]:un.kind==='ake'?[lowC]:[lowC,mainC],L=c=>c.key==='main'&&un.kind==='pal'?MP(ac):un.len;let ok=false;
@@ -572,7 +573,7 @@ function planLoad(b){
         const a=posArm(c,st,len);c.blocks.push({start:st,len,ulds:un.ulds,arm:a,w:un.w});c.used=st+len;mom+=un.w*a;
         const row=Math.floor(st/pitch+1e-6),lab=c.key==='main'?String.fromCharCode(65+row):String((c.key==='fwd'?11:31)+row);
         un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'||(c.key==='main'&&ac.main.single)?'P':'L');u.pos=lab+u.side;u.blk={c:c.key,start:st,len}});ok=true;break}}
-    if(!ok){const tried=tiers.flat(),full=tried.map(c=>`${c.name.toLowerCase()} ${Math.round(c.used/c.len*100)}% used`).join(', ');un.ulds.forEach(u=>b.offload.push({s:u.items[0].s,why:`no free ${un.kind==='main'?'main-deck':un.kind==='ake'?'container':'pallet'} position left for ${u.id} (${fmt(u.kg)} kg): ${full||'no matching hold on this aircraft'}`,uld:u}))}
+    if(!ok){const tried=tiers.flat(),full=tried.map(c=>`${c.name.toLowerCase()} ${Math.round(c.used/c.len*100)}% used`).join(', ');un.ulds.forEach(u=>noPos.push({s:u.items[0].s,why:`no free ${un.kind==='main'?'main-deck':un.kind==='ake'?'container':'pallet'} position left for ${u.id} (${fmt(u.kg)} kg): ${full||'no matching hold on this aircraft'}`,uld:u}))}
   }
   /* main deck: slide the whole pallet load aft row by row to the spot that best centres the balance */
   mainC.forEach(c=>{const pitch=MP(ac),free=Math.floor((c.len-c.used)/pitch+1e-6);if(free<1||!c.blocks.length)return;
@@ -580,6 +581,18 @@ function planLoad(b){
     for(let k=0;k<=free;k++){const m=base+c.blocks.reduce((s,bk)=>s+(bk.gap?0:bk.w*posArm(c,bk.start+k*pitch,bk.len)),0);if(Math.abs(m)<bv-1e-6){bv=Math.abs(m);best=k}}
     if(!best)return;mom=base;c.lead=best*pitch;c.used+=c.lead;
     c.blocks.forEach(bk=>{bk.start+=c.lead;if(bk.gap)return;bk.arm=posArm(c,bk.start,bk.len);mom+=bk.w*bk.arm;const lab=String.fromCharCode(65+Math.floor(bk.start/pitch+1e-6));bk.ulds.forEach(u=>{u.blk.start=bk.start;u.pos=lab+u.side})})});
+  /* narrow-bodies: a container with no free position is unpacked into the bulk hold when every piece fits the bulk door,
+     the hold's free volume and weight, and DG segregation with what is already there; otherwise it stays offloaded */
+  noPos.forEach(o=>{const u=o.uld;
+    if(b.bulk&&ac.g==='narrow'){const r=toBulk(u);if(r===true){b.ulds.splice(b.ulds.indexOf(u),1);issues.push({k:'info',t:`${u.id} had no free position: its ${u.items.reduce((t,i)=>t+i.p,0)} pieces (${fmt(u.kg)} kg) are loaded loose in the bulk hold instead`});return}o.why+=` · bulk hold: ${r}`}
+    b.offload.push(o)});
+  function toBulk(u){const room=b.bulk.map(h=>({h,m3:h.m3-h.used,kg:h.kg-h.usedKg})),moves=[],door=ac.bulkDoorWH||ac.doorWH;
+    for(const it of u.items){const sh=it.s,v=sh.l*sh.w*sh.h/1e6*it.p,kg=sh.wt/sh.pcs*it.p;
+      if(!fitsDoor(sh,door))return `a ${sh.l}×${sh.w}×${sh.h} cm piece does not fit the ${ac.bulkDoor||ac.door} cm bulk door`;
+      const r=room.find(r=>r.m3>=v-1e-9&&r.kg>=kg-1e-9&&r.h.items.every(x=>!conflict(x,sh)));
+      if(!r)return `no room left (${room.map(r=>`${fmt(r.h.usedKg)}/${fmt(r.h.kg)} kg, ${fmt(r.h.used,1)}/${fmt(r.h.m3,1)} m³ used`).join('; ')})`;
+      r.m3-=v;r.kg-=kg;moves.push({r,sh,p:it.p,v,kg})}
+    moves.forEach(({r,sh,p,v,kg})=>{r.h.items.push(p===sh.pcs?sh:Object.assign({},sh,{pcs:p,wt:kg,_of:sh}));r.h.used+=v;r.h.usedKg+=kg});return true}
   C.forEach(c=>{c.kg=c.blocks.reduce((s,x)=>s+(x.w||0),0);if(c.kg>c.maxKg)issues.push({k:'bad',t:`${c.name} is over its ${fmt(c.maxKg)} kg limit (${fmt(c.kg)} kg)`})});
   b.ulds.forEach(u=>{if(u.kg>u.max)issues.push({k:'bad',t:`${u.id} is over its ${fmt(u.max)} kg limit`})});
   return{C,index:mom/1000,total:C.reduce((s,c)=>s+c.kg,0),issues};
@@ -658,7 +671,7 @@ function render(){
   $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);
     return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
     <select data-pin="${s.id}" aria-label="Load ${esc(s.awb)} on">${pinOptions(s.pin)}</select>
-    <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:'—'}</span></div><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
+    <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:(build&&build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s))?'Bulk':'—')}</span></div><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delShip(b.dataset.del));
   document.querySelectorAll('[data-pin]').forEach(sl=>sl.onchange=()=>{updateShip(sl.dataset.pin,{pin:sl.value});toast(sl.value?`Placed by hand on ${sl.options[sl.selectedIndex].text.replace('+ New ','')}`:'Back to automatic build')});
   const keepPin=$('sPin').value;$('sPin').innerHTML=pinOptions(keepPin);
@@ -716,6 +729,9 @@ const KIND={g:{fill:'#8CC152',ink:'#1f3a0a',name:'General'},d:{fill:'#F5A623',in
 const shcClass=c=>DGSHC.includes(c)?'dg':(COLD.includes(c)||c==='EAT'?'cold':'');
 const shcHtml=list=>list.map(c=>`<span class="shc ${shcClass(c)}">${esc(c)}</span>`).join(' ');
 const dgChip=s=>s.dg?`<span class="shc dg">DG ${esc(s.dg)}${s.un?' '+esc(s.un):''}</span>`:'';
+/* one line per AWB in a bulk hold, even when its pieces came from two containers */
+const mergeAwb=list=>{const m=new Map();list.forEach(x=>{const k=x.awb,e=m.get(k);if(e){e.pcs+=x.pcs;e.wt+=x.wt}else m.set(k,Object.assign({},x))});return[...m.values()]};
+const awbN=h=>new Set(h.items.map(x=>x.awb)).size;
 const kgF=v=>v>=10000?(v/1000).toFixed(1)+' t':fmt(v)+' kg';
 const isCold=u=>u.items.some(i=>i.s.shc.some(c=>COLD.includes(c)));
 const kindOf=u=>u.flags.has('DG')?'d':isCold(u)?'p':'g';
@@ -845,8 +861,8 @@ function buildDet(){
   const el=$('det'),sl=curSlot();
   if(!sl){el.innerHTML='<span class="mut">Select a position on the aircraft.</span>';return}
   if(sl.bulk){const h=sl.bulk,pct=Math.round(h.usedKg/h.kg*100);
-    el.innerHTML=`<h2>${BULKN[h.k]}</h2><div class="pside"><span>${h.items.length} shipments · <span class="mono">${kgF(h.usedKg)}</span> of <span class="mono">${kgF(h.kg)}</span></span><div class="meter"><i style="width:${Math.min(100,pct)}%"></i></div><span class="mono mut" style="font-size:12px">${pct}% by weight · ${fmt(h.used,1)} of ${fmt(h.m3,1)} m³ usable</span></div>`+
-      (h.items.length?`<div class="pside">${h.items.map(s=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${colorOf(s.awb)}"></i><span class="mono">${esc(s.awb)}</span><span class="mut">${esc(s.nat||'Cargo')} · ${s.pcs} pcs · ${kgF(s.wt)}</span>${shcHtml(s.shc)}${dgChip(s)}</div>`).join('')}</div>`:'<div class="pside"><span class="mut">Nothing loaded here yet.</span></div>');return}
+    el.innerHTML=`<h2>${BULKN[h.k]}</h2><div class="pside"><span>${awbN(h)} shipments · <span class="mono">${kgF(h.usedKg)}</span> of <span class="mono">${kgF(h.kg)}</span></span><div class="meter"><i style="width:${Math.min(100,pct)}%"></i></div><span class="mono mut" style="font-size:12px">${pct}% by weight · ${fmt(h.used,1)} of ${fmt(h.m3,1)} m³ usable</span></div>`+
+      (h.items.length?`<div class="pside">${mergeAwb(h.items).map(s=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${colorOf(s.awb)}"></i><span class="mono">${esc(s.awb)}</span><span class="mut">${esc(s.nat||'Cargo')} · ${s.pcs} pcs · ${kgF(s.wt)}</span>${shcHtml(s.shc)}${dgChip(s)}</div>`).join('')}</div>`:'<div class="pside"><span class="mut">Nothing loaded here yet.</span></div>');return}
   const main=sl.c.key==='main',name=main?'Main deck row '+sl.lab:'Row '+sl.lab+' · '+sl.c.name.toLowerCase();
   if(sl.gap){el.innerHTML=`<h2>${name}</h2><div class="pside"><span class="mut">Kept empty so dangerous goods are not loaded next to cargo they must be separated from (IATA DGR 9.3.A).</span></div>`;return}
   if(!sl.ulds.length){el.innerHTML=`<h2>${name}</h2><div class="pside"><span class="mut">Empty · free for ${main&&build.ac.main.single?'1':'2'} × ${main?'PMC pallet':(build.ac.akh?'AKH':'AKE')}${main||build.ac.akh?'':' or 1 lower-deck pallet'}</span></div>`;return}
@@ -855,7 +871,7 @@ function buildDet(){
 }
 function buildList(){
   const box=$('ulds'),st=$('stats'),bulk=build.bulk||[],bkg=bulk.reduce((s,h)=>s+h.usedKg,0);
-  const bulkRows=bulk.map(h=>`<button type="button" class="ulrow" data-k="B:${h.k}" ${sel2==='B:'+h.k?'aria-current="true"':''}><i class="sw" style="background:#8CC152;width:14px;height:30px"></i><span style="min-width:0">${BULKN[h.k]}<br><span class="mono mut" style="font-size:12px">${h.items.length} shipments loose · ${kgF(h.usedKg)}</span></span><span class="tag" style="background:var(--panel2)">${Math.round(h.usedKg/h.kg*100)}%</span></button>`).join('');
+  const bulkRows=bulk.map(h=>`<button type="button" class="ulrow" data-k="B:${h.k}" ${sel2==='B:'+h.k?'aria-current="true"':''}><i class="sw" style="background:#8CC152;width:14px;height:30px"></i><span style="min-width:0">${BULKN[h.k]}<br><span class="mono mut" style="font-size:12px">${awbN(h)} shipments loose · ${kgF(h.usedKg)}</span></span><span class="tag" style="background:var(--panel2)">${Math.round(h.usedKg/h.kg*100)}%</span></button>`).join('');
   if(!plan.C.length){const n=bulk.reduce((s,h)=>s+h.items.length,0);
     st.innerHTML=`<div class="stat"><b class="mono">0</b><span>ULDs (bulk only)</span></div><div class="stat"><b class="mono">${n}</b><span>shipments loose</span></div><div class="stat"><b class="mono">${kgF(bkg)}</b><span>loaded</span></div>`;box.innerHTML=bulkRows}
   else{const list=SL.flatMap(sl=>sl.ulds.map(u=>({sl,u}))),kg=list.reduce((s,x)=>s+x.u.kg,0)+bkg,slots=plan.C.reduce((s,c)=>s+Math.round(c.len/pitchOf(build.ac,c.key))*(c.key==='main'&&build.ac.main.single?1:2),0),awbs=new Set(list.flatMap(x=>x.u.items.map(i=>i.s.awb))).size;
@@ -871,7 +887,7 @@ function buildList(){
   $('cgl').innerHTML=`<span style="left:${sc(lo)}%">Nose ${lo}</span><span style="left:${sc(hi)}%">Tail +${hi}</span>`;
 }
 function slotTip(sl){
-  if(sl.bulk){const h=sl.bulk;return `<b>${BULKN[h.k]}</b><br>${h.items.length} shipments loose · ${kgF(h.usedKg)}`}
+  if(sl.bulk){const h=sl.bulk;return `<b>${BULKN[h.k]}</b><br>${awbN(h)} shipments loose · ${kgF(h.usedKg)}`}
   const main=sl.c.key==='main';let h=`<b>${main?'Main deck row ':'Row '}${sl.lab}</b>`;
   if(sl.gap)return h+'<br><span class="mut">Kept empty · DG separation</span>';
   if(!sl.ulds.length)return h+`<br><span class="mut">Empty · free for 2 × ${main?'PMC':(build.ac.akh?'AKH':'AKE')}</span>`;
@@ -973,7 +989,7 @@ function stepIdx(){return{building:1,checked:4,loading:4,done:5}[phase]}
 function renderPanel(){
   const el=$('bPanel'),bt=$('bT'),sl=curSlot(),u=curU2();
   if(!sl){bt.textContent='Build-up';el.innerHTML='<p class="mut">Select a position on the aircraft.</p>';return}
-  if(sl.bulk){const h=sl.bulk;bt.textContent='Bulk loading';el.innerHTML=`<h2>${BULKN[h.k]}</h2><p class="mut" style="margin:0">No ULD here. Cargo goes into the hold piece by piece. ${h.items.length} shipments · ${kgF(h.usedKg)} of ${kgF(h.kg)}.</p>`;return}
+  if(sl.bulk){const h=sl.bulk;bt.textContent='Bulk loading';el.innerHTML=`<h2>${BULKN[h.k]}</h2><p class="mut" style="margin:0">No ULD here. Cargo goes into the hold piece by piece. ${awbN(h)} shipments · ${kgF(h.usedKg)} of ${kgF(h.kg)}.</p>`;return}
   if(!u){bt.textContent='Build-up';el.innerHTML=sl.gap?'<h2>DG separation</h2><p class="mut" style="margin:0">This position stays empty so dangerous goods are not loaded next to cargo they must be kept apart from.</p>':'<h2>Empty position</h2><p class="mut" style="margin:0">Select a loaded position on the aircraft or in the load summary to see how its ULD is built and loaded.</p>';return}
   const T=ULD[u.type],pk=packUld(u),cs=consign(u),si=stepIdx(),checks=si>=4,k=KIND[kindOf(u)],dgs=cs.filter(c=>c.s.dg),cold=cs.filter(c=>c.s.shc.some(x=>COLD.includes(x)));
   bt.textContent=`Build-up · ${u.id} → ${u.blk&&u.blk.c==='main'?'main deck ':''}${u.pos}`;
