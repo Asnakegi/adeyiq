@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AdeyIQ Aircraft & ULD data</title>
-<meta name="description" content="Doors, holds, contours and ULDs for active commercial aircraft.">
+<meta name="description" content="Doors, holds, contours, ULDs and engines for active commercial aircraft.">
 <link rel="icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,6 +51,11 @@ tr.g td{background:var(--panel2);font-weight:600;font-family:var(--display);font
   <div class="tbl"><table><thead><tr><th>ULD</th><th>IATA code</th><th>Base cm</th><th>Contour height cm</th><th class="num">Usable m³</th><th class="num">Max gross kg</th><th>Used on</th></tr></thead><tbody id="uld"></tbody></table></div>
   <p class="note" style="margin-top:10px">AKE 1,588 kg and PMC 6,804 kg are standard ULD ratings; PGA 11,340 kg is the 20 ft pallet rating. Lower-deck pallet and AKH limits are typical working values. Cargo longer than a PMC goes on a PGA (20 ft) or on two connected pallets on a freighter main deck.</p>
 </div>
+<div class="card">
+  <h2>Aircraft engines</h2>
+  <p class="note">Bare-engine figures are approximate public manufacturer values. The in-stand size and weight are AdeyIQ estimates (stand adds about 60 cm length, 35 cm width, 55 cm height and 20% + 500 kg); use the engine shop's stand drawing for real shipments. Check any engine against every aircraft in the Cargo Builder under ⚙ Engines.</p>
+  <div class="tbl"><table><thead><tr><th>Maker</th><th>Engine</th><th>Used on</th><th class="num">Fan Ø m</th><th class="num">Length m</th><th class="num">Dry kg</th><th>In stand L × W × H cm (est.)</th><th class="num">With stand kg (est.)</th></tr></thead><tbody id="eng"></tbody></table></div>
+</div>
 </div>
 <script>
 const AC=[
@@ -76,6 +81,24 @@ const AC=[
 document.getElementById('ac').innerHTML=AC.map(r=>r.length===1?`<tr class="g"><td colspan="9">${r[0]}</td></tr>`:`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td class="mono">${r[3]}</td><td class="mono">${r[4]}</td><td class="mono">${r[5]}</td><td class="num">${r[6]}</td><td>${r[7]==='v'?'<span class="b v">Sourced</span>':'<span class="b u">Verify</span>'}</td><td><a href="${r[9]}" target="_blank" rel="noopener">${r[8]}</a></td></tr>`).join('');
 const ULD=[['AKE container (LD3)','AKE','156 × 153 (top 201)','163, sloped corner',4.3,1588,'Wide-body lower deck'],['AKH container (LD3-45)','AKH','156 × 153','114',3.5,1134,'A320 family lower deck'],['Pallet, lower deck','PMC / PAG','318 × 244','163',11.5,4626,'Wide-body and freighter lower deck'],['Pallet, main deck Q6','PMC / PAG','318 × 244','244',17,6804,'Freighter main deck'],['Pallet, main deck Q7','PMC / PAG','318 × 244','300',21,6804,'Freighter main deck'],['Pallet, 737 freighter main deck','PAG','318 × 224 (loaded across)','208, shoulders 150',11,2500,'737-800BCF main deck (working limit, verify)'],['20 ft pallet / connected pallets','PGA','606 × 244','300',40,11340,'Freighter main deck, long cargo']];
 document.getElementById('uld').innerHTML=ULD.map(r=>`<tr><td><b>${r[0]}</b></td><td class="mono">${r[1]}</td><td class="mono">${r[2]}</td><td>${r[3]}</td><td class="num">${r[4]}</td><td class="num">${r[5].toLocaleString('en-US')}</td><td>${r[6]}</td></tr>`).join('');
+
+/* engines: same figures as the Cargo Builder */
+const ENG=[
+ ['GE Aerospace / CFM','CFM56-3C','737 Classic',1.52,2.36,1950],['GE Aerospace / CFM','CFM56-5B','A320ceo family',1.735,2.60,2380],['GE Aerospace / CFM','CFM56-7B','737NG',1.55,2.51,2370],
+ ['GE Aerospace / CFM','LEAP-1A','A320neo family',1.98,3.33,3000],['GE Aerospace / CFM','LEAP-1B','737 MAX',1.76,3.15,2780],
+ ['GE Aerospace / CFM','GE90-94B','777-200ER',3.12,7.29,7890],['GE Aerospace / CFM','GE90-115B','777-300ER, 777F',3.25,7.29,8280],['GE Aerospace / CFM','GE9X','777-8/-9 (777X)',3.40,5.69,9630],
+ ['GE Aerospace / CFM','GEnx-1B','787',2.82,4.95,5820],['GE Aerospace / CFM','GEnx-2B','747-8, 747-8F',2.66,4.31,5610],
+ ['GE Aerospace / CFM','CF6-80C2','747-400, 767, A300, MD-11',2.36,4.27,4390],['GE Aerospace / CFM','CF6-80E1','A330ceo',2.44,4.34,5090],
+ ['GE Aerospace / CFM','GP7200 (Engine Alliance)','A380',2.96,4.92,6710],
+ ['Pratt & Whitney','PW1100G-JM','A320neo family',2.06,3.40,2860],['Pratt & Whitney','PW1500G','A220',1.85,3.18,2180],['Pratt & Whitney','V2500-A5 (IAE)','A320ceo family',1.60,3.20,2360],
+ ['Pratt & Whitney','PW4000-94','747-400, 767, A300, MD-11',2.38,3.37,4270],['Pratt & Whitney','PW4000-100','A330ceo',2.54,4.14,5230],['Pratt & Whitney','PW4000-112','777-200/-300',2.84,4.87,7140],
+ ['Pratt & Whitney','PW127M (turboprop)','ATR 72',0.66,2.13,480],['Pratt & Whitney','PW150A (turboprop)','Dash 8-400',0.77,2.42,720],
+ ['Rolls-Royce','Trent 700','A330ceo',2.47,3.91,4790],['Rolls-Royce','Trent 800','777-200/-300',2.80,4.37,5960],['Rolls-Royce','Trent 900','A380',2.95,4.55,6250],
+ ['Rolls-Royce','Trent 1000','787',2.85,4.74,6030],['Rolls-Royce','Trent 7000','A330neo',2.85,4.77,6450],['Rolls-Royce','Trent XWB-84','A350-900',3.00,5.81,7280],['Rolls-Royce','Trent XWB-97','A350-1000',3.00,5.81,7550],
+ ['Rolls-Royce','RB211-524G/H','747-400, 767',2.19,3.17,4400]
+].map(([maker,name,on,fan,len,kg])=>({maker,name,on,fan,len,kg}));
+function engEnv(e){const tp=e.fan<1;const W=Math.round(e.fan*100+(tp?60:35)),H=Math.round(e.fan*100+(tp?70:55)),L=Math.round(e.len*100+(tp?40:60)),kg=Math.round(e.kg*1.2+(tp?150:500));return{L,W,H,kg}}
+document.getElementById('eng').innerHTML=ENG.map(x=>{const v=engEnv(x);return `<tr><td>${x.maker}</td><td><b>${x.name}</b></td><td>${x.on}</td><td class="num">${x.fan<1?"—":x.fan.toFixed(2)}</td><td class="num">${x.len.toFixed(2)}</td><td class="num">${x.kg.toLocaleString("en-US")}</td><td class="mono">${v.L} × ${v.W} × ${v.H}</td><td class="num">${v.kg.toLocaleString("en-US")}</td></tr>`}).join("");
 </script>
 
 <script defer src="/adeyiq/track.js"></script>

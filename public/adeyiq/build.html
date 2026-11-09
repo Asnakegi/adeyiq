@@ -200,6 +200,17 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 .awbb[aria-pressed="true"]{border-color:var(--link);background:var(--panel2)}
 .awbb .sw{width:14px;height:14px;border-radius:3px}
 .shcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+/* engines panel */
+#engPanel{grid-column:1/-1}
+.engtop{display:grid;grid-template-columns:minmax(0,1.4fr) repeat(4,minmax(0,.6fr));gap:8px;margin-top:10px;align-items:end}
+@media (max-width:760px){.engtop{grid-template-columns:repeat(2,minmax(0,1fr))}.engtop>label:first-child{grid-column:1/-1}}
+.engtop label{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:600;color:var(--muted);min-width:0}
+.engspec{font-size:13px;color:var(--muted);margin:8px 0 0}
+.engspec b{color:var(--fg)}
+.fit td{vertical-align:top;white-space:normal}
+.fit td:first-child{white-space:nowrap;font-weight:600}
+.fit .y{color:var(--ok);font-weight:600}.fit .n{color:var(--bad);font-weight:600}
+.fit .btn{font-size:12px;padding:4px 10px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -228,6 +239,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <button class="btn pri" id="addToggle" type="button" aria-expanded="false" aria-controls="addPanel">＋ Add cargo</button>
   <button class="btn" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
   <button class="btn" id="upBtn" type="button">⬆ Upload file</button><input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden>
+  <button class="btn" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">⚙ Engines</button>
   <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
   <span class="note" id="upMsg" role="status"></span>
 </div>
@@ -256,6 +268,19 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
       <div class="addhd"><b>Cargo</b><div style="display:flex;gap:6px;align-items:center"><button class="btn link" id="clearBtn" type="button">Clear all</button><button class="x" type="button" data-close="listPanel" aria-label="Close">×</button></div></div>
       <p class="note" style="margin:4px 0 0">Pick a pallet or container in “Load on” to place a shipment by hand. “Auto” lets AdeyIQ choose.</p>
       <div class="list" id="cargo"></div>
+    </div>
+    <div class="card" id="engPanel" hidden>
+      <div class="addhd"><b>Engine transport · will it fit?</b><button class="x" type="button" data-close="engPanel" aria-label="Close">×</button></div>
+      <div class="engtop">
+        <label>Engine<select id="engSel"></select></label>
+        <label>In stand L cm<input id="eL" type="number" min="1"></label>
+        <label>W cm<input id="eW" type="number" min="1"></label>
+        <label>H cm<input id="eH" type="number" min="1"></label>
+        <label>Engine + stand kg<input id="eKg" type="number" min="1"></label>
+      </div>
+      <p class="engspec" id="engSpec"></p>
+      <div class="tbl" style="margin-top:8px"><table class="fit"><thead><tr><th>Aircraft</th><th>Result</th><th>Why</th><th></th></tr></thead><tbody id="engFit"></tbody></table></div>
+      <p class="note" style="margin:8px 0 0">Bare-engine size and dry weight are approximate public manufacturer figures. The in-stand size and weight are estimates (the stand adds about 60 cm length, 35 cm width, 55 cm height and 20% + 500 kg). Main-deck engines are planned on a centreline position, limited by the door height. When no aircraft fits, the engine needs a special freighter or a split into modules: check with the engine shop; replace them with the stand drawing from the engine shop. Doors, contours and pallet limits are working values; position and floor limits come from the airline. Planning aid only.</p>
     </div>
 </div>
   <div class="card">
@@ -400,6 +425,8 @@ const R=k=>Number($(k).value)||0;
 /* ---------- cargo rules ---------- */
 function fitsBase(l,w,bl,bw){return (l<=bl&&w<=bw)||(l<=bw&&w<=bl)}
 function category(s){const{l,w,h}=s;if(!l||!w||!h)return'X';
+  /* an engine in its stand may overhang the pallet sides on a main-deck centreline position */
+  if(s.eng&&Math.min(l,w)>244&&Math.min(l,w)<=300&&Math.max(l,w)<=606&&h<=305)return'C';
   if(h<=155&&fitsBase(l,w,150,150))return'A';
   if(h<=160&&(fitsBase(l,w,318,244)||s.ohg>0))return'B';
   if(h<=300&&(fitsBase(l,w,606,244)||s.ohg>0))return'C';return'X'}
@@ -445,7 +472,7 @@ function parseCSV(t){const f=t.split('\n')[0],sep=f.includes('\t')?'\t':(f.split
   for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===sep){row.push(cur);cur=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cur);out.push(row);row=[];cur=''}else cur+=c}
   if(cur!==''||row.length){row.push(cur);out.push(row)}return out}
 function mk(o){const dg=String(o.dg||'').replace(/^class\s*/i,''),known=DG.map(d=>d[0]);
-  return{id:o.id||uid(),awb:o.awb||'',pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:o.nat||'',shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>x.trim().toUpperCase()).filter(Boolean),dg:known.includes(dg)?dg:'',un:String(o.un||'').toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',at:o.at||new Date().toISOString()}}
+  return{id:o.id||uid(),awb:o.awb||'',pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:o.nat||'',shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>x.trim().toUpperCase()).filter(Boolean),dg:known.includes(dg)?dg:'',un:String(o.un||'').toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,at:o.at||new Date().toISOString()}}
 /* manual placement: "Load on" choices */
 function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boolean))].sort();const next=k=>k+':'+(1+Math.max(0,...used.filter(p=>p.startsWith(k)).map(p=>+p.split(':')[1])));
   const label=p=>{const[k,n]=p.split(':');return k==='PMC'?`Manual pallet ${n}`:`Manual container ${n}`};
@@ -1161,9 +1188,10 @@ $('toLoad').onclick=()=>{go(2);savePlan();reportPlan()};$('back').onclick=()=>go
 $('reassign').onclick=()=>{if(!build)return;plan=planLoad(build);render();savePlan();reportPlan();toast(`Rebalanced · index ${fmt(plan.index,1)}`)};
 $('acSel').onchange=()=>{refresh();toast(`Rebuilt for the ${acNow().name}`)};
 document.querySelectorAll('.settings input').forEach(i=>i.addEventListener('change',()=>{PCACHE.clear();refresh()}));
-function panel(id,open){const p=$(id),b=$(id==='addPanel'?'addToggle':'listToggle');p.hidden=!open;b.setAttribute('aria-expanded',String(open));$('drawers').hidden=$('addPanel').hidden&&$('listPanel').hidden;if(open&&id==='addPanel')setTimeout(()=>$('sAwb').focus(),50)}
+function panel(id,open){const p=$(id),b=$({addPanel:'addToggle',listPanel:'listToggle',engPanel:'engToggle'}[id]);p.hidden=!open;b.setAttribute('aria-expanded',String(open));$('drawers').hidden=$('addPanel').hidden&&$('listPanel').hidden&&$('engPanel').hidden;if(open&&id==='engPanel')renderEng();if(open&&id==='addPanel')setTimeout(()=>$('sAwb').focus(),50)}
 $('addToggle').onclick=()=>panel('addPanel',$('addPanel').hidden);
 $('listToggle').onclick=()=>panel('listPanel',$('listPanel').hidden);
+$('engToggle').onclick=()=>panel('engPanel',$('engPanel').hidden);
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>panel(b.dataset.close,false));
 $('moreBtn').onclick=()=>{const m=$('more'),o=m.hidden;m.hidden=!o;$('moreBtn').setAttribute('aria-expanded',String(o));$('moreBtn').textContent=o?'− Less':'+ More'};
 $('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:+$('sWt').value,nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
@@ -1175,6 +1203,58 @@ $('file').onchange=()=>{const f=$('file').files[0];$('file').value='';if(!f)retu
     const nn=notes||[];$('upMsg').textContent=[errs.length?`Skipped: ${errs.slice(0,2).join('; ')}${errs.length>2?' …':''}`:'',nn.length?`Check: ${nn.slice(0,2).join('; ')}${nn.length>2?` … (+${nn.length-2})`:''}`:''].filter(Boolean).join(' · ')};
   if(/\.xlsx?$/i.test(f.name)){if(!window.XLSX){toast('Save the file as CSV and upload again');return}r.onload=()=>{const wb=XLSX.read(r.result,{type:'array'});done(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false}))};r.readAsArrayBuffer(f)}
   else{r.onload=()=>done(parseCSV(String(r.result)));r.readAsText(f)}};
+/* ---------- engines: approximate public figures (fan diameter m, length m, dry weight kg) ---------- */
+const ENG=[
+ ['GE Aerospace / CFM','CFM56-3C','737 Classic',1.52,2.36,1950],['GE Aerospace / CFM','CFM56-5B','A320ceo family',1.735,2.60,2380],['GE Aerospace / CFM','CFM56-7B','737NG',1.55,2.51,2370],
+ ['GE Aerospace / CFM','LEAP-1A','A320neo family',1.98,3.33,3000],['GE Aerospace / CFM','LEAP-1B','737 MAX',1.76,3.15,2780],
+ ['GE Aerospace / CFM','GE90-94B','777-200ER',3.12,7.29,7890],['GE Aerospace / CFM','GE90-115B','777-300ER, 777F',3.25,7.29,8280],['GE Aerospace / CFM','GE9X','777-8/-9 (777X)',3.40,5.69,9630],
+ ['GE Aerospace / CFM','GEnx-1B','787',2.82,4.95,5820],['GE Aerospace / CFM','GEnx-2B','747-8, 747-8F',2.66,4.31,5610],
+ ['GE Aerospace / CFM','CF6-80C2','747-400, 767, A300, MD-11',2.36,4.27,4390],['GE Aerospace / CFM','CF6-80E1','A330ceo',2.44,4.34,5090],
+ ['GE Aerospace / CFM','GP7200 (Engine Alliance)','A380',2.96,4.92,6710],
+ ['Pratt & Whitney','PW1100G-JM','A320neo family',2.06,3.40,2860],['Pratt & Whitney','PW1500G','A220',1.85,3.18,2180],['Pratt & Whitney','V2500-A5 (IAE)','A320ceo family',1.60,3.20,2360],
+ ['Pratt & Whitney','PW4000-94','747-400, 767, A300, MD-11',2.38,3.37,4270],['Pratt & Whitney','PW4000-100','A330ceo',2.54,4.14,5230],['Pratt & Whitney','PW4000-112','777-200/-300',2.84,4.87,7140],
+ ['Pratt & Whitney','PW127M (turboprop)','ATR 72',0.66,2.13,480],['Pratt & Whitney','PW150A (turboprop)','Dash 8-400',0.77,2.42,720],
+ ['Rolls-Royce','Trent 700','A330ceo',2.47,3.91,4790],['Rolls-Royce','Trent 800','777-200/-300',2.80,4.37,5960],['Rolls-Royce','Trent 900','A380',2.95,4.55,6250],
+ ['Rolls-Royce','Trent 1000','787',2.85,4.74,6030],['Rolls-Royce','Trent 7000','A330neo',2.85,4.77,6450],['Rolls-Royce','Trent XWB-84','A350-900',3.00,5.81,7280],['Rolls-Royce','Trent XWB-97','A350-1000',3.00,5.81,7550],
+ ['Rolls-Royce','RB211-524G/H','747-400, 767',2.19,3.17,4400]
+].map(([maker,name,on,fan,len,kg])=>({maker,name,on,fan,len,kg}));
+/* estimated transport envelope: casing over the fan, plus the stand; a turboprop sits on a small cradle */
+function engEnv(e){const tp=e.fan<1;const W=Math.round(e.fan*100+(tp?60:35)),H=Math.round(e.fan*100+(tp?70:55)),L=Math.round(e.len*100+(tp?40:60)),kg=Math.round(e.kg*1.2+(tp?150:500));return{L,W,H,kg}}
+/* cargo doors W×H cm and decks per aircraft (working values, see Aircraft & ULD data) */
+const DECKS={
+ 'B787-8':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],'B787-9':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],'B787-10':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],
+ 'A350-900':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],'A350-1000':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],
+ 'B777-300ER':[{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],'A330-300':[{d:'lower deck',door:[270,169],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],
+ 'B737-800':[{d:'bulk hold',door:[122,84],H:84,base:[300,300],kgFix:3500,u:'loose in the bulk hold'}],'B737-8':[{d:'bulk hold',door:[122,84],H:84,base:[300,300],kgFix:3500,u:'loose in the bulk hold'}],
+ 'A320neo':[{d:'bulk hold',door:[95,77],H:77,base:[200,150],kgFix:1500,u:'loose in the bulk hold'},{d:'lower deck',door:[182,124],H:110,base:[156,153],kg:'rAkh',u:'AKH container'}],
+ 'A321neo':[{d:'bulk hold',door:[95,77],H:77,base:[200,150],kgFix:1500,u:'loose in the bulk hold'},{d:'lower deck',door:[182,124],H:110,base:[156,153],kg:'rAkh',u:'AKH container'}],
+ 'B777F':[{d:'main deck',door:[361,305],H:300,base:[318,244],kg:'rPmcM',u:'PMC main deck',pga:true,clW:300},{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],
+ 'B747-8F':[{d:'main deck',door:[340,305],H:300,base:[318,244],kg:'rPmcM',u:'PMC main deck',pga:true,clW:300},{d:'lower deck',door:[269,170],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],
+ 'B767-300F':[{d:'main deck',door:[340,259],H:244,base:[318,244],kg:'rPmcM',u:'PMC main deck',pga:true,clW:270},{d:'lower deck',door:[340,175],H:160,base:[318,244],kg:'rPmcL',u:'PMC lower deck'}],
+ 'B737-800BCF':[{d:'main deck',door:[351,218],H:208,base:[318,224],kg:'rPagN',u:'737 freighter pallet'}]};
+function engFit(ac,v){const out=[];for(const d of DECKS[ac.id]||[]){const why=[],dw=d.door[0],dh=d.door[1],cl=d.d==='main deck',hMax=cl?dh:Math.min(d.H,dh);
+    if(v.H>hMax)why.push(`${v.H} cm high, above the ${cl||d.H>=dh?dh+' cm door height':d.H+' cm '+d.d+' contour'}`);
+    if(Math.min(v.L,v.W)>dw)why.push(`${Math.min(v.L,v.W)} cm wide, wider than the ${dw} cm door`);
+    const nar=Math.min(v.L,v.W),wide=d.clW&&nar>244&&nar<=d.clW,lg=Math.max(v.L,v.W),pmc=fitsBase(v.L,v.W,d.base[0],d.base[1])||(wide&&lg<=d.base[0]),pga=d.pga&&(fitsBase(v.L,v.W,606,244)||(wide&&lg<=606));
+    if(!pmc&&!pga)why.push(`${v.L}×${v.W} cm footprint, larger than ${d.pga?'a 20 ft pallet (606×244 cm)'+(d.clW?' even with side overhang up to '+d.clW+' cm':''):d.u+' ('+d.base[0]+'×'+d.base[1]+' cm)'}`);
+    const lim=d.kgFix||(pmc?R(d.kg):R('rPga'));if(v.kg>lim)why.push(`${fmt(v.kg)} kg, above the ${fmt(lim)} kg ${d.kgFix?d.d:pmc?d.u:'PGA'} limit`);
+    out.push({d,ok:!why.length,why,uld:(pmc?d.u:pga?'PGA 20 ft pallet, '+d.d:d.u)+(cl&&(v.H>d.H||wide)?' · centreline position'+(v.H>d.H?' (above the '+d.H+' cm side contour)':'')+(wide?` · overhangs the pallet sides (${nar} cm wide), confirm with the airline`:''):'')})}
+  const ok=out.find(o=>o.ok);return ok?{ok:true,txt:`Fits on a ${ok.uld}`,o:ok}:{ok:false,txt:out.length?out.map(o=>`${o.d.d}: ${o.why.join('; ')}`).join(' · '):'no data for this aircraft'}}
+function engCur(){return ENG[+$('engSel').value]||ENG[0]}
+function engVals(){return{L:+$('eL').value||0,W:+$('eW').value||0,H:+$('eH').value||0,kg:+$('eKg').value||0}}
+function engPick(){const e=engCur(),v=engEnv(e);$('eL').value=v.L;$('eW').value=v.W;$('eH').value=v.H;$('eKg').value=v.kg;renderEng()}
+function renderEng(){const e=engCur(),v=engVals();
+  $('engSpec').innerHTML=`<b>${esc(e.name)}</b> · ${esc(e.maker)} · on ${esc(e.on)} · bare engine about ${e.fan<1?'':'fan '+e.fan.toFixed(2)+' m, '}length ${e.len.toFixed(2)} m, dry ${fmt(e.kg)} kg`;
+  const rows=AC.map(ac=>({ac,f:engFit(ac,v)})).sort((a,b)=>b.f.ok-a.f.ok);
+  $('engFit').innerHTML=rows.map(({ac,f})=>`<tr><td>${esc(ac.name)}</td><td class="${f.ok?'y':'n'}">${f.ok?'✓ Fits':'✗ No'}</td><td>${esc(f.txt)}</td><td>${f.ok?`<button class="btn sm" type="button" data-eng="${ac.id}">Load it →</button>`:''}</td></tr>`).join('');
+  document.querySelectorAll('[data-eng]').forEach(b=>b.onclick=()=>engLoad(b.dataset.eng))}
+function engLoad(acId){const e=engCur(),v=engVals();$('acSel').value=acId;
+  addShips([mk({awb:'',pcs:1,l:v.L,w:v.W,h:v.H,wt:v.kg,nat:e.name+' engine in stand',shc:'HEA',excl:true,eng:true})].map(s=>(s.awb=nextNoAwb(),s)));
+  panel('engPanel',false);setTimeout(()=>{refresh();const u=build&&build.ulds.find(x=>x.items.some(i=>/engine in stand/.test(i.s.nat)&&i.s.l===v.L&&i.s.wt===v.kg));if(u)selU=u.id;go(2);
+    const f=u&&findUld(u.id);if(f)select2(f.sl.key,f.u.side);savePlan();reportPlan();toast(`${e.name} loaded on the ${acNow().name}`)},120)}
+const makers=[...new Set(ENG.map(e=>e.maker))];
+$('engSel').innerHTML=makers.map(m=>`<optgroup label="${esc(m)}">${ENG.map((e,i)=>e.maker===m?`<option value="${i}">${esc(e.name)} · ${esc(e.on)}</option>`:'').join('')}</optgroup>`).join('');
+$('engSel').value=String(ENG.findIndex(e=>e.name==='GEnx-1B'));$('engSel').onchange=engPick;['eL','eW','eH','eKg'].forEach(id=>$(id).addEventListener('input',renderEng));engPick();
 $('sampleBtn').onclick=()=>{const S=[['071-18402213',10,120,80,90,1450,'Auto parts','GEN','','',0,0],['071-18405526',30,100,40,30,620,'Fresh flowers','PEF,COL','','',0,0],['071-18410031',40,60,40,40,1200,'Coffee','EAT','','',0,0],['071-55201184',60,50,40,30,380,'E-commerce parcels','ECC','','',0,0],['071-18417745',12,80,60,50,410,'Electronics','VUN','','',0,0],['071-18420962',8,50,40,40,160,'Paint','RFL','3','UN1263',0,0],['071-18433310',6,60,40,40,210,'Pool chlorine','ROX','5.1','UN2880',0,0],['071-18440015',4,60,40,40,120,'Lithium-ion batteries','RLI,CAO','9','UN3480',0,0],['071-18451120',5,50,40,40,150,'Pesticide','RPB','6.1','UN2588',0,0],['071-18462277',1,290,220,150,1250,'Machinery','HEA','','',1,0],['071-18473390',1,300,230,210,3800,'Generator','HEA','','',1,0],['071-18480012',2,380,40,40,900,'Steel pipe','HEA','','',1,40],['071-18491104',1,340,230,140,1800,'Machinery crate (overhang)','HEA','','',1,30],['071-18502215',1,360,220,120,950,'Boat (overhang)','','','',1,60],
   ['071-18513326',20,80,60,60,700,'Textiles','GEN','','',0,0,'PMC:1'],['071-18524430',18,60,50,50,520,'Spare parts','GEN','','',0,0,'PMC:1']]
   .map(r=>mk({awb:r[0],pcs:r[1],l:r[2],w:r[3],h:r[4],wt:r[5],nat:r[6],shc:r[7],dg:r[8],un:r[9],excl:!!r[10],ohg:r[11],pin:r[12]||''}));addShips(S.filter(s=>!ships.some(x=>x.awb===s.awb)));toast('Sample cargo added, including overhang and a hand-built pallet')};
