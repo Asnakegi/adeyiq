@@ -672,7 +672,8 @@ function packItems(type,itemsIn,ohgFlag){
     const b={p,x0:best.x,y0:best.y,z0:best.z,x1:best.x+best.a,y1:best.y+best.d,z1:best.z+p.h,v:(placed.length*37%13)/100};placed.push(b);
     addEp(b.x1,b.y0);addEp(b.x0,b.y1);addEp(bounds(T.prof,b.z0)[0],b.y1);addEp(b.x0,b.y0)}
   if(u.ohg||u.type==='PGA'){let zz=placed.reduce((m,b)=>Math.max(m,b.z1),0);left.splice(0).forEach(p=>{const[a,d]=p.l>=p.w?[p.w,p.l]:[p.l,p.w];placed.push({p,x0:0,y0:-Math.max(0,(d-T.Dp)/2),z0:zz,x1:a,y1:-Math.max(0,(d-T.Dp)/2)+d,z1:zz+p.h,v:.05});zz+=p.h})}
-  return{boxes:placed,notShown:total-placed.length,top:placed.reduce((m,b)=>Math.max(m,b.z1),0)};
+  /* notShown = pieces that really did not fit; notDrawn = pieces beyond the 160 the 3D view draws (checked by weight and volume) */
+  return{boxes:placed,notShown:left.length,notDrawn:total-pcs.length,top:placed.reduce((m,b)=>Math.max(m,b.z1),0)};
 }
 let yaw=-.5,spinOn=!RM,hoverI=null,drag=null,spinId=null;
 function drawIso(){drawUldTo($('iso'),build&&build.ulds.find(x=>x.id===selU),yaw,hoverI,null,0,null,ships.length?'No ULD on this aircraft yet':'Add cargo to see the ULD build-up')}
@@ -702,7 +703,7 @@ function drawUldTo(svg,u,yw,hovI,shownN,dz,hi,msg){
   const ws=`fill="none" stroke="${cc}" stroke-width="1.7" stroke-dasharray="6 4" opacity=".95"`;
   [0,T.Dp].forEach(y=>{o+=`<polygon points="${T.prof.map(([x,z])=>P(x,y,z)).join(' ')}" ${ws}/>`});
   T.prof.forEach(([x,z])=>{const[a1,a2]=P(x,0,z).split(','),[b1,b2]=P(x,T.Dp,z).split(',');o+=`<line x1="${a1}" y1="${a2}" x2="${b1}" y2="${b2}" ${ws}/>`});
-  const badge=over>0?`✕ Above the contour by ${over} cm`:pk.notShown>0?`✕ ${pk.notShown} pieces do not fit the contour`:ovh>0?`${u.ohg?'⚠ Declared overhang':'✕ Overhang'}: ${ovh} cm beyond the pallet edge`:`✓ Clears contour: ${Math.max(0,Math.round(T.H-pk.top))} cm headroom remaining`;
+  const badge=over>0?`✕ Above the contour by ${over} cm`:pk.notShown>0?`✕ ${pk.notShown} pieces do not fit the contour`:ovh>0?`${u.ohg?'⚠ Declared overhang':'✕ Overhang'}: ${ovh} cm beyond the pallet edge`:(pk.notDrawn>0?`✓ Fits by weight and volume · ${pk.boxes.length} of ${pk.boxes.length+pk.notDrawn} pcs drawn`:`✓ Clears contour: ${Math.max(0,Math.round(T.H-pk.top))} cm headroom remaining`);
   const[bx0,by0]=P(T.W/2,T.Dp/2,T.H).split(',').map(Number),bw=badge.length*6.3+20,bxl=Math.max(6,Math.min(VW-bw-6,bx0-bw/2)),byt=Math.max(6,by0-34);
   o+=`<g aria-hidden="true"><rect x="${bxl.toFixed(1)}" y="${byt.toFixed(1)}" width="${bw.toFixed(1)}" height="22" rx="11" fill="${cc}"/><text x="${(bxl+bw/2).toFixed(1)}" y="${(byt+15).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#fff">${badge}</text></g>`;
   o+=`<text x="12" y="${VH-12}" font-family="IBM Plex Sans" font-size="12" fill="${cc}">— ${T.contour}</text>`;
@@ -748,11 +749,11 @@ function renderInfo(){
    ${u.warn&&u.warn.length?`<div class="warnline">✋ Check: ${u.warn.map(esc).join('; ')}.</div>`:''}
    <div class="kv" style="margin-top:12px"><span>Volume fill</span><span><b>${pv<1&&pv>0?pv.toFixed(1):fmt(pv)}%</b> (${fmt(u.m3,1)} / ${fmt(u.cap,1)} m³)</span></div><div class="bar" role="img" aria-label="Volume fill ${fmt(pv)}%"><i class="${pv>100?'over':pv>90?'hi':''}" style="width:${Math.min(100,pv)}%"></i></div>
    <div class="kv"><span>Max weight</span><span><b>${pw<1&&pw>0?pw.toFixed(1):fmt(pw)}%</b> (${fmt(u.kg)} / ${fmt(u.max)} kg)</span></div><div class="bar" role="img" aria-label="Weight ${fmt(pw)}% of maximum"><i class="${pw>100?'over':pw>90?'hi':''}" style="width:${Math.min(100,pw)}%"></i></div>
-   <div class="${hOk?'okline':'err'}">${hOk?'✓':'⚠'} Height ${fmt(pk.top)} cm within ${esc(T.contour)}</div>
+   <div class="${hOk?'okline':'err'}">${hOk?'✓':'⚠'} ${pk.notDrawn>0?`Fits the ${esc(T.contour)} by usable volume (3D height shown for the first ${pk.boxes.length} pieces)`:`Height ${fmt(pk.top)} cm within ${esc(T.contour)}`}</div>
    ${u.type==='PGA'?'<div class="note" style="margin-top:4px">Long cargo on a 20 ft pallet (or two connected pallets) on the main deck.</div>':''}
    <div style="margin-top:12px">${awbs.map(s=>{const it=u.items.find(i=>i.s===s),ch=charge(s,u);return `<div class="awb"><span class="sw" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><b style="font-family:var(--mono);font-size:12px">${esc(s.awb)}</b> · ${esc(s.nat)}<br><span class="note">${it.p}/${s.pcs} pcs · ${fmt(s.wt/s.pcs*it.p)} kg${s.shc.length?' · '+s.shc.map(c=>`<span class="chip">${esc(c)}</span>`).join(''):''}${s.dg?`<span class="chip dg">DG ${esc(s.dg)} ${esc(s.un)}</span>`:''}</span></div><span class="note" title="Charge basis: ${esc(ch.why)}" style="text-align:right">charge<br><b>${fmt(ch.kg)}</b></span></div>`}).join('')}</div>
    ${apart.length?`<div class="warnline">Kept apart: ${apart.map(x=>`${esc(x.a.awb.slice(-4))} / ${esc(x.b.awb.slice(-4))}, ${esc(x.c)}`).join('; ')}.</div>`:''}
-   ${pk.notShown>0?`<p class="note">${pk.notShown} pieces are not drawn in the 3D view; they are counted in the weights.</p>`:''}`;
+   ${pk.notDrawn>0?`<p class="note">The 3D view draws the first ${pk.boxes.length} pieces. The other ${pk.notDrawn} are checked by weight and usable volume, and counted in every total.</p>`:''}${pk.notShown>0?`<p class="note" style="color:var(--bad)">${pk.notShown} pieces could not be placed inside the contour.</p>`:''}`;
 }
 /* ===================== step 2 · load aircraft, same structure as the AdeyIQ hold view ===================== */
 const NS='http://www.w3.org/2000/svg';
