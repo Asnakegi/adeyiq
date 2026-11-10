@@ -224,6 +224,19 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 .selbar{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;padding:5px 10px;border-radius:999px;background:rgba(255,210,31,.18);border:1px solid var(--accent)}
 .selbar b{font-family:var(--mono)}
 .mergeline{font-size:12px;color:var(--muted);margin-top:8px;padding:7px 9px;border-radius:8px;background:var(--panel2)}
+/* feedback questionnaire */
+#fbDlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
+#fbDlg::backdrop{background:rgba(10,37,64,.55)}
+#fbDlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.fbq{display:flex;flex-direction:column;gap:6px}
+.fbq>b{font-size:14px}
+.scale{display:flex;gap:6px;flex-wrap:wrap}
+.scale button{font:inherit;font-size:13px;min-width:38px;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer}
+.scale button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.scale button:focus-visible{outline:2px solid var(--link);outline-offset:1px}
+.scl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+#fbDlg textarea{font:inherit;font-size:14px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%;resize:vertical;min-height:60px}
+.nudge{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));max-width:340px;background:var(--panel);border:1px solid var(--accent);border-radius:14px;padding:12px 14px;box-shadow:0 12px 30px -8px rgba(10,37,64,.4);z-index:21;display:flex;flex-direction:column;gap:8px;font-size:14px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -236,6 +249,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <div><h1>Build your cargo</h1><div class="sub">AdeyIQ · build ULDs, then load the aircraft</div></div>
   <div class="hright">
     <span class="saved" id="saved" aria-live="polite">✓ Saved</span>
+    <button class="btn ghost" id="rateBtn" type="button">★ Rate AdeyIQ</button>
     <select id="acSel" aria-label="Aircraft"></select>
     <a class="iconbtn" href="/aircraft-data" title="Aircraft &amp; ULD data" aria-label="Aircraft and ULD data">✈</a>
   </div>
@@ -393,6 +407,18 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 </details>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
+<dialog id="fbDlg" aria-labelledby="fbT">
+  <form id="fbForm" method="dialog" novalidate>
+    <div class="addhd"><h2 id="fbT">How did AdeyIQ do?</h2><button class="x" type="button" id="fbX" aria-label="Close">×</button></div>
+    <p class="note" style="margin:-6px 0 0">Five quick questions, about 30 seconds. Your answers help us make the build-up match real ramp work.</p>
+    <div id="fbQs"></div>
+    <label class="fbq"><b>Your role (optional)</b><select id="fbRole" style="width:auto"><option value="">Choose…</option><option>Build-up / ramp</option><option>Load control</option><option>Cargo sales</option><option>Forwarder / GSA</option><option>Management</option><option>Other</option></select></label>
+    <label class="fbq"><b>Anything we should fix or add? (optional)</b><textarea id="fbC" maxlength="150" placeholder="For example: AKE builds look lighter than ours"></textarea></label>
+    <span class="err" id="fbErr" role="alert"></span>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="fbLater">Not now</button><button class="btn pri" type="submit" id="fbSend">Send feedback</button></div>
+  </form>
+</dialog>
+<div class="nudge" id="fbNudge" hidden role="status"><span>How close was this build to what your team builds on the ground? Tell us in 30 seconds.</span><span style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sm" type="button" id="nudgeNo">Not now</button><button class="btn pri sm" type="button" id="nudgeYes">★ Rate</button></span></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -1269,7 +1295,7 @@ $('spin').onclick=()=>{spinOn=!spinOn;$('spin').setAttribute('aria-pressed',Stri
 $('flagBtn').onclick=()=>{const f=$('flags');f.hidden=!f.hidden;$('flagBtn').setAttribute('aria-expanded',String(!f.hidden))};
 function go(n){$('st1').setAttribute('aria-selected',String(n===1));$('st2').setAttribute('aria-selected',String(n===2));$('p1').hidden=n!==1;$('p2').hidden=n!==2;window.scrollTo({top:0,behavior:'smooth'})}
 $('st1').onclick=()=>go(1);$('st2').onclick=()=>{if(!build){toast('Add cargo first');return}go(2);savePlan();reportPlan()};
-$('toLoad').onclick=()=>{go(2);savePlan();reportPlan()};$('back').onclick=()=>go(1);
+$('toLoad').onclick=()=>{go(2);savePlan();reportPlan();fbNudgeLater()};$('back').onclick=()=>go(1);
 $('reassign').onclick=()=>{if(!build)return;plan=planLoad(build);render();savePlan();reportPlan();toast(`Rebalanced · index ${fmt(plan.index,1)}`)};
 $('acSel').onchange=()=>{refresh();toast(`Rebuilt for the ${acNow().name}`)};
 document.querySelectorAll('.settings input').forEach(i=>i.addEventListener('change',()=>{PCACHE.clear();refresh()}));
@@ -1369,6 +1395,30 @@ $('sampleBtn').onclick=()=>{const S=[['071-18402213',10,120,80,90,1450,'Auto par
   ['071-18513326',20,80,60,60,700,'Textiles','GEN','','',0,0,'PMC:1'],['071-18524430',18,60,50,50,520,'Spare parts','GEN','','',0,0,'PMC:1']]
   .map(r=>mk({awb:r[0],pcs:r[1],l:r[2],w:r[3],h:r[4],wt:r[5],nat:r[6],shc:r[7],dg:r[8],un:r[9],excl:!!r[10],ohg:r[11],pin:r[12]||''}));addShips(S.filter(s=>!ships.some(x=>x.awb===s.awb)));toast('Sample cargo added, including overhang and a hand-built pallet')};
 $('clearBtn').onclick=async()=>{if(!ships.length)return;report('Shipments!A1',ships.map(s=>shipRow(s,'deleted')));for(const id of ships.map(s=>s.id))await delShip(id,true);refresh()};
+/* ---------- feedback: five questions → Google Sheet (Usage rows with event "feedback", laid out in the Feedback tab) ---------- */
+const FBQ=[{k:'q1',t:'1. Overall, how satisfied are you with the Cargo Builder?',o:[1,2,3,4,5],lo:'Not satisfied',hi:'Very satisfied'},
+ {k:'q2',t:'2. Compared with a real build-up on the ground, the system builds…',o:[[-2,'Much less'],[-1,'A bit less'],[0,'About right'],[1,'A bit more'],[2,'Much more']]},
+ {k:'q3',t:'3. How accurate are the contour, weight and DG checks?',o:[1,2,3,4,5],lo:'Not accurate',hi:'Very accurate'},
+ {k:'q4',t:'4. How easy was it to add or upload your cargo?',o:[1,2,3,4,5],lo:'Very hard',hi:'Very easy'},
+ {k:'q5',t:'5. How likely are you to recommend AdeyIQ to a colleague?',o:[0,1,2,3,4,5,6,7,8,9,10],lo:'Not likely',hi:'Very likely'}];
+const fbA={};
+$('fbQs').innerHTML=FBQ.map(q=>`<div class="fbq" role="group" aria-label="${esc(q.t)}"><b>${esc(q.t)}</b><div class="scale">${q.o.map(o=>{const[v,l]=Array.isArray(o)?o:[o,String(o)];return `<button type="button" data-q="${q.k}" data-v="${v}" aria-pressed="false">${esc(l)}</button>`}).join('')}</div>${q.lo?`<div class="scl"><span>${q.lo}</span><span>${q.hi}</span></div>`:''}</div>`).join('<div style="height:10px"></div>');
+$('fbQs').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{fbA[b.dataset.q]=+b.dataset.v;$('fbQs').querySelectorAll(`[data-q="${b.dataset.q}"]`).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('fbErr').textContent=''});
+const fbVid=()=>{try{let v=localStorage.getItem('adeyiq-vid');if(!v){v=Math.random().toString(36).slice(2,12);localStorage.setItem('adeyiq-vid',v)}return v}catch(e){return'anon'}};
+const fbStore=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}};
+function openFb(){$('fbNudge').hidden=true;$('fbErr').textContent='';const d=$('fbDlg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
+function closeFb(){const d=$('fbDlg');if(d.close)d.close();else d.removeAttribute('open')}
+$('rateBtn').onclick=openFb;$('fbX').onclick=closeFb;$('fbLater').onclick=closeFb;
+$('fbForm').addEventListener('submit',e=>{e.preventDefault();const miss=FBQ.filter(q=>fbA[q.k]===undefined);if(miss.length){$('fbErr').textContent='Please answer question '+miss.map(q=>q.k.slice(1)).join(', ')+'.';return}
+  const c=$('fbC').value.replace(/[|\n\r]+/g,' / ').trim().slice(0,150),detail=FBQ.map(q=>q.k+'='+fbA[q.k]).join('|')+'|role='+$('fbRole').value+'|c='+c;
+  const dev=innerWidth<768?'phone':innerWidth<1100?'tablet':'desktop',acId=$('acSel').value;
+  if(mcp)report('Usage!A1',[[now(),'feedback','claude.ai builder',fbVid(),'','','','',acId,detail,dev,'']]);
+  else{try{fetch('/api/track',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({event:'feedback',page:location.pathname,visitor:fbVid(),aircraft:acId,detail,w:innerWidth}),keepalive:true}).catch(()=>{})}catch(err){}}
+  fbStore('adeyiq-fb-done',new Date().toISOString());closeFb();Object.keys(fbA).forEach(k=>delete fbA[k]);$('fbForm').reset();$('fbQs').querySelectorAll('[data-q]').forEach(x=>x.setAttribute('aria-pressed','false'));
+  toast('Thank you, your feedback was sent')});
+/* one gentle prompt, a few seconds after the first Load to aircraft, never again once answered or dismissed */
+function fbNudgeLater(){if(fbStore('adeyiq-fb-done')||fbStore('adeyiq-fb-asked'))return;fbStore('adeyiq-fb-asked','1');setTimeout(()=>{if(!$('fbDlg').open)$('fbNudge').hidden=false},6000)}
+$('nudgeYes').onclick=openFb;$('nudgeNo').onclick=()=>{$('fbNudge').hidden=true};
 refresh();initStore().then(()=>{if(!ships.length)panel('addPanel',true)});spinId=requestAnimationFrame(spinTick);
 })();
 </script>

@@ -13,6 +13,7 @@ const EVENTS = new Set([
   "loading animation",
   "replay build-up",
   "request access opened",
+  "feedback",
 ]);
 const BOT = /bot|crawl|spider|slurp|preview|headless|lighthouse|pingdom|monitor/i;
 
