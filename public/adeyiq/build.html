@@ -528,8 +528,6 @@ function buildUlds(){
   /* how many more pieces of s physically fit in u: weight, volume, then a real 3D stacking check inside the contour */
   function fitCount(u,s,left){const kp=s.wt/s.pcs,mp=s.l*s.w*s.h/1e6;let k=Math.min(left,Math.floor((u.max-u.kg)/kp+1e-9),Math.floor((u.cap-u.m3)/mp+1e-9));
     if(k<=0)return 0;
-    /* very large builds: the 3D check draws at most 160 pieces, so weight and usable volume decide */
-    if(u.items.reduce((t,i)=>t+i.p,0)+k>150){const one=packItems(u.type,[{s,p:1}]);return one.notShown===0?k:0}
     while(k>0){const items=u.items.map(i=>({s:i.s,p:i.p}));const it=items.find(i=>i.s===s);if(it)it.p+=k;else items.push({s,p:k});if(packItems(u.type,items).notShown===0)return k;k=k>8?Math.floor(k*.75):k-1}return 0}
   const blank=t=>({type:t,items:[],kg:0,m3:0,max:R(ULD[t].maxKey),cap:ULD[t].vol*eff,h:ULD[t].h});
   /* space a ULD type would use for the remaining pieces: ULDs needed × usable volume (5 AKE = 21.5 m³ loses to 1 PMC = 11.5 m³) */
@@ -652,7 +650,10 @@ function packItems(type,itemsIn,ohgFlag){
   let pcs=[];u.items.forEach(i=>{for(let k=0;k<i.p;k++)pcs.push({s:i.s,l:i.s.l,w:i.s.w,h:Math.min(i.s.h,T.H),kg:i.s.wt/i.s.pcs})});
   /* Support-aware packing: every box rests on the base or on boxes below it (at least 85% of its footprint supported),
      inside the contour, filling the lowest, rearmost, leftmost free spot first. No floating boxes, no hidden holes. */
-  pcs.sort((a,b)=>b.l*b.w-a.l*a.w||b.h-a.h||b.kg-a.kg);const total=pcs.length;pcs=pcs.slice(0,160);
+  const total=pcs.length;
+  /* big builds (over 160 pieces): fast layer-by-layer packing so every piece is drawn */
+  if(total>160){const r=layerPack(T,pcs.slice(0,2000));if(u.ohg||u.type==='PGA')overhangRest(T,r.placed,r.left);return{boxes:r.placed,notShown:r.left.length,notDrawn:Math.max(0,total-2000),top:r.placed.reduce((m,b)=>Math.max(m,b.z1),0)}}
+  pcs.sort((a,b)=>b.l*b.w-a.l*a.w||b.h-a.h||b.kg-a.kg);
   const placed=[],left=[],E=.5,SUP=.85;
   const eps=[{x:bounds(T.prof,0)[0],y:0}],epKey=new Set(['0|0']);
   const addEp=(x,y)=>{if(y>=T.Dp-E)return;const k=Math.round(x)+'|'+Math.round(y);if(!epKey.has(k)){epKey.add(k);eps.push({x,y})}};
@@ -671,10 +672,32 @@ function packItems(type,itemsIn,ohgFlag){
     if(!best){left.push(p);continue}
     const b={p,x0:best.x,y0:best.y,z0:best.z,x1:best.x+best.a,y1:best.y+best.d,z1:best.z+p.h,v:(placed.length*37%13)/100};placed.push(b);
     addEp(b.x1,b.y0);addEp(b.x0,b.y1);addEp(bounds(T.prof,b.z0)[0],b.y1);addEp(b.x0,b.y0)}
-  if(u.ohg||u.type==='PGA'){let zz=placed.reduce((m,b)=>Math.max(m,b.z1),0);left.splice(0).forEach(p=>{const[a,d]=p.l>=p.w?[p.w,p.l]:[p.l,p.w];placed.push({p,x0:0,y0:-Math.max(0,(d-T.Dp)/2),z0:zz,x1:a,y1:-Math.max(0,(d-T.Dp)/2)+d,z1:zz+p.h,v:.05});zz+=p.h})}
-  /* notShown = pieces that really did not fit; notDrawn = pieces beyond the 160 the 3D view draws (checked by weight and volume) */
-  return{boxes:placed,notShown:left.length,notDrawn:total-pcs.length,top:placed.reduce((m,b)=>Math.max(m,b.z1),0)};
+  if(u.ohg||u.type==='PGA')overhangRest(T,placed,left);
+  return{boxes:placed,notShown:left.length,notDrawn:0,top:placed.reduce((m,b)=>Math.max(m,b.z1),0)};
 }
+/* pieces that only fit with a declared overhang (or on a PGA) are stacked on top, overhanging the pallet edge */
+function overhangRest(T,placed,left){let zz=placed.reduce((m,b)=>Math.max(m,b.z1),0);left.splice(0).forEach(p=>{const[a,d]=p.l>=p.w?[p.w,p.l]:[p.l,p.w];placed.push({p,x0:0,y0:-Math.max(0,(d-T.Dp)/2),z0:zz,x1:a,y1:-Math.max(0,(d-T.Dp)/2)+d,z1:zz+p.h,v:.05});zz+=p.h})}
+/* layer packing: pieces of one height fill rows across the floor inside the contour; the next layer only uses the area
+   fully covered by the layer below, so every piece rests on cargo or on the pallet. Fast enough for hundreds of pieces. */
+function layerPack(T,pcs){const placed=[],left=[];let rest=pcs.slice().sort((a,b)=>b.h-a.h||b.l*b.w-a.l*a.w);
+  let z=0,cLo=-1e9,cHi=1e9,yMax=T.Dp,guard=0;
+  while(rest.length&&guard++<400){
+    const lh=rest[0].h,layer=rest.filter(p=>Math.abs(p.h-lh)<0.5),others=rest.filter(p=>Math.abs(p.h-lh)>=0.5);
+    if(z+lh>T.H+0.5){left.push(...rest);break}
+    const b0=bounds(T.prof,z),b1=bounds(T.prof,z+lh),lo=Math.max(b0[0],b1[0],cLo),hi=Math.min(b0[1],b1[1],cHi);
+    const used=new Array(layer.length).fill(false),rows=[];let y=0,n=0;
+    while(y<yMax-0.5){let x=lo,rowD=0,rowN=0,mixed=false;
+      for(let j=0;j<layer.length;j++){if(used[j])continue;const p=layer[j];
+        let o=[[p.l,p.w],[p.w,p.l]].filter(([a,d])=>x+a<=hi+0.5&&y+d<=yMax+0.5&&(!rowD||d<=rowD+0.5));if(!o.length)continue;
+        if(!rowD){const fit=([a,d])=>Math.floor((hi-lo)/a)*Math.floor((yMax-y)/d);o.sort((A,B)=>fit(B)-fit(A))}else o.sort((A,B)=>Math.abs(A[1]-rowD)-Math.abs(B[1]-rowD));
+        const[a,d]=o[0];if(rowD&&Math.abs(d-rowD)>0.5)mixed=true;rowD=Math.max(rowD,d);
+        placed.push({p,x0:x,y0:y,z0:z,x1:x+a,y1:y+d,z1:z+lh,v:(placed.length*37%13)/100});used[j]=true;x+=a;rowN++;n++}
+      if(!rowN)break;rows.push({y0:y,y1:y+rowD,end:x,mixed});y+=rowD}
+    /* next layer: complete rows only, so a short last row does not narrow it */
+    const maxEnd=Math.max(lo,...rows.map(r=>r.end));let fullY=0,minEnd=hi;for(const r of rows){if(r.mixed||r.end<maxEnd-0.5||r.y0!==fullY)break;fullY=r.y1;minEnd=Math.min(minEnd,r.end)}
+    if(!n){left.push(...layer);rest=others;continue}
+    rest=[...others,...layer.filter((p,j)=>!used[j])];cLo=lo;cHi=minEnd;yMax=fullY;z+=lh;if(yMax<1||cHi-cLo<1){left.push(...rest);break}}
+  return{placed,left}}
 let yaw=-.5,spinOn=!RM,hoverI=null,drag=null,spinId=null;
 function drawIso(){drawUldTo($('iso'),build&&build.ulds.find(x=>x.id===selU),yaw,hoverI,null,0,null,ships.length?'No ULD on this aircraft yet':'Add cargo to see the ULD build-up')}
 /* draws one ULD in 3D; shownN/dz animate the build-up (last piece drops in), hi dims every AWB but one */
