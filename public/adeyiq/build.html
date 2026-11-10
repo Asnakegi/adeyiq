@@ -221,6 +221,9 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 .fit td:first-child{white-space:nowrap;font-weight:600}
 .fit .y{color:var(--ok);font-weight:600}.fit .n{color:var(--bad);font-weight:600}
 .fit .btn{font-size:12px;padding:4px 10px}
+.selbar{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;padding:5px 10px;border-radius:999px;background:rgba(255,210,31,.18);border:1px solid var(--accent)}
+.selbar b{font-family:var(--mono)}
+.mergeline{font-size:12px;color:var(--muted);margin-top:8px;padding:7px 9px;border-radius:8px;background:var(--panel2)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -301,7 +304,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <div class="stage">
       <div>
         <div class="isoWrap"><svg id="iso" viewBox="0 0 640 420" tabindex="0" role="img" aria-label="3D view of the selected ULD with its pieces. Drag or use the arrow keys to turn it."></svg><div class="tip" id="tip" hidden></div></div>
-        <div class="isobar"><button class="btn sm" id="spin" type="button" aria-pressed="true">Auto-rotate</button><span class="note">Drag to turn · hover a box for its AWB</span></div>
+        <div class="isobar"><button class="btn sm" id="spin" type="button" aria-pressed="true">Auto-rotate</button><span class="note">Drag to turn · click a box to select it · Ctrl or Shift + click to add more</span><span class="selbar" id="selBar" hidden></span></div>
       </div>
       <div class="info" id="info"></div>
     </div>
@@ -588,10 +591,23 @@ function buildUlds(){
     if(s.excl||s.ohg>0){const ok=types.filter(t=>!(ULD[t].half&&s.ohg>0)),fit=ok.find(t=>packItems(t,[{s,p:s.pcs}],s.ohg).notShown===0);
       if(!fit)return offload.push({s,why:`${s.l}×${s.w}×${s.h} cm does not fit inside the ${ac.name} ULD contours${g==='freighter'?' (needs a centreline main-deck position)':''}`});const u=newUld(fit);u.excl=true;u.ohg=s.ohg;add(u,s,s.pcs);return}
     place(s,types)});
+  /* consolidation: try to empty each automatic ULD (smallest first) into spare space in the others;
+     the move is kept only when every piece finds room (weight, volume, 3D contour, DG segregation) */
+  const merged=[],autoU=u=>!u.excl&&!u.manual;
+  for(let pass=0;pass<2;pass++){let changed=false;
+    for(const src of ulds.filter(autoU).sort((a,b)=>a.m3-b.m3)){
+      const targets=ulds.filter(t=>t!==src&&autoU(t));if(!targets.length)continue;
+      const snap=targets.map(t=>({t,items:t.items.map(i=>({s:i.s,p:i.p})),kg:t.kg,m3:t.m3,flags:new Set(t.flags)}));let ok=true;
+      for(const it of src.items){let left=it.p;
+        for(const t of targets.sort((a,b)=>(b.cap-b.m3)-(a.cap-a.m3))){if(left<=0)break;if(t.h<it.s.h||!t.items.every(i=>i.s===it.s||!conflict(i.s,it.s)))continue;const k=fitCount(t,it.s,left);if(k>0){add(t,it.s,k);left-=k}}
+        if(left>0){ok=false;break}}
+      if(ok){ulds.splice(ulds.indexOf(src),1);merged.push(src.id);changed=true}
+      else snap.forEach(x=>{x.t.items=x.items;x.t.kg=x.kg;x.t.m3=x.m3;x.t.flags=x.flags})}
+    if(!changed)break}
   ships.forEach((a,i)=>ships.slice(i+1).forEach(b=>{const c=conflict(a,b);if(c)apart.push({a,b,c})}));
   let bulk=null;if(g==='narrow'){bulk=Object.entries(ac.bulkHolds).map(([k,v])=>({k,m3:v.m3*eff,kg:v.kg,used:0,usedKg:0,items:[]}));
     bulkLoads.forEach(s=>{const v=volM3(s);const h=bulk.filter(h=>h.items.every(i=>!conflict(i,s))).sort((a,b)=>a.usedKg/a.kg-b.usedKg/b.kg).find(h=>h.used+v<=h.m3&&h.usedKg+s.wt<=h.kg);if(h){h.items.push(s);h.used+=v;h.usedKg+=s.wt}else offload.push({s,why:`no room left in the bulk holds: ${bulk.map(h=>`${BULKN?BULKN[h.k]||h.k:h.k} ${fmt(h.usedKg)}/${fmt(h.kg)} kg, ${fmt(h.used,1)}/${fmt(h.m3,1)} m³`).join('; ')}`})})}
-  return{ac,ulds,offload,apart,bulk,manualWarn};
+  return{ac,ulds,offload,apart,bulk,manualWarn,merged};
 }
 /* ---------- load plan + balance ---------- */
 function planLoad(b){
@@ -699,9 +715,9 @@ function layerPack(T,pcs){const placed=[],left=[];let rest=pcs.slice().sort((a,b
     rest=[...others,...layer.filter((p,j)=>!used[j])];cLo=lo;cHi=minEnd;yMax=fullY;z+=lh;if(yMax<1||cHi-cLo<1){left.push(...rest);break}}
   return{placed,left}}
 let yaw=-.5,spinOn=!RM,hoverI=null,drag=null,spinId=null;
-function drawIso(){drawUldTo($('iso'),build&&build.ulds.find(x=>x.id===selU),yaw,hoverI,null,0,null,ships.length?'No ULD on this aircraft yet':'Add cargo to see the ULD build-up')}
+function drawIso(){drawUldTo($('iso'),build&&build.ulds.find(x=>x.id===selU),yaw,hoverI,null,0,null,ships.length?'No ULD on this aircraft yet':'Add cargo to see the ULD build-up',pickedU===selU?picked:null)}
 /* draws one ULD in 3D; shownN/dz animate the build-up (last piece drops in), hi dims every AWB but one */
-function drawUldTo(svg,u,yw,hovI,shownN,dz,hi,msg){
+function drawUldTo(svg,u,yw,hovI,shownN,dz,hi,msg,pick){
   const VW=640,VH=420;
   if(!u){svg.innerHTML=`<text x="${VW/2}" y="${VH/2}" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" fill="var(--muted)">${msg||''}</text>`;return}
   const T=ULD[u.type],pk=packUld(u),CS=Math.cos(Math.PI/6),SN=.5,ct=Math.cos(yw),st=Math.sin(yw);
@@ -715,9 +731,9 @@ function drawUldTo(svg,u,yw,hovI,shownN,dz,hi,msg){
   const faces=[{n:[ct,st],c:b=>[[b.x1,b.y0],[b.x1,b.y1]]},{n:[-ct,-st],c:b=>[[b.x0,b.y1],[b.x0,b.y0]]},{n:[-st,ct],c:b=>[[b.x1,b.y1],[b.x0,b.y1]]},{n:[st,-ct],c:b=>[[b.x0,b.y0],[b.x1,b.y0]]}].filter(f=>f.n[0]+f.n[1]>0);
   const boxes=shownN==null?pk.boxes:pk.boxes.slice(0,shownN);
   const vis=boxes.map((b,i)=>{const[rx,ry]=rot((b.x0+b.x1)/2,(b.y0+b.y1)/2);return{b,i,d:rx+ry}}).sort((p,q)=>p.b.z0-q.b.z0||p.d-q.d);
-  vis.forEach(({b,i})=>{const col=colorOf(b.p.s.awb),hov=hovI===i,stk=`stroke="${hov?'var(--fg)':'rgba(10,37,64,.45)'}" stroke-width="${hov?1.8:.6}"`,lift=shownN!=null&&i===shownN-1?dz:0,z0=b.z0+lift,z1=b.z1+lift;let g=`<g data-i="${i}"${hi&&hi!==b.p.s.awb?' opacity=".18"':''}>`;
+  vis.forEach(({b,i})=>{const col=colorOf(b.p.s.awb),hov=hovI===i,pk2=!!(pick&&pick.has(i)),stk=`stroke="${pk2?'#FFD21F':hov?'var(--fg)':'rgba(10,37,64,.45)'}" stroke-width="${pk2?2.4:hov?1.8:.6}"`,lift=shownN!=null&&i===shownN-1?dz:0,z0=b.z0+lift,z1=b.z1+lift;let g=`<g data-i="${i}"${hi&&hi!==b.p.s.awb?' opacity=".18"':''}>`;
     faces.forEach(f=>{const[[ax,ay],[bx2,by]]=f.c(b);const pts=[P(ax,ay,z0),P(bx2,by,z0),P(bx2,by,z1),P(ax,ay,z1)];g+=poly(pts,col,stk)+poly(pts,`rgba(0,0,0,${(0.3-0.14*(f.n[0]-f.n[1])/1.414).toFixed(2)})`)});
-    const top=[P(b.x0,b.y0,z1),P(b.x1,b.y0,z1),P(b.x1,b.y1,z1),P(b.x0,b.y1,z1)];g+=poly(top,col,stk)+poly(top,`rgba(255,255,255,${b.v})`);
+    const top=[P(b.x0,b.y0,z1),P(b.x1,b.y0,z1),P(b.x1,b.y1,z1),P(b.x0,b.y1,z1)];g+=poly(top,col,stk)+poly(top,pk2?'rgba(255,210,31,.55)':`rgba(255,255,255,${b.v})`);
     if(b.p.s.dg){const cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2,r=Math.min(b.x1-b.x0,b.y1-b.y0)/4;g+=`<polygon points="${P(cx-r,cy,z1)} ${P(cx,cy-r,z1)} ${P(cx+r,cy,z1)} ${P(cx,cy+r,z1)}" fill="#fff" stroke="#c0392b" stroke-width="1"/>`}
     o+=g+'</g>'});
   /* contour clearance: green when every piece is inside the contour, amber for a declared overhang, red when a piece breaks it */
@@ -758,8 +774,15 @@ function render(){
   $('flags').innerHTML=off.map(o=>o.uld?`<div><b>${esc(o.uld.id)}</b> (${esc([...new Set(o.uld.items.map(i=>i.s.awb))].join(', '))}) not loaded: ${esc(o.why)}.</div>`:`<div><b>${esc(o.s.awb)}</b> ${esc(o.s.nat)} not loaded: ${esc(o.why)}.</div>`).join('')+mw.map(w=>`<div>✋ ${esc(w)}</div>`).join('');if(!nf)$('flags').hidden=true;else if(nf>(render.nf||0))$('flags').hidden=false;render.nf=nf;$('flagBtn').setAttribute('aria-expanded',String(!$('flags').hidden));
   $('strip').innerHTML=bt?bt.ulds.map(u=>{const pv=Math.round(Math.max(u.kg/u.max,u.m3/u.cap)*100);return `<button class="uchip ${u.flags.has('DG')?'dg':''}" type="button" data-u="${u.id}" aria-pressed="${u.id===selU}"><span style="display:flex;gap:2px">${[...new Set(u.items.map(i=>i.s.awb))].slice(0,4).map(a=>`<i style="width:8px;height:14px;border-radius:2px;background:${colorOf(a)}"></i>`).join('')}</span>${u.id}<span class="pct">${pv}%</span></button>`}).join('')+(bt.bulk?bt.bulk.map(h=>`<span class="uchip" style="cursor:default">Bulk ${h.k}<span class="pct">${fmt(h.usedKg)} kg</span></span>`).join(''):''):'';
   document.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{selU=b.dataset.u;hoverI=null;render()});
-  renderInfo();drawIso();$('toLoad').disabled=!bt;renderLoad();
+  renderInfo();drawIso();renderPick();$('toLoad').disabled=!bt;renderLoad();
 }
+/* can this ULD's cargo move into spare space elsewhere? (the build already merges when it can) */
+function mergeLine(u){if(u.excl)return'<div class="mergeline">Own ULD: not shared with other cargo.</div>';if(u.manual)return'<div class="mergeline">Built by hand: kept as you placed it.</div>';
+  const others=build.ulds.filter(o=>o!==u&&!o.excl&&!o.manual);
+  if(!others.length)return`<div class="mergeline">Merge check: no other ULD can share cargo, so ${u.id} is needed.${build.merged&&build.merged.length?' '+build.merged.length+' small ULD'+(build.merged.length>1?'s were':' was')+' already merged into spare space.':''}</div>`;
+  const free=others.map(o=>({o,m3:Math.max(0,o.cap-o.m3),kg:Math.max(0,o.max-o.kg)})),fm3=free.reduce((t,f)=>t+f.m3,0);
+  const why=u.m3>fm3?`needs ${fmt(u.m3,1)} m³ but the other ULDs have only ${fmt(fm3,1)} m³ free`:`the spare space in the other ULDs does not take every piece inside the contour`;
+  return`<div class="mergeline">Merge check: ${u.id}'s cargo (${fmt(u.m3,1)} m³, ${fmt(u.kg)} kg) cannot move into the other ULDs: ${why} (${free.map(f=>`${f.o.id} ${fmt(f.m3,1)} m³ free`).join(', ')}).${build.merged&&build.merged.length?' '+build.merged.length+' small ULD'+(build.merged.length>1?'s were':' was')+' already merged into spare space.':''}</div>`}
 function renderInfo(){
   const u=build&&build.ulds.find(x=>x.id===selU),el=$('info');
   if(!u){el.innerHTML=build&&build.bulk?'<h2>Bulk loading</h2><p class="note">This aircraft carries loose cargo in its holds. Weights per hold are shown in the strip above and checked in step 2.</p>':'<p class="note">The ULDs appear here as soon as you add cargo.</p>';return}
@@ -775,6 +798,7 @@ function renderInfo(){
    <div class="${hOk?'okline':'err'}">${hOk?'✓':'⚠'} ${pk.notDrawn>0?`Fits the ${esc(T.contour)} by usable volume (3D height shown for the first ${pk.boxes.length} pieces)`:`Height ${fmt(pk.top)} cm within ${esc(T.contour)}`}</div>
    ${u.type==='PGA'?'<div class="note" style="margin-top:4px">Long cargo on a 20 ft pallet (or two connected pallets) on the main deck.</div>':''}
    <div style="margin-top:12px">${awbs.map(s=>{const it=u.items.find(i=>i.s===s),ch=charge(s,u);return `<div class="awb"><span class="sw" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><b style="font-family:var(--mono);font-size:12px">${esc(s.awb)}</b> · ${esc(s.nat)}<br><span class="note">${it.p}/${s.pcs} pcs · ${fmt(s.wt/s.pcs*it.p)} kg${s.shc.length?' · '+s.shc.map(c=>`<span class="chip">${esc(c)}</span>`).join(''):''}${s.dg?`<span class="chip dg">DG ${esc(s.dg)} ${esc(s.un)}</span>`:''}</span></div><span class="note" title="Charge basis: ${esc(ch.why)}" style="text-align:right">charge<br><b>${fmt(ch.kg)}</b></span></div>`}).join('')}</div>
+   ${mergeLine(u)}
    ${apart.length?`<div class="warnline">Kept apart: ${apart.map(x=>`${esc(x.a.awb.slice(-4))} / ${esc(x.b.awb.slice(-4))}, ${esc(x.c)}`).join('; ')}.</div>`:''}
    ${pk.notDrawn>0?`<p class="note">The 3D view draws the first ${pk.boxes.length} pieces. The other ${pk.notDrawn} are checked by weight and usable volume, and counted in every total.</p>`:''}${pk.notShown>0?`<p class="note" style="color:var(--bad)">${pk.notShown} pieces could not be placed inside the contour.</p>`:''}`;
 }
@@ -1222,11 +1246,23 @@ setSpin2(spin2);
 const iso=$('iso'),tip=$('tip');
 iso.addEventListener('pointerdown',e=>{drag={x:e.clientX,y0:yaw,moved:false}});
 window.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x;if(Math.abs(dx)>4){drag.moved=true;tip.hidden=true}if(drag.moved){yaw=drag.y0+dx*.012;drawIso()}});
-window.addEventListener('pointerup',()=>{drag=null});
+window.addEventListener('pointerup',()=>{lastMoved=!!(drag&&drag.moved);drag=null});
 iso.addEventListener('pointermove',e=>{if(drag&&drag.moved)return;const g=e.target.closest&&e.target.closest('[data-i]');const u=build&&build.ulds.find(x=>x.id===selU);
   if(!g||!u){if(hoverI!==null){hoverI=null;drawIso()}tip.hidden=true;return}const i=+g.dataset.i,b=packUld(u).boxes[i],s=b.p.s;if(hoverI!==i){hoverI=i;drawIso()}
   tip.innerHTML=`<b style="font-family:var(--mono)">${esc(s.awb)}</b><br>${esc(s.nat)}<br>${s.l}×${s.w}×${s.h} cm · ${fmt(b.p.kg)} kg${s.shc.length?'<br>'+s.shc.map(c=>`<span class="chip">${esc(c)}</span>`).join(''):''}${s.dg?`<br><span class="chip dg">DG ${esc(s.dg)} ${esc(s.un)}</span>`:''}`;
   const r=iso.parentElement.getBoundingClientRect();tip.hidden=false;let x=e.clientX-r.left+12,y=e.clientY-r.top+12;if(x+tip.offsetWidth>r.width)x-=tip.offsetWidth+24;tip.style.left=Math.max(4,x)+'px';tip.style.top=y+'px'});
+/* click a box to select it; Ctrl, Cmd or Shift + click adds or removes; Esc clears */
+let picked=new Set(),pickedU=null,lastMoved=false;
+iso.addEventListener('click',e=>{if(lastMoved)return;const u=build&&build.ulds.find(x=>x.id===selU);if(!u)return;if(pickedU!==selU){picked=new Set();pickedU=selU}
+  const g=e.target.closest&&e.target.closest('[data-i]'),multi=e.ctrlKey||e.metaKey||e.shiftKey;
+  if(!g){if(!multi)picked.clear()}else{const i=+g.dataset.i;if(multi){picked.has(i)?picked.delete(i):picked.add(i)}else picked=picked.size===1&&picked.has(i)?new Set():new Set([i])}
+  renderPick();drawIso()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&picked.size){picked.clear();renderPick();drawIso()}});
+function renderPick(){const bar=$('selBar'),u=build&&build.ulds.find(x=>x.id===selU);if(!u||pickedU!==selU||!picked.size){bar.hidden=true;return}
+  const bx=packUld(u).boxes,sel=[...picked].map(i=>bx[i]).filter(Boolean),kg=sel.reduce((t,b)=>t+b.p.kg,0),m3=sel.reduce((t,b)=>t+(b.x1-b.x0)*(b.y1-b.y0)*(b.z1-b.z0),0)/1e6,by={};
+  sel.forEach(b=>{by[b.p.s.awb]=(by[b.p.s.awb]||0)+1});
+  bar.innerHTML=`<b>${sel.length}</b> ${sel.length===1?'piece':'pieces'} selected · <b>${fmt(kg,kg<10?1:0)}</b> kg · <b>${fmt(m3,2)}</b> m³ · ${Object.entries(by).map(([a,n])=>`<span class="chip">${esc(a)} ×${n}</span>`).join('')}<button class="btn link" type="button" id="selClear" style="padding:0 2px">Clear</button>`;
+  bar.hidden=false;$('selClear').onclick=()=>{picked.clear();renderPick();drawIso()}}
 iso.addEventListener('pointerleave',()=>{tip.hidden=true;if(hoverI!==null){hoverI=null;drawIso()}});
 iso.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();yaw+=e.key==='ArrowLeft'?-.2:.2;drawIso()}});
 $('spin').onclick=()=>{spinOn=!spinOn;$('spin').setAttribute('aria-pressed',String(spinOn))};
