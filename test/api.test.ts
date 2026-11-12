@@ -1,7 +1,7 @@
 // Unit tests for the public API handlers (lib/api.ts). Run: npm test
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { handleTrack, handleRequest, resetRateLimits, sameOrigin, TRACK_LIMIT, REQUEST_LIMIT } from "../lib/api.ts";
+import { handleTrack, handleRequest, resetRateLimits, rateLimited, sameOrigin, TRACK_LIMIT, REQUEST_LIMIT } from "../lib/api.ts";
 
 const HOST = "adeyiq.example";
 let ipSeq = 0;
@@ -121,6 +121,16 @@ test("request: sheet failure gives 502 and logs so the form can show its fallbac
   assert.equal(r.status, 502);
   assert.deepEqual(r.body, { ok: false });
   assert.equal(logs.length, 1);
+});
+
+test("rate limits: pruning busy usage traffic never resets an hourly access-request limit", () => {
+  const t0 = 9_000_000;
+  for (let i = 0; i < REQUEST_LIMIT.perHour; i++) assert.equal(rateLimited("r:6.6.6.6", REQUEST_LIMIT.perHour, 3_600_000, t0), false);
+  assert.equal(rateLimited("r:6.6.6.6", REQUEST_LIMIT.perHour, 3_600_000, t0), true);
+  // 61 s later, 5,001 different clients send usage events (1-minute window), which triggers pruning
+  for (let i = 0; i < 5001; i++) rateLimited("t:c" + i, TRACK_LIMIT.perMinute, 60_000, t0 + 61_000);
+  assert.equal(rateLimited("r:6.6.6.6", REQUEST_LIMIT.perHour, 3_600_000, t0 + 62_000), true, "still limited within the hour");
+  assert.equal(rateLimited("r:6.6.6.6", REQUEST_LIMIT.perHour, 3_600_000, t0 + 3_600_001), false, "free again after the hour");
 });
 
 test("request: 5 per hour per client", async () => {

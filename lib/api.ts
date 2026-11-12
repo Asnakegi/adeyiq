@@ -60,12 +60,15 @@ export function sameOrigin(req: Request): boolean {
 }
 
 /* ---------- rate limits (sliding window, per server instance) ---------- */
-const hits = new Map<string, number[]>();
+/* one table per window length, so pruning a short-window table can never drop a longer window's still-active entries */
+const tables = new Map<number, Map<string, number[]>>();
 export function clientKey(req: Request) {
   const fwd = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   return fwd.split(",")[0].trim();
 }
 export function rateLimited(key: string, limit: number, windowMs: number, now = Date.now()): boolean {
+  let hits = tables.get(windowMs);
+  if (!hits) tables.set(windowMs, (hits = new Map()));
   const arr = (hits.get(key) || []).filter((t) => now - t < windowMs);
   if (arr.length >= limit) {
     hits.set(key, arr);
@@ -73,11 +76,11 @@ export function rateLimited(key: string, limit: number, windowMs: number, now = 
   }
   arr.push(now);
   hits.set(key, arr);
-  if (hits.size > 5000) for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] > windowMs) hits.delete(k);
+  if (hits.size > 5000) for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] >= windowMs) hits.delete(k);
   return false;
 }
 export function resetRateLimits() {
-  hits.clear();
+  tables.clear();
 }
 
 async function readBody(req: Request, max: number): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; status: number }> {
