@@ -296,7 +296,7 @@ export default function ReportsPage() {
         <div className="space-y-3">
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-2">
             <p className="text-yellow-400 font-semibold text-sm">🤖 AI Cargo Co-Pilot</p>
-            <p className="text-gray-300 text-xs mt-1">AI has analyzed all flight data, ULD builds, and market trends. Here are today's intelligent recommendations.</p>
+            <p className="text-gray-300 text-xs mt-1">AI has analyzed all flight data, ULD builds, and market trends. Here are today&apos;s intelligent recommendations.</p>
           </div>
           {aiRecommendations.map((r, i) => (
             <div key={i} className="bg-[#141414] rounded-xl border border-white/5 p-4 flex gap-4 items-start">

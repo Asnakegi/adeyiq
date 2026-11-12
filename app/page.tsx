@@ -250,7 +250,7 @@ export default function Home() {
               <div style={{ padding:"16px 20px", borderBottom:"0.5px solid rgba(255,255,255,.07)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                 <span style={{ fontSize:14, fontWeight:600, color:"#ddd" }}>
                   <i className="ti ti-plane" style={{ marginRight:8, color:"#EAB308" }} aria-hidden="true" />
-                  Today's cargo flights
+                  Today&apos;s cargo flights
                 </span>
                 <button style={{ fontSize:11, color:"#EAB308", background:"transparent", border:"0.5px solid rgba(234,179,8,.3)", borderRadius:7, padding:"4px 10px", cursor:"pointer" }}>
                   View all

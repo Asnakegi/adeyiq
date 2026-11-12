@@ -1,7 +1,11 @@
 "use client"
 import { useState } from "react"
 
-const uldLibrary: Record<string, any> = {
+type UldSpec = { maxWeight: number; maxVolume: number; length: number; width: number; height: number; color: string }
+type Shipment = (typeof ulds)[number]["shipments"][number]
+type Placed = Shipment & { px: number; py: number }
+
+const uldLibrary: Record<string, UldSpec> = {
   PMC: { maxWeight: 6804, maxVolume: 13.5, length: 317, width: 244, height: 244, color: "#EAB308" },
   PAG: { maxWeight: 6804, maxVolume: 11.0, length: 317, width: 244, height: 203, color: "#3B82F6" },
   AKE: { maxWeight: 1588, maxVolume: 4.3, length: 156, width: 153, height: 163, color: "#22C55E" },
@@ -41,7 +45,7 @@ const priorityBadge: Record<string, string> = {
 
 export default function ThreeDViewPage() {
   const [selectedULD, setSelectedULD] = useState(ulds[0])
-  const [selectedShipment, setSelectedShipment] = useState<any>(null)
+  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null)
   const [showHeatmap, setShowHeatmap] = useState(false)
 
   const uld = uldLibrary[selectedULD.type]
@@ -55,7 +59,7 @@ export default function ThreeDViewPage() {
   const scaleY = 160 / uld.height
 
   // Auto-place boxes in rows
-  const placements: any[] = []
+  const placements: Placed[] = []
   let curX = 0, curY = 0, rowH = 0
   selectedULD.shipments.forEach((s) => {
     if (curX + s.l > uld.length) { curX = 0; curY += rowH; rowH = 0 }
@@ -68,7 +72,7 @@ export default function ThreeDViewPage() {
   const scaleTopX = 220 / uld.length
   const scaleTopY = 120 / uld.width
   let curTX = 0, curTY = 0, rowTW = 0
-  const topPlacements: any[] = []
+  const topPlacements: Placed[] = []
   selectedULD.shipments.forEach((s) => {
     if (curTX + s.l > uld.length) { curTX = 0; curTY += rowTW; rowTW = 0 }
     topPlacements.push({ ...s, px: curTX, py: curTY })
