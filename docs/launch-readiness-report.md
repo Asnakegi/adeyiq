@@ -1,7 +1,7 @@
 # AdeyIQ launch-readiness report
 
 **Date:** 12 November 2026
-**Branch:** `launch-readiness` (from `main` at `bf2a85f`), 7 commits, **not pushed or deployed**
+**Branch:** `launch-readiness` (from `main` at `bf2a85f`), 8 commits including this report, **not pushed or deployed**
 **Scope:** the public site at adeyiq.vercel.app: home page, Cargo Builder, hold view, aircraft data, API routes, and the demo dashboard pages.
 
 ## Verdict: READY WITH CONDITIONS
@@ -141,7 +141,7 @@ The E2E run in this audit wrote only to the local mock.
 
 ## Deploy and monitoring checklist
 
-- [ ] Review the 7 commits on `launch-readiness` and push the branch
+- [ ] Review the 8 commits on `launch-readiness` and push the branch
 - [ ] Wait for the GitHub Actions CI run to pass
 - [ ] Open the Vercel preview with `?owner=1`. Check `/api/health`, that a Usage row arrives, that the access form shows "Request sent." (one test request, then delete it) and that `/privacy` loads
 - [ ] Check the response headers on the preview (CSP present, no console CSP errors on `/` and `/build`)
