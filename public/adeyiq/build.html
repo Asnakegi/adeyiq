@@ -650,7 +650,7 @@ function buildUlds(){
 }
 /* ---------- load plan + balance ---------- */
 function planLoad(b){
-  const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-20,16]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
+  const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-18,18]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
   const lower=ac.low||ac.akh;if(lower)for(const k of['fwd','aft']){const r=lower[k].rows;C.push({key:k,name:k==='fwd'?'Forward hold':'Aft hold',len:r*156,used:0,blocks:[],a:arm[k],maxKg:r*2*R(ac.akh?'rAkh':'rAke')*(ac.akh?1:.9)})}
   if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:arm.main,maxKg:ac.main.rows*(ac.main.single?1:2)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
   const issues=[];let mom=0;if(!C.length)return{C,index:0,total:0,issues};
@@ -666,7 +666,17 @@ function planLoad(b){
     const tiers=un.kind==='main'?[mainC]:un.kind==='ake'?[lowC]:[lowC,mainC],L=c=>c.key==='main'&&un.kind==='pal'?MP(ac):un.len;let ok=false;
     for(const tier of tiers){if(ok)break;
       const cands=tier.map(c=>({c,arm:posArm(c,c.used,L(c))})).sort((x,y)=>Math.abs(mom+un.w*x.arm)-Math.abs(mom+un.w*y.arm)).map(x=>x.c);
-      for(const c of cands){const len=L(c),pitch=pitchOf(ac,c.key),prev=[...c.blocks].reverse().find(x=>!x.gap);let st=c.used,gap=prev&&prev.ulds.some(a=>un.ulds.some(x=>clash(a,x)));if(gap)st+=pitch;if(st+len>c.len)continue;
+      for(const c of cands){if(c.key==='main'){const len=L(c),pitch=MP(ac),rows=Math.round(c.len/pitch),need=Math.round(len/pitch);c.occ=c.occ||new Array(rows).fill(null);
+          let best=null,kept=false;
+          for(let r=0;r+need<=rows;r++){if(c.occ.slice(r,r+need).some(Boolean))continue;
+            const nb=[c.occ[r-1],c.occ[r+need]].filter(Boolean),a=posArm(c,r*pitch,len),score=Math.abs(mom+un.w*a);
+            if(nb.some(o=>o.ulds.some(x=>un.ulds.some(y=>clash(x,y))))){kept=true;continue}
+            if(!best||score<best.score-1e-9)best={r,a,score}}
+          if(!best)continue;
+          const st=best.r*pitch,blk={start:st,len,ulds:un.ulds,arm:best.a,w:un.w};c.blocks.push(blk);for(let k=0;k<need;k++)c.occ[best.r+k]=blk;c.used=Math.max(c.used,st+len);mom+=un.w*best.a;
+          if(kept&&!issues.some(i=>i.t.startsWith('Dangerous goods kept apart')))issues.push({k:'info',t:'Dangerous goods kept apart: at least one main-deck position between incompatible pallets'});
+          const lab=String.fromCharCode(65+best.r);un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'||ac.main.single?'P':'L');u.pos=lab+u.side;u.blk={c:'main',start:st,len}});ok=true;break}
+        const len=L(c),pitch=pitchOf(ac,c.key),prev=[...c.blocks].reverse().find(x=>!x.gap);let st=c.used,gap=prev&&prev.ulds.some(a=>un.ulds.some(x=>clash(a,x)));if(gap)st+=pitch;if(st+len>c.len)continue;
         if(gap){c.blocks.push({start:c.used,len:pitch,ulds:[],gap:true});issues.push({k:'info',t:`One position left empty in the ${c.name.toLowerCase()} to keep dangerous goods apart`})}
         const a=posArm(c,st,len);c.blocks.push({start:st,len,ulds:un.ulds,arm:a,w:un.w});c.used=st+len;mom+=un.w*a;
         const row=Math.floor(st/pitch+1e-6),lab=c.key==='main'?String.fromCharCode(65+row):String((c.key==='fwd'?11:31)+row);
@@ -674,7 +684,7 @@ function planLoad(b){
     if(!ok){const tried=tiers.flat(),full=tried.map(c=>`${c.name.toLowerCase()} ${Math.round(c.used/c.len*100)}% used`).join(', ');un.ulds.forEach(u=>noPos.push({s:u.items[0].s,why:`no free ${un.kind==='main'?'main-deck':un.kind==='ake'?'container':'pallet'} position left for ${u.id} (${fmt(u.kg)} kg): ${full||'no matching hold on this aircraft'}`,uld:u}))}
   }
   /* main deck: slide the whole pallet load aft row by row to the spot that best centres the balance */
-  mainC.forEach(c=>{const pitch=MP(ac),free=Math.floor((c.len-c.used)/pitch+1e-6);if(free<1||!c.blocks.length)return;
+  mainC.forEach(c=>{if(c.occ)return;const pitch=MP(ac),free=Math.floor((c.len-c.used)/pitch+1e-6);if(free<1||!c.blocks.length)return;
     const base=mom-c.blocks.reduce((s,bk)=>s+(bk.w||0)*(bk.arm||0),0);let best=0,bv=Infinity;
     for(let k=0;k<=free;k++){const m=base+c.blocks.reduce((s,bk)=>s+(bk.gap?0:bk.w*posArm(c,bk.start+k*pitch,bk.len)),0);if(Math.abs(m)<bv-1e-6){bv=Math.abs(m);best=k}}
     if(!best)return;mom=base;c.lead=best*pitch;c.used+=c.lead;
@@ -691,7 +701,7 @@ function planLoad(b){
       if(!r)return `no room left (${room.map(r=>`${fmt(r.h.usedKg)}/${fmt(r.h.kg)} kg, ${fmt(r.h.used,1)}/${fmt(r.h.m3,1)} m³ used`).join('; ')})`;
       r.m3-=v;r.kg-=kg;moves.push({r,sh,p:it.p,v,kg})}
     moves.forEach(({r,sh,p,v,kg})=>{r.h.items.push(p===sh.pcs?sh:Object.assign({},sh,{pcs:p,wt:kg,_of:sh}));r.h.used+=v;r.h.usedKg+=kg});return true}
-  C.forEach(c=>{c.kg=c.blocks.reduce((s,x)=>s+(x.w||0),0);if(c.kg>c.maxKg)issues.push({k:'bad',t:`${c.name} is over its ${fmt(c.maxKg)} kg limit (${fmt(c.kg)} kg)`})});
+  C.forEach(c=>{c.fill=c.blocks.reduce((s,x)=>s+x.len,0);c.kg=c.blocks.reduce((s,x)=>s+(x.w||0),0);if(c.kg>c.maxKg)issues.push({k:'bad',t:`${c.name} is over its ${fmt(c.maxKg)} kg limit (${fmt(c.kg)} kg)`})});
   b.ulds.forEach(u=>{if(u.kg>u.max)issues.push({k:'bad',t:`${u.id} is over its ${fmt(u.max)} kg limit`})});
   return{C,index:mom/1000,total:C.reduce((s,c)=>s+c.kg,0),issues};
 }
@@ -886,9 +896,9 @@ let SL=[],sel2=null,side2=null,selUid=null,holdView=false,geo=null,VB=null,bench
 /* every loading position on the aircraft: loaded blocks, DG gaps, free rows, bulk holds */
 function slotsOf(){const out=[];
   plan.C.forEach(c=>{const pitch=pitchOf(build.ac,c.key),first=c.key==='fwd'?11:31,lab=st=>{const r=Math.floor(st/pitch+1e-6);return c.key==='main'?String.fromCharCode(65+r):String(first+r)};
-    for(let st=0;st+pitch<=(c.lead||0)+1e-6;st+=pitch)out.push({key:c.key+':e'+st,c,start:st,len:pitch,empty:true,ulds:[],lab:lab(st)});
-    c.blocks.forEach((b,i)=>out.push({key:c.key+':'+i,c,start:b.start,len:b.len,gap:!!b.gap,ulds:b.ulds||[],lab:lab(b.start)}));
-    for(let st=Math.ceil(c.used/pitch-1e-6)*pitch;st+pitch<=c.len+1e-6;st+=pitch)out.push({key:c.key+':e'+st,c,start:st,len:pitch,empty:true,ulds:[],lab:lab(st)})});
+    const mine=[];c.blocks.forEach((b,i)=>mine.push({key:c.key+':'+i,c,start:b.start,len:b.len,gap:!!b.gap,ulds:b.ulds||[],lab:lab(b.start)}));
+    for(let st=0;st+pitch<=c.len+1e-6;st+=pitch)if(!c.blocks.some(b=>b.start<st+pitch-1e-6&&b.start+b.len>st+1e-6))mine.push({key:c.key+':e'+st,c,start:st,len:pitch,empty:true,ulds:[],lab:lab(st)});
+    mine.sort((a,b)=>a.start-b.start);out.push(...mine)});
   (build.bulk||[]).forEach(h=>out.push({key:'B:'+h.k,bulk:h,ulds:[],lab:BULKN[h.k]}));
   return out}
 const curSlot=()=>SL.find(s=>s.key===sel2)||null;
@@ -1241,7 +1251,7 @@ function renderLoad(){
   setModeBtns();refresh2();
   const al=[...build.offload.filter(o=>o.uld).map(o=>({k:'bad',t:`${o.uld.id}: ${o.why}`})),...plan.issues];
   $('loadAlerts').innerHTML=al.length?al.map(x=>`<div class="alert ${x.k}">${x.k==='bad'?'⛔':'ℹ'}<span>${esc(x.t)}</span></div>`).join(''):'<div class="alert ok">✓<span>All ULDs placed, within limits, dangerous goods kept apart.</span></div>';
-  $('comp').innerHTML=plan.C.length?`<div class="tbl"><table><thead><tr><th>Hold</th><th class="num">Used</th><th class="num">kg</th><th class="num">Limit</th></tr></thead><tbody>${plan.C.map(c=>`<tr><td>${c.name}</td><td class="num">${Math.round((c.used-(c.lead||0))/c.len*100)}%</td><td class="num">${fmt(c.kg)}</td><td class="num">${fmt(c.maxKg)}</td></tr>`).join('')}</tbody></table></div><p class="note">Planning aid with placeholder limits; the load sheet comes from the airline's approved weight-and-balance system.</p>`:'';
+  $('comp').innerHTML=plan.C.length?`<div class="tbl"><table><thead><tr><th>Hold</th><th class="num">Used</th><th class="num">kg</th><th class="num">Limit</th></tr></thead><tbody>${plan.C.map(c=>`<tr><td>${c.name}</td><td class="num">${Math.round((c.fill??(c.used-(c.lead||0)))/c.len*100)}%</td><td class="num">${fmt(c.kg)}</td><td class="num">${fmt(c.maxKg)}</td></tr>`).join('')}</tbody></table></div><p class="note">Planning aid with placeholder limits; the load sheet comes from the airline's approved weight-and-balance system.</p>`:'';
 }
 
 /* ---------- step 2 interaction ---------- */
