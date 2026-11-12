@@ -653,7 +653,7 @@ function buildUlds(){
 function planLoad(b){
   const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-18,18]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
   const lower=ac.low||ac.akh;if(lower)for(const k of['fwd','aft']){const r=lower[k].rows;C.push({key:k,name:k==='fwd'?'Forward hold':'Aft hold',len:r*156,used:0,blocks:[],a:arm[k],maxKg:r*2*R(ac.akh?'rAkh':'rAke')*(ac.akh?1:.9)})}
-  if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:arm.main,maxKg:mainPos(ac)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
+  if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:(()=>{const n=ac.main.rows;let s=0,k=0;for(let r=0;r<n;r++){const p=ac.main.single||(ac.main.lastSingle&&r===n-1)?1:2;s+=p*(arm.main[0]+(arm.main[1]-arm.main[0])*(r+.5)/n);k+=p}return[arm.main[0]-s/k,arm.main[1]-s/k]})(),maxKg:mainPos(ac)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
   const issues=[];let mom=0;if(!C.length)return{C,index:0,total:0,issues};
   const clash=(a,c)=>a.items.some(i=>c.items.some(j=>conflict(i.s,j.s)));
   const pairs=[];b.ulds.filter(u=>ULD[u.type].half).sort((x,y)=>y.kg-x.kg).forEach(u=>{const p=pairs.find(p=>p.length===1&&!clash(p[0],u));if(p)p.push(u);else pairs.push([u])});
@@ -669,11 +669,11 @@ function planLoad(b){
       const cands=tier.map(c=>({c,arm:posArm(c,c.used,L(c))})).sort((x,y)=>Math.abs(mom+un.w*x.arm)-Math.abs(mom+un.w*y.arm)).map(x=>x.c);
       for(const c of cands){if(c.key==='main'){const len=L(c),pitch=MP(ac),rows=Math.round(c.len/pitch),need=Math.round(len/pitch);c.occ=c.occ||new Array(rows).fill(null);
           let best=null,kept=false;
-          for(const r of need>1?[...Array(rows).keys()].sort((a,b)=>(a%need)-(b%need)||a-b):[...Array(rows).keys()]){if(r+need>rows||c.occ.slice(r,r+need).some(Boolean))continue;const sr=!!ac.main.lastSingle&&r+need===rows&&need===1;if(sr&&un.ulds.length>1)continue;if(best&&need>1&&r%need&&best.r%need===0)break;
-            const nb=[c.occ[r-1],c.occ[r+need]].filter(Boolean),a=posArm(c,r*pitch,len),score=Math.abs(mom+un.w*a)-(sr&&un.ulds.length===1?1e12:0);
+          for(const r of need>1?[...Array(rows).keys()].sort((a,b)=>(a%need)-(b%need)||a-b):[...Array(rows).keys()]){if(r+need>rows||c.occ.slice(r,r+need).some(Boolean))continue;const sr=!!ac.main.lastSingle&&r+need===rows;if(sr&&(un.ulds.length>1||need>1))continue;if(best&&need>1&&r%need&&best.r%need===0)break;
+            const nb=[c.occ[r-1],c.occ[r+need]].filter(Boolean),a=posArm(c,r*pitch,len),inLim=x=>x/1000>=R('rIdxF')&&x/1000<=R('rIdxA'),score=Math.abs(mom+un.w*a)-(sr&&un.ulds.length===1&&inLim(mom+un.w*a)?1e12:0);
             if(nb.some(o=>o.ulds.some(x=>un.ulds.some(y=>clash(x,y))))){kept=true;continue}
             if(!best||score<best.score-1e-9)best={r,a,score}}
-          if(!best){if(un.kind==='main'&&un.ulds.length===2&&ac.main.lastSingle&&!c.occ[rows-1]){const keep=un.ulds[0],drop=un.ulds[1],st=(rows-1)*pitch,a=posArm(c,st,pitch),blk={start:st,len:pitch,ulds:[keep],arm:a,w:keep.kg};
+          if(!best){if(un.kind==='main'&&need===1&&un.ulds.length===2&&ac.main.lastSingle&&!c.occ[rows-1]&&!(c.occ[rows-2]&&c.occ[rows-2].ulds.some(x=>clash(x,un.ulds[0])))){const keep=un.ulds[0],drop=un.ulds[1],st=(rows-1)*pitch,a=posArm(c,st,pitch),blk={start:st,len:pitch,ulds:[keep],arm:a,w:keep.kg};
               c.blocks.push(blk);c.occ[rows-1]=blk;c.used=Math.max(c.used,st+pitch);mom+=keep.kg*a;keep.side='P';keep.pos=String.fromCharCode(64+rows)+'P';keep.blk={c:'main',start:st,len:pitch};
               noPos.push({s:drop.items[0].s,why:`no free main-deck position left for ${drop.id} (${fmt(drop.kg)} kg): main deck 100% used`,uld:drop});ok=true;break}
             continue}

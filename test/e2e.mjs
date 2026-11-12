@@ -207,6 +207,23 @@ const pr = await js(`(async()=>{const s=document.getElementById('acSel');s.value
   document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));
   return {flag:document.getElementById('flagBtn').hidden,stats:document.getElementById('stats').innerText.replace(/\\s+/g,' ')}})()`);
 check(pr.flag && /16 ULDs · 16 \//.test(pr.stats), `ten 20 ft pallets plus six main-deck pallets fill the 13 paired rows (${pr.stats})`);
+// the 777F main deck ends in one centreline position: it takes one pallet only, keeps balance and DG segregation
+async function load777(csv) {
+  await go("/build");
+  await js(`localStorage.clear()`);
+  await go("/build");
+  return js(`(async()=>{const s=document.getElementById('acSel');s.value='B777F';s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,400));
+  const b0=document.getElementById('st1s').textContent;const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(csv)}],'x.csv'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
+  await new Promise(r=>{const iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0){clearInterval(iv);r()}},30)});await new Promise(r=>setTimeout(r,500));
+  document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));
+  return {st2:document.getElementById('st2s').textContent,rows:[...document.querySelectorAll('#ulds .ulrow')].map(b=>b.innerText.replace(/\\s+/g,' '))}})()`);
+}
+const one = await load777("AWB,Goods,Pieces,Weight,L,W,H\n071-77200011,Heavy machine,1,5000,200,120,180\n");
+check(one.st2 === "Balanced ✓" && !one.rows.some((r) => / Main NP /.test(r)), `one heavy pallet stays near the middle, not at the aft single position (${one.st2}; ${one.rows.join(" | ").slice(0, 80)})`);
+const pga14 = await load777("AWB,Goods,Pieces,Weight,L,W,H\n" + Array.from({ length: 14 }, (_, i) => `071-772000${10 + i},Steel beam ${i},1,1000,500,200,100`).join("\n") + "\n");
+check(pga14.st2 === "Balanced ✓ · 2 offloaded" && !pga14.rows.some((r) => / Main [MN][LRP] /.test(r) && /Steel/.test(r) && / Main N/.test(r)), `14 PGA: only 6 pairs fit (the last row takes one pallet), 2 offloaded (${pga14.st2})`);
+const dgf = await load777("AWB,Goods,Pieces,Weight,L,W,H,DG\n071-77100011,Flammable liquids,52,52000,200,120,180,3\n071-77100022,Oxidizers,4,4000,200,120,180,5.1\n");
+check(dgf.st2 === "Balanced ✓ · 2 offloaded" && !dgf.rows.some((r) => /Oxidizers/.test(r)), `oxidizers are not squeezed into the single position next to flammable liquids (${dgf.st2})`);
 
 console.log("\nLocal performance (production build, this machine)");
 for (const p of ["/", "/build"]) {
