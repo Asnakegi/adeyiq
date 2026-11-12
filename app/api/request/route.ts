@@ -1,4 +1,6 @@
-import { clip, locationOf, SHEET_URL, toSheet } from "@/lib/sheet";
+import { clip, locationOf, SHEET_URL, toSheetRetry } from "@/lib/sheet";
+
+export const maxDuration = 30;
 
 /* Access requests from the home page form → "Access requests" tab of the Google Sheet (and an email to the owner). */
 export async function POST(request: Request) {
@@ -14,7 +16,7 @@ export async function POST(request: Request) {
   if (!clip(d.name, 200).trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))
     return Response.json({ ok: false, error: "name and email are required" }, { status: 400 });
   const loc = locationOf(request.headers);
-  const ok = await toSheet({
+  const ok = await toSheetRetry({
     type: "request",
     name: clip(d.name, 200),
     email,

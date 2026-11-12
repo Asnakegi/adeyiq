@@ -23,6 +23,18 @@ export async function toSheet(body: Record<string, unknown>): Promise<boolean> {
   }
 }
 
+/**
+ * Google Apps Script handles only a limited number of writes at the same moment; extra ones time out.
+ * Retry a failed write a few times with growing, random delays so bursts of visitors are not lost.
+ */
+export async function toSheetRetry(body: Record<string, unknown>, tries = 4): Promise<boolean> {
+  for (let i = 0; i < tries; i++) {
+    if (await toSheet(body)) return true;
+    await new Promise((r) => setTimeout(r, 600 * 2 ** i + Math.random() * 900));
+  }
+  return false;
+}
+
 /** Visitor location from Vercel's network headers. The IP address itself is never stored. */
 export function locationOf(h: Headers) {
   const dec = (v: string | null) => {

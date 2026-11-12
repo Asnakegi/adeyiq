@@ -540,12 +540,18 @@ async function initStore(){
   db.collection('shipments').onSnapshot(snap=>{ships=snap.docs.map(d=>mk(Object.assign({id:d.id},d.data()))).sort((a,b)=>String(a.at).localeCompare(String(b.at)));storeOk=true;refresh()},()=>{loadLocal();refresh()});
 }
 function loadLocal(){try{ships=JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').map(mk)}catch(e){}}
-function saveLocal(){try{localStorage.setItem('adeyiq-ships',JSON.stringify(ships))}catch(e){}savedFlash()}
+/* several tabs share this browser's storage: saving merges with what another tab stored (deleted ids stay deleted),
+   and a change made in another tab is picked up here at once */
+const localDeleted=new Set();
+function saveLocal(){try{const stored=JSON.parse(localStorage.getItem('adeyiq-ships')||'[]');const mine=new Set(ships.map(x=>x.id));
+  stored.forEach(o=>{if(!mine.has(o.id)&&!localDeleted.has(o.id))ships.push(mk(o))});ships.sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  localStorage.setItem('adeyiq-ships',JSON.stringify(ships))}catch(e){}savedFlash()}
+window.addEventListener('storage',e=>{if(e.key==='adeyiq-ships'&&!(db&&storeOk)){loadLocal();refresh();toast('Cargo updated from another tab')}});
 async function addShips(list){report('Shipments!A1',list.map(s=>shipRow(s,'added')));
   if(db&&storeOk&&canWrite!==false){try{for(const s of list){const{id,...b}=s;await db.doc('shipments/'+id).set(b)}savedFlash();return}catch(e){canWrite=false}}
   ships.push(...list.filter(x=>!ships.find(y=>y.id===x.id)));saveLocal();refresh()}
 async function delShip(id,quiet){const s=ships.find(x=>x.id===id);if(s&&!quiet)report('Shipments!A1',[shipRow(s,'deleted')]);
-  if(db&&storeOk&&canWrite!==false){try{await db.doc('shipments/'+id).delete();savedFlash();return}catch(e){}}ships=ships.filter(x=>x.id!==id);saveLocal();refresh()}
+  if(db&&storeOk&&canWrite!==false){try{await db.doc('shipments/'+id).delete();savedFlash();return}catch(e){}}localDeleted.add(id);ships=ships.filter(x=>x.id!==id);saveLocal();refresh()}
 function savePlan(){if(!(db&&storeOk&&canWrite!==false)||!plan)return;db.doc('plans/latest').set({aircraft:$('acSel').value,at:new Date().toISOString(),ulds:build.ulds.map(u=>({id:u.id,type:u.type,kg:Math.round(u.kg),pos:u.pos||null,awbs:[...new Set(u.items.map(i=>i.s.awb))]})),index:Math.round(plan.index*10)/10,offload:build.offload.map(o=>o.s.awb)}).catch(()=>{})}
 
 /* ---------- build ULDs ---------- */
@@ -555,9 +561,14 @@ function buildUlds(){
   const pax=g!=='freighter';
   const add=(u,s,p)=>{const it=u.items.find(i=>i.s===s);if(it)it.p+=p;else u.items.push({s,p});u.kg+=s.wt/s.pcs*p;u.m3+=s.l*s.w*s.h/1e6*p;if(s.dg)u.flags.add('DG');s.shc.forEach(c=>u.flags.add(c))};
   /* how many more pieces of s physically fit in u: weight, volume, then a real 3D stacking check inside the contour */
-  function fitCount(u,s,left){const kp=s.wt/s.pcs,mp=s.l*s.w*s.h/1e6;let k=Math.min(left,Math.floor((u.max-u.kg)/kp+1e-9),Math.floor((u.cap-u.m3)/mp+1e-9));
-    if(k<=0)return 0;
-    while(k>0){const items=u.items.map(i=>({s:i.s,p:i.p}));const it=items.find(i=>i.s===s);if(it)it.p+=k;else items.push({s,p:k});if(packItems(u.type,items).notShown===0)return k;k=k>8?Math.floor(k*.75):k-1}return 0}
+  /* speed: packing results are remembered, the piece count is found by binary search (about 7 packs instead of 20+),
+     and after 2.5 s of building the remaining checks use weight, volume and one-piece fit so the page never freezes */
+  const buildT0=performance.now(),overBudget=()=>performance.now()-buildT0>2500;
+  function fitCount(u,s,left){const kp=s.wt/s.pcs,mp=s.l*s.w*s.h/1e6;let hi=Math.min(left,Math.floor((u.max-u.kg)/kp+1e-9),Math.floor((u.cap-u.m3)/mp+1e-9));
+    if(hi<=0)return 0;
+    if(overBudget())return packFast(u.type,[{s,p:1}]).notShown===0?hi:0;
+    const fits=k=>{const items=u.items.map(i=>({s:i.s,p:i.p}));const it=items.find(i=>i.s===s);if(it)it.p+=k;else items.push({s,p:k});return packFast(u.type,items).notShown===0};
+    if(fits(hi))return hi;let lo=0;while(hi-lo>1){const m=(lo+hi)>>1;if(fits(m))lo=m;else hi=m}return lo}
   const blank=t=>({type:t,items:[],kg:0,m3:0,max:R(ULD[t].maxKey),cap:ULD[t].vol*eff,h:ULD[t].h});
   /* space a ULD type would use for the remaining pieces: ULDs needed × usable volume (5 AKE = 21.5 m³ loses to 1 PMC = 11.5 m³) */
   function spaceCost(t,s,left){let n=0,rest=left;while(rest>0&&n<6){const k=fitCount(blank(t),s,rest);if(k<=0)return{n:Infinity,cost:Infinity};rest-=k;n++}
@@ -565,7 +576,7 @@ function buildUlds(){
   function place(s,types){let left=s.pcs;
     while(left>0){const ok=u=>!u.excl&&types.includes(u.type)&&u.h>=s.h&&u.items.every(i=>!conflict(i.s,s));
       /* 1 · spare space in ULDs already built: prefer one that takes all remaining pieces, else the one that takes most */
-      const cands=ulds.filter(ok).sort((a,b)=>(b.items.some(i=>i.s===s))-(a.items.some(i=>i.s===s)));let best=null,bk=0;
+      const cands=ulds.filter(ok).filter(u=>u.cap-u.m3>=s.l*s.w*s.h/1e6-1e-9&&u.max-u.kg>=s.wt/s.pcs-1e-9).sort((a,b)=>(b.items.some(i=>i.s===s))-(a.items.some(i=>i.s===s))||(b.cap-b.m3)-(a.cap-a.m3));let best=null,bk=0;
       for(const u of cands){const k=fitCount(u,s,left);if(k===left){best=u;bk=k;break}if(k>bk){best=u;bk=k}}
       if(best){add(best,s,bk);left-=bk;continue}
       /* 2 · a new ULD: the type that uses the least space for what is left */
@@ -614,7 +625,7 @@ function buildUlds(){
     let types;if(g==='belly')types=cat==='A'?['AKE','PMCL']:['PMCL'];
     else{const MT=mainTypes(ac).filter(t=>ULD[t].h>=s.h),low=ac.low?(cat==='A'?['AKE','PMCL']:cat==='B'?['PMCL']:[]):[];types=[...low,...MT];
       if(!types.length)return offload.push({s,why:`${s.h} cm high: above the ${Math.max(...mainTypes(ac).map(t=>ULD[t].H))} cm main-deck contour of the ${ac.name}`})}
-    if(s.excl||s.ohg>0){const ok=types.filter(t=>!(ULD[t].half&&s.ohg>0)),fit=ok.find(t=>packItems(t,[{s,p:s.pcs}],s.ohg).notShown===0);
+    if(s.excl||s.ohg>0){const ok=types.filter(t=>!(ULD[t].half&&s.ohg>0)),fit=ok.find(t=>packFast(t,[{s,p:s.pcs}],s.ohg).notShown===0);
       if(!fit)return offload.push({s,why:`${s.l}×${s.w}×${s.h} cm does not fit inside the ${ac.name} ULD contours${g==='freighter'?' (needs a centreline main-deck position)':''}`});const u=newUld(fit);u.excl=true;u.ohg=s.ohg;add(u,s,s.pcs);return}
     place(s,types)});
   /* consolidation: try to empty each automatic ULD (smallest first) into spare space in the others;
@@ -622,7 +633,8 @@ function buildUlds(){
   const merged=[],autoU=u=>!u.excl&&!u.manual;
   for(let pass=0;pass<2;pass++){let changed=false;
     for(const src of ulds.filter(autoU).sort((a,b)=>a.m3-b.m3)){
-      const targets=ulds.filter(t=>t!==src&&autoU(t));if(!targets.length)continue;
+      const targets=ulds.filter(t=>t!==src&&autoU(t));if(!targets.length||overBudget())continue;
+      if(src.m3>targets.reduce((a,t)=>a+Math.max(0,t.cap-t.m3),0)+1e-9||src.kg>targets.reduce((a,t)=>a+Math.max(0,t.max-t.kg),0)+1e-9)continue;
       const snap=targets.map(t=>({t,items:t.items.map(i=>({s:i.s,p:i.p})),kg:t.kg,m3:t.m3,flags:new Set(t.flags)}));let ok=true;
       for(const it of src.items){let left=it.p;
         for(const t of targets.sort((a,b)=>(b.cap-b.m3)-(a.cap-a.m3))){if(left<=0)break;if(t.h<it.s.h||!t.items.every(i=>i.s===it.s||!conflict(i.s,it.s)))continue;const k=fitCount(t,it.s,left);if(k>0){add(t,it.s,k);left-=k}}
@@ -687,6 +699,9 @@ function planLoad(b){
 function bounds(prof,z){const xs=[];for(let i=0;i<prof.length;i++){const[p0,p1]=[prof[i],prof[(i+1)%prof.length]];const[za,zb]=[p0[1],p1[1]];if((z>=Math.min(za,zb)-1e-6)&&(z<=Math.max(za,zb)+1e-6)){if(za===zb){xs.push(p0[0],p1[0])}else xs.push(p0[0]+(p1[0]-p0[0])*(z-za)/(zb-za))}}return xs.length?[Math.min(...xs),Math.max(...xs)]:[0,0]}
 const PCACHE=new Map();
 function packUld(u){const key=u.type+'|'+u.items.map(i=>i.s.id+':'+i.p).join(',')+'|'+(u.ohg||0);if(PCACHE.has(key))return PCACHE.get(key);const r=packItems(u.type,u.items,u.ohg);PCACHE.set(key,r);return r}
+/* packing results remembered across builds (same ULD type and same pieces → same answer) */
+const PKMEMO=new Map();
+function packFast(type,items,ohg){const key=type+"|"+(ohg||0)+"|"+items.map(i=>i.s.id+":"+i.s.l+"x"+i.s.w+"x"+i.s.h+":"+i.p).sort().join(",");let r=PKMEMO.get(key);if(!r){r=packItems(type,items,ohg);if(PKMEMO.size>3000)PKMEMO.clear();PKMEMO.set(key,r)}return r}
 function packItems(type,itemsIn,ohgFlag){
   const T=ULD[type],u={type,items:itemsIn,ohg:ohgFlag};
   let pcs=[];u.items.forEach(i=>{for(let k=0;k<i.p;k++)pcs.push({s:i.s,l:i.s.l,w:i.s.w,h:Math.min(i.s.h,T.H),kg:i.s.wt/i.s.pcs})});

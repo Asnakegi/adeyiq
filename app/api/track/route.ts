@@ -1,5 +1,8 @@
 import { after } from "next/server";
-import { clip, locationOf, toSheet } from "@/lib/sheet";
+import { clip, locationOf, toSheetRetry } from "@/lib/sheet";
+
+/* retries after the response may take up to ~12 s */
+export const maxDuration = 30;
 
 /* Usage events from the AdeyIQ pages (public/adeyiq/track.js) → "Usage" tab of the Google Sheet. */
 const EVENTS = new Set([
@@ -41,6 +44,6 @@ export async function POST(request: Request) {
     ref: clip(d.ref, 200),
     ...locationOf(request.headers),
   };
-  after(() => toSheet(row));
+  after(() => toSheetRetry(row));
   return new Response(null, { status: 204 });
 }
