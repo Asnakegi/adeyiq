@@ -13,7 +13,10 @@ const CHROME = process.env.CHROME || ["C:/Program Files/Google/Chrome/Applicatio
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let fails = 0;
 const results = [];
-const check = (ok, msg) => { results.push([ok, msg]); console.log(`  ${ok ? "PASS" : "FAIL"}  ${msg}`); if (!ok) fails++; };
+const CI = !!process.env.GITHUB_ACTIONS;
+// on GitHub Actions each failure is also an annotation, readable on the pull request without opening logs
+const annotate = (msg) => { if (CI) console.log(`::error title=e2e::${String(msg).replace(/\r?\n/g, " ").slice(0, 900)}`); };
+const check = (ok, msg) => { results.push([ok, msg]); console.log(`  ${ok ? "PASS" : "FAIL"}  ${msg}`); if (!ok) { fails++; annotate("FAIL " + msg); } };
 
 /* ---------- mock sheet (stands in for the Apps Script web app) ---------- */
 const rows = [];
@@ -40,7 +43,9 @@ next.stderr.on("data", (d) => (serverLog += d));
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), "adeyiq-e2e-"));
 let chrome;
 function done() { try { if (chrome) chrome.kill(); } catch {} next.kill(); sheet.close(); console.log(fails ? `\n${fails} FAILED of ${results.length}` : `\nAll ${results.length} end-to-end checks passed`); process.exit(fails ? 1 : 0); }
-setTimeout(() => { console.log("TIMEOUT"); fails++; done(); }, 240000);
+setTimeout(() => { console.log("TIMEOUT"); annotate(`timed out after ${results.length} checks; last: ${results.at(-1)?.[1] || "none"}`); fails++; done(); }, 240000);
+for (const ev of ["uncaughtException", "unhandledRejection"])
+  process.on(ev, (e) => { console.log(ev, e); annotate(`${ev} after ${results.length} checks: ${e?.stack || e}`); fails++; done(); });
 
 for (let i = 0; i < 100; i++) { try { if ((await fetch(BASE + "/api/health")).ok) break; } catch {} await sleep(300); }
 
@@ -67,9 +72,15 @@ check(!!(await waitRow((r) => r.visitor === "e2e-http")), "accepted event reache
 check(!rows.some((r) => r.visitor === "e2e-bot"), "events from headless or bot browsers are not written");
 
 /* ---------- browser ---------- */
-chrome = spawn(CHROME, ["--headless=new", "--remote-debugging-port=" + CDP, "--user-data-dir=" + prof, "--no-first-run", "about:blank"], { stdio: "ignore" });
+// Ubuntu 24+ runners block the unprivileged namespaces Chrome's sandbox needs; the test only opens the local build
+const chromeArgs = ["--headless=new", "--remote-debugging-port=" + CDP, "--user-data-dir=" + prof, "--no-first-run", ...(CI ? ["--no-sandbox"] : []), "about:blank"];
+let chromeErr = "";
+chrome = spawn(CHROME, chromeArgs, { stdio: ["ignore", "ignore", "pipe"] });
+chrome.stderr.on("data", (d) => (chromeErr = (chromeErr + d).slice(-2000)));
+chrome.on("error", (e) => (chromeErr += " spawn error: " + e.message));
 let wsUrl;
 for (let i = 0; i < 60 && !wsUrl; i++) { try { const l = await (await fetch(`http://127.0.0.1:${CDP}/json/list`)).json(); wsUrl = l.find((t) => t.type === "page")?.webSocketDebuggerUrl; } catch {} await sleep(250); }
+if (!wsUrl) { check(false, `Chrome did not start (${CHROME}): ${chromeErr.slice(-600)}`); done(); }
 const so = new WebSocket(wsUrl);
 await new Promise((r) => (so.onopen = r));
 let mid = 0;
