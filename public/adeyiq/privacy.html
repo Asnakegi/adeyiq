@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AdeyIQ · Privacy</title>
+<meta name="description" content="What AdeyIQ collects when you use the site and the Cargo Builder, and why.">
+<link rel="icon" href="/favicon.ico">
+<style>
+/* Plain reading page in the AdeyIQ palette. Facts here must match public/adeyiq/track.js, lib/api.ts and the builder. */
+:root{--bg:#F6F9FC;--panel:#FFFFFF;--line:#E3E8EE;--fg:#0A2540;--muted:#425466;--accent:#FFD21F;--link:#635BFF;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0A2540;--panel:#0F2F50;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;--link:#A29BFF;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0A2540;--panel:#0F2F50;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;--link:#A29BFF;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.6;padding:24px 16px 48px}
+main{max-width:720px;margin:0 auto}
+header{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.logo{width:34px;height:34px;border-radius:8px;background:var(--accent);color:#0A2540;display:grid;place-items:center;font-weight:700;text-decoration:none}
+h1{font-size:30px;line-height:1.2;margin:0 0 4px}
+h2{font-size:19px;margin:28px 0 6px}
+p,li{color:var(--muted)}
+a{color:var(--link)}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--fg)}
+.wrap-table{overflow-x:auto}
+</style>
+</head>
+<body>
+<main>
+<header><a class="logo" href="/" aria-label="AdeyIQ home">A</a><a href="/">Back to AdeyIQ</a></header>
+<h1>Privacy</h1>
+<p>This page describes what AdeyIQ (adeyiq.vercel.app) collects and why. It covers the home page, the Cargo Builder (/build) and the other pages on this site.</p>
+
+<h2>Cargo you enter stays on your device</h2>
+<p>Shipments you type or upload in the Cargo Builder are saved only in your own browser (local storage). That includes AWB numbers, pieces, sizes, weights and DG codes. They are not sent to our servers. Clearing your browser's site data deletes them.</p>
+
+<h2>Usage counts</h2>
+<p>To see how the site is used, each page sends a short event to our server when it opens and when you use main tools such as add cargo, upload or load aircraft. Each event contains:</p>
+<ul>
+<li>a random visitor id created in your browser (not linked to your name), plus a random id for the current visit</li>
+<li>the page, the action and a short summary of the result, such as how many ULDs were built</li>
+<li>the aircraft type selected, your screen width (to tell phone, tablet or desktop apart) and the page that linked you here</li>
+<li>the country, region and city of your network, as provided by our hosting provider</li>
+</ul>
+<p>We do not store your IP address or the cargo details you enter. Events from known automated scanners are ignored.</p>
+
+<h2>Access requests</h2>
+<p>If you send the "Request access" form, we receive what you type: your name, email, company, phone, the modules you are interested in and your message, plus the country and city of your network. We use it only to reply to you about AdeyIQ.</p>
+
+<h2>Feedback</h2>
+<p>If you answer the "Rate AdeyIQ" questions, we receive your answers, the role you chose, your comment (up to 150 characters) and the same visitor id as above.</p>
+
+<h2>Where the data is kept</h2>
+<div class="wrap-table"><table>
+<tr><th>Service</th><th>What it does</th></tr>
+<tr><td>Vercel</td><td>Hosts the site and provides the network location. Like any web host, it keeps short-term request logs.</td></tr>
+<tr><td>Google (Sheets and Apps Script)</td><td>Stores usage events, access requests and feedback in a private spreadsheet only the AdeyIQ team can open, and sends an email notice for each access request.</td></tr>
+<tr><td>Google Fonts, cdnjs</td><td>Deliver fonts, and on /build the spreadsheet reader for Excel uploads. Your browser downloads these files directly, so those services see your IP address.</td></tr>
+</table></div>
+
+<h2>Cookies</h2>
+<p>AdeyIQ does not set advertising or tracking cookies. It uses your browser's local storage for the random visitor id and your saved cargo.</p>
+
+<h2>Your choices</h2>
+<ul>
+<li>Clearing this site's data in your browser removes your saved cargo and resets the visitor id.</li>
+<li>To ask what we hold about you, or to have your access request or feedback deleted, send the Request access form on the <a href="/">home page</a> with "Privacy request" in the message. We reply to the email you give.</li>
+</ul>
+<p>We have not yet set a fixed period for keeping these records. Until we do, they are kept until you ask us to delete them or we no longer need them.</p>
+<p>Last updated: 12 November 2026.</p>
+</main>
+</body>
+</html>

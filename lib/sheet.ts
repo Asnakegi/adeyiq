@@ -1,9 +1,11 @@
 /**
  * Where usage events and access requests are sent: the Apps Script web app of the
  * "AdeyIQ Cargo Data" Google Sheet (scripts/access-requests.gs).
- * Set ADEYIQ_SHEET_URL in Vercel, or paste the /exec URL below. Empty = nothing is sent.
+ * Required environment variable: ADEYIQ_SHEET_URL (the web app URL ending in /exec). Empty = nothing is sent.
  */
 export const SHEET_URL = process.env.ADEYIQ_SHEET_URL || "";
+
+const TIMEOUT_MS = 8000;
 
 export async function toSheet(body: Record<string, unknown>): Promise<boolean> {
   if (!SHEET_URL) return false;
@@ -14,6 +16,7 @@ export async function toSheet(body: Record<string, unknown>): Promise<boolean> {
       body: JSON.stringify(body),
       redirect: "follow",
       cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) return false;
     const data = (await res.json().catch(() => null)) as { ok?: boolean } | null;
@@ -30,26 +33,7 @@ export async function toSheet(body: Record<string, unknown>): Promise<boolean> {
 export async function toSheetRetry(body: Record<string, unknown>, tries = 4): Promise<boolean> {
   for (let i = 0; i < tries; i++) {
     if (await toSheet(body)) return true;
-    await new Promise((r) => setTimeout(r, 600 * 2 ** i + Math.random() * 900));
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, 600 * 2 ** i + Math.random() * 900));
   }
   return false;
 }
-
-/** Visitor location from Vercel's network headers. The IP address itself is never stored. */
-export function locationOf(h: Headers) {
-  const dec = (v: string | null) => {
-    if (!v) return "";
-    try {
-      return decodeURIComponent(v);
-    } catch {
-      return v;
-    }
-  };
-  return {
-    country: h.get("x-vercel-ip-country") || "",
-    region: dec(h.get("x-vercel-ip-country-region")),
-    city: dec(h.get("x-vercel-ip-city")),
-  };
-}
-
-export const clip = (v: unknown, n: number) => String(v ?? "").slice(0, n);
