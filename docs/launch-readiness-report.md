@@ -58,7 +58,7 @@ This is a judgement for an anonymous, no-login early-access tool whose cargo dat
 | `npm audit --omit=dev` | 0 vulnerabilities |
 | `npm audit` (including dev tools) | 12 (2 low, 10 moderate), all in lint/CLI tooling (`minimatch`, `deepmerge`), not shipped |
 
-The CI workflow has not run on GitHub yet, because the branch has not been pushed.
+The CI workflow passed on GitHub for pull request #1 (https://github.com/Asnakegi/adeyiq/pull/1). The first run failed only because headless Chrome could not start its sandbox on the Ubuntu runner; the E2E script now starts Chrome without the sandbox on CI (it only opens the local build) and reports any failure as an annotation.
 
 ## Journeys verified end to end
 
@@ -142,7 +142,7 @@ The E2E run in this audit wrote only to the local mock.
 ## Deploy and monitoring checklist
 
 - [x] Review the commits on `launch-readiness` and push the branch
-- [ ] Wait for the GitHub Actions CI run to pass
+- [x] Wait for the GitHub Actions CI run to pass
 - [x] Open the Vercel preview with `?owner=1`. Check `/api/health`, that a Usage row arrives, that the access form shows "Request sent." (one test request, then delete it) and that `/privacy` loads
 - [x] Check the response headers on the preview (CSP present, no console CSP errors on `/` and `/build`)
 - [ ] Merge to `main`. Vercel deploys production
