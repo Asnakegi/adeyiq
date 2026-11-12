@@ -12,7 +12,7 @@ This is a judgement for an anonymous, no-login early-access tool whose cargo dat
 
 ### Conditions before launch
 
-1. **Deploy a preview first and check it.** Open the branch's Vercel preview deployment. Then:
+1. ~~**Deploy a preview first and check it.**~~ **Done on 12 November 2026:** on the Vercel preview, `/api/health` returned `ok:true, sheetConfigured:true`. Four owner-marked events (home opened, builder opened, sample cargo tried, aircraft loaded) reached the Usage tab, so the origin check works behind Vercel's proxy. The security headers were present with no console errors, and the save label read "Saved on this device". Original condition: Open the branch's Vercel preview deployment. Then:
    - Confirm `/api/health` shows `sheetConfigured: true`.
    - Open `/` and `/build` from a normal browser and confirm new Usage rows appear in the sheet.
 
@@ -106,7 +106,7 @@ No destructive or load tests were pointed at production during this audit.
 
 | # | Severity | Issue | Recommendation |
 |---|---|---|---|
-| 1 | High (until verified) | Origin check untested behind Vercel's proxy (condition 1) | Verify on the preview deployment before promoting |
+| 1 | Resolved | Origin check untested behind Vercel's proxy | Verified on the preview deployment (condition 1) |
 | 2 | Medium | The Apps Script web app accepts writes from **anyone who has its `/exec` URL**, bypassing the API's limits. The URL is kept out of the repo, but it is a bearer secret | Add a shared secret: the route sends a key from a new env var, and the script rejects requests without it. Needs an Apps Script redeploy by the owner |
 | 3 | Medium | Rate limits are per serverless instance (in memory), so they are best effort against a determined attacker | Acceptable for launch. If abuse appears, move to a shared store (for example Vercel KV or Upstash), which would be a new paid or free-tier service and needs your approval |
 | 4 | Medium | The builder loads SheetJS `xlsx` **0.18.5** from cdnjs for Excel uploads. That version has published advisories (prototype pollution, ReDoS) when parsing crafted files. It runs only in the user's own browser on files they choose | Move to SheetJS 0.20.x, which is published on cdn.sheetjs.com and not on npm or cdnjs. That needs a CSP update and a re-test of uploads |
@@ -122,7 +122,7 @@ No destructive or load tests were pointed at production during this audit.
 ## Not tested, or mocked
 
 - **Google Apps Script and the Sheet were mocked in E2E.** Real Apps Script behaviour (quotas, email sending, concurrency limits) was only exercised by the earlier production tests.
-- **Vercel-specific behaviour:** the proxy and Origin/host headers, geo headers, Vercel Analytics, `after()` background work and function time limits. Geo headers are covered only by unit tests with fake values.
+- **Vercel-specific behaviour:** the preview check confirmed the origin check, geo headers and sheet writes. Still untested there: Vercel Analytics, `after()` background work and function time limits. Geo headers are covered only by unit tests with fake values.
 - **Browsers:** only Chrome (headless) was tested. Safari, Firefox and real iOS or Android devices were not.
 - **Accessibility:** automated basics only. No screen-reader session, no full keyboard-only walkthrough and no colour-contrast audit.
 - **Network performance:** real-network page speed (Core Web Vitals) and load beyond the earlier 30-concurrent test.
@@ -141,10 +141,10 @@ The E2E run in this audit wrote only to the local mock.
 
 ## Deploy and monitoring checklist
 
-- [ ] Review the 8 commits on `launch-readiness` and push the branch
+- [x] Review the commits on `launch-readiness` and push the branch
 - [ ] Wait for the GitHub Actions CI run to pass
-- [ ] Open the Vercel preview with `?owner=1`. Check `/api/health`, that a Usage row arrives, that the access form shows "Request sent." (one test request, then delete it) and that `/privacy` loads
-- [ ] Check the response headers on the preview (CSP present, no console CSP errors on `/` and `/build`)
+- [x] Open the Vercel preview with `?owner=1`. Check `/api/health`, that a Usage row arrives, that the access form shows "Request sent." (one test request, then delete it) and that `/privacy` loads
+- [x] Check the response headers on the preview (CSP present, no console CSP errors on `/` and `/build`)
 - [ ] Merge to `main`. Vercel deploys production
 - [ ] Repeat the health and Usage-row checks on production
 - [ ] Add an uptime monitor on `/api/health`, every 5 minutes, alerting on non-200 or `sheetConfigured:false`
