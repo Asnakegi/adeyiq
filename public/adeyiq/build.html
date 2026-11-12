@@ -1404,7 +1404,7 @@ const FBQ=[{k:'q1',t:'1. Overall, how satisfied are you with the Cargo Builder?'
 const fbA={};
 $('fbQs').innerHTML=FBQ.map(q=>`<div class="fbq" role="group" aria-label="${esc(q.t)}"><b>${esc(q.t)}</b><div class="scale">${q.o.map(o=>{const[v,l]=Array.isArray(o)?o:[o,String(o)];return `<button type="button" data-q="${q.k}" data-v="${v}" aria-pressed="false">${esc(l)}</button>`}).join('')}</div>${q.lo?`<div class="scl"><span>${q.lo}</span><span>${q.hi}</span></div>`:''}</div>`).join('<div style="height:10px"></div>');
 $('fbQs').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{fbA[b.dataset.q]=+b.dataset.v;$('fbQs').querySelectorAll(`[data-q="${b.dataset.q}"]`).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('fbErr').textContent=''});
-const fbVid=()=>{try{let v=localStorage.getItem('adeyiq-vid');if(!v){v=Math.random().toString(36).slice(2,12);localStorage.setItem('adeyiq-vid',v)}return v}catch(e){return'anon'}};
+const fbVid=()=>{try{let v=localStorage.getItem('adeyiq-vid');if(!v){v=Math.random().toString(36).slice(2,12);localStorage.setItem('adeyiq-vid',v)}return(localStorage.getItem('adeyiq-owner')==='1'?'owner-':'')+v}catch(e){return'anon'}};
 const fbStore=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}};
 function openFb(){$('fbNudge').hidden=true;$('fbErr').textContent='';const d=$('fbDlg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 function closeFb(){const d=$('fbDlg');if(d.close)d.close();else d.removeAttribute('open')}

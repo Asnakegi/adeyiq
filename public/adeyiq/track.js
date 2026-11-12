@@ -5,6 +5,10 @@
   try {
     vid = localStorage.getItem("adeyiq-vid");
     if (!vid) { vid = Math.random().toString(36).slice(2, 12); localStorage.setItem("adeyiq-vid", vid); }
+    /* the owner marks a device once with ?owner=1 (and clears it with ?owner=0); its visits are sent as owner-… and left out of the summary */
+    var om = /[?&]owner=([01])/.exec(location.search);
+    if (om) { if (om[1] === "1") localStorage.setItem("adeyiq-owner", "1"); else localStorage.removeItem("adeyiq-owner"); }
+    if (localStorage.getItem("adeyiq-owner") === "1") vid = "owner-" + vid;
   } catch (e) {}
   var sid = Math.random().toString(36).slice(2, 10);
   var page = location.pathname || "/";
