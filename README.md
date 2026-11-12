@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AdeyIQ
 
-## Getting Started
+Cargo build-up and load planning for airline cargo teams. Live at https://adeyiq.vercel.app.
 
-First, run the development server:
+| Path | What it is |
+|---|---|
+| `/` | Product home page with the access request form (`public/adeyiq/home.html`) |
+| `/build` | Cargo Builder: add or upload shipments, build ULDs, load the aircraft (`public/adeyiq/build.html`) |
+| `/hold-view`, `/aircraft-data` | Hold view demo and aircraft reference data |
+| `/privacy` | What the site collects |
+| `/dashboard` and other App Router pages | Early dashboard prototype with invented sample data, marked noindex |
+| `/api/track`, `/api/request` | Usage events and access requests, written to the Google Sheet |
+| `/api/health` | Health check for uptime monitors |
+
+## Run locally
+
+Needs Node.js 24 or later.
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Without `ADEYIQ_SHEET_URL` nothing is written anywhere: usage events are dropped and the access form shows its copy-and-send fallback. To test writes, point it at a mock, never at the production sheet.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+```
 
-## Learn More
+`npm test` runs API unit tests, packing-engine regression tests (read straight from `public/adeyiq/build.html`) and the oversize checks. `npm run test:e2e` drives headless Chrome against the local production build with a mock sheet.
 
-To learn more about Next.js, take a look at the following resources:
+## More
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [docs/operations.md](docs/operations.md): deploy, rollback, environment variables, backups, monitoring, incidents
+- [docs/launch-checklist.md](docs/launch-checklist.md): launch findings and acceptance criteria
+- [docs/launch-readiness-report.md](docs/launch-readiness-report.md): latest launch-readiness review

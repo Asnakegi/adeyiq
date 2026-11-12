@@ -39,7 +39,7 @@ next.stdout.on("data", (d) => (serverLog += d));
 next.stderr.on("data", (d) => (serverLog += d));
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), "adeyiq-e2e-"));
 let chrome;
-function done() { try { chrome && chrome.kill(); } catch {} next.kill(); sheet.close(); console.log(fails ? `\n${fails} FAILED of ${results.length}` : `\nAll ${results.length} end-to-end checks passed`); process.exit(fails ? 1 : 0); }
+function done() { try { if (chrome) chrome.kill(); } catch {} next.kill(); sheet.close(); console.log(fails ? `\n${fails} FAILED of ${results.length}` : `\nAll ${results.length} end-to-end checks passed`); process.exit(fails ? 1 : 0); }
 setTimeout(() => { console.log("TIMEOUT"); fails++; done(); }, 240000);
 
 for (let i = 0; i < 100; i++) { try { if ((await fetch(BASE + "/api/health")).ok) break; } catch {} await sleep(300); }
