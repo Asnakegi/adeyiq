@@ -122,7 +122,7 @@ No destructive or load tests were pointed at production during this audit.
 ## Not tested, or mocked
 
 - **Google Apps Script and the Sheet were mocked in E2E.** Real Apps Script behaviour (quotas, email sending, concurrency limits) was only exercised by the earlier production tests.
-- **Vercel-specific behaviour:** the preview check confirmed the origin check, geo headers and sheet writes. Still untested there: Vercel Analytics, `after()` background work and function time limits. Geo headers are covered only by unit tests with fake values.
+- **Vercel-specific behaviour:** the preview check confirmed the origin check, geo headers and sheet writes. Still untested there: Vercel Analytics, `after()` background work and function time limits.
 - **Browsers:** only Chrome (headless) was tested. Safari, Firefox and real iOS or Android devices were not.
 - **Accessibility:** automated basics only. No screen-reader session, no full keyboard-only walkthrough and no colour-contrast audit.
 - **Network performance:** real-network page speed (Core Web Vitals) and load beyond the earlier 30-concurrent test.
