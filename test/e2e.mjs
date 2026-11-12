@@ -183,6 +183,17 @@ const cr = await js(`(async()=>{const s=document.getElementById('acSel');s.value
 check(cr.st1 === "30 ULDs built" && cr.flag, `charter builds 30 ULDs with nothing offloaded (${cr.st1})`);
 check(cr.main === 28 && cr.lower === 2, `all 28 main-deck positions used, 2 pallets on the lower deck (main ${cr.main}, lower ${cr.lower})`);
 check(cr.st2 === "Balanced ✓", `full freighter load is in balance (${cr.st2})`);
+// 20 ft PGA pallets need two rows side by side: balancing single pallets must not leave them without room
+await go("/build");
+await js(`localStorage.clear()`);
+await go("/build");
+const pga = "AWB,Goods,Pieces,Weight,L,W,H\n071-66100011,Machinery skids,16,40000,200,120,180\n" + Array.from({ length: 10 }, (_, i) => `071-6620000${i},Steel beams ${i},1,1000,500,200,100`).join("\n") + "\n";
+const pr = await js(`(async()=>{const s=document.getElementById('acSel');s.value='B777F';s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,400));
+  const b0=document.getElementById('st1s').textContent;const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(pga)}],'pga.csv'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
+  await new Promise(r=>{const iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0){clearInterval(iv);r()}},30)});await new Promise(r=>setTimeout(r,500));
+  document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));
+  return {flag:document.getElementById('flagBtn').hidden,stats:document.getElementById('stats').innerText.replace(/\\s+/g,' ')}})()`);
+check(pr.flag && /18 ULDs · 18 \//.test(pr.stats), `ten 20 ft pallets plus eight main-deck pallets all get a position (${pr.stats})`);
 
 console.log("\nLocal performance (production build, this machine)");
 for (const p of ["/", "/build"]) {

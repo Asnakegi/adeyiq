@@ -658,7 +658,7 @@ function planLoad(b){
   const pairs=[];b.ulds.filter(u=>ULD[u.type].half).sort((x,y)=>y.kg-x.kg).forEach(u=>{const p=pairs.find(p=>p.length===1&&!clash(p[0],u));if(p)p.push(u);else pairs.push([u])});
   /* main-deck pallets go two abreast (left and right), a PGA pairs with another PGA over two rows */
   const mains=[];b.ulds.filter(u=>ULD[u.type].main).sort((x,y)=>y.kg-x.kg).forEach(u=>{const pga=u.type==='PGA',p=!ac.main.single&&mains.find(p=>p.length===1&&(p[0].type==='PGA')===pga&&!clash(p[0],u));if(p)p.push(u);else mains.push([u])});
-  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>y.w-x.w);
+  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>((y.kind==='main'&&y.len>MP(ac))-(x.kind==='main'&&x.len>MP(ac)))||y.w-x.w);
   const posArm=(c,st,len)=>{const f=(st+len/2)/c.len;return c.key==='fwd'?c.a[1]-(c.a[1]-c.a[0])*f:c.a[0]+(c.a[1]-c.a[0])*f};
   const noPos=[];
   const lowC=C.filter(c=>c.key!=='main'),mainC=C.filter(c=>c.key==='main');
@@ -668,7 +668,7 @@ function planLoad(b){
       const cands=tier.map(c=>({c,arm:posArm(c,c.used,L(c))})).sort((x,y)=>Math.abs(mom+un.w*x.arm)-Math.abs(mom+un.w*y.arm)).map(x=>x.c);
       for(const c of cands){if(c.key==='main'){const len=L(c),pitch=MP(ac),rows=Math.round(c.len/pitch),need=Math.round(len/pitch);c.occ=c.occ||new Array(rows).fill(null);
           let best=null,kept=false;
-          for(let r=0;r+need<=rows;r++){if(c.occ.slice(r,r+need).some(Boolean))continue;
+          for(const r of need>1?[...Array(rows).keys()].sort((a,b)=>(a%need)-(b%need)||a-b):[...Array(rows).keys()]){if(r+need>rows||c.occ.slice(r,r+need).some(Boolean))continue;if(best&&need>1&&r%need&&best.r%need===0)break;
             const nb=[c.occ[r-1],c.occ[r+need]].filter(Boolean),a=posArm(c,r*pitch,len),score=Math.abs(mom+un.w*a);
             if(nb.some(o=>o.ulds.some(x=>un.ulds.some(y=>clash(x,y))))){kept=true;continue}
             if(!best||score<best.score-1e-9)best={r,a,score}}
