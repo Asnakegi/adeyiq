@@ -169,31 +169,44 @@ for (const p of ["/", "/build", "/hold-view", "/aircraft-data", "/privacy"]) {
 }
 await send("Emulation.clearDeviceMetricsOverride");
 
-console.log("\nFull 777F charter (95 t): main deck full, overflow to the lower deck, in balance");
+console.log("\nFull 777F charter, 300 pieces: 27 main + 10 lower positions full, 2 lower-deck pallets offloaded, in balance");
 await go("/build");
 await js(`localStorage.clear()`);
 await go("/build");
-const charter = `AWB,Goods,Pieces,Weight,L,W,H\n071-55100011,Auto parts racks,52,47100,120,100,200\n071-55100022,Machinery skids,12,13800,200,120,180\n071-55100033,Furniture,17,12900,160,100,170\n071-55100044,Solar panel pallets,16,12800,200,110,190\n071-55100055,Spare engine parts,4,4400,150,120,120\n071-55100066,Medical supplies,4,4000,120,120,120\n`;
+// the 300-row booking used in the demo video: every piece its own dimensions (same generator, seed 4, 84 tall rows)
+const charter = (() => {
+  let s = 4;
+  const R = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648), ri = (a, b) => Math.round(a + R() * (b - a));
+  const TALL = ["Auto parts racks", "Machinery skids", "Furniture", "Solar panel pallets", "Garment racks", "Generator sets", "Industrial pumps", "Steel frames"];
+  const LOW = ["Spare engine parts", "Medical supplies", "Electronics", "E-commerce parcels", "Textile cartons", "Tools", "Printed matter", "Ceramic tiles", "Coffee", "Leather goods", "Tyres", "Cables"];
+  const rows = ["AWB,Goods,Pieces,Weight,L,W,H"];
+  for (let i = 0; i < 300; i++) {
+    const tall = i < 84, g = tall ? TALL[i % 8] : LOW[(i - 84) % 12], awb = "071-" + (55300000 + (tall ? i % 8 : 20 + ((i - 84) % 12)) * 11);
+    const [l, w, h] = tall ? [ri(100, 200), ri(80, 150), ri(170, 230)] : [ri(155, 175), ri(45, 85), ri(45, 75)];
+    rows.push([awb, g, 1, tall ? ri(700, 1100) : ri(50, 120), l, w, h].join(","));
+  }
+  return rows.join("\n") + "\n";
+})();
 const cr = await js(`(async()=>{const s=document.getElementById('acSel');s.value='B777F';s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,400));
   const b0=document.getElementById('st1s').textContent;const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(charter)}],'charter.csv'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
   await new Promise(r=>{const iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0){clearInterval(iv);r()}},30)});await new Promise(r=>setTimeout(r,500));
   document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));
   const rows=[...document.querySelectorAll('#ulds .ulrow')].map(b=>b.innerText.replace(/\\s+/g,' '));
-  return {st1:document.getElementById('st1s').textContent,st2:document.getElementById('st2s').textContent,main:rows.filter(r=>/ Main [A-N][LR] /.test(r)).length,lower:rows.filter(r=>/ (1\\d|3\\d)P /.test(r)).length,flag:document.getElementById('flagBtn').hidden}})()`);
-check(cr.st1 === "30 ULDs built" && cr.flag, `charter builds 30 ULDs with nothing offloaded (${cr.st1})`);
-check(cr.main === 28 && cr.lower === 2, `all 28 main-deck positions used, 2 pallets on the lower deck (main ${cr.main}, lower ${cr.lower})`);
-check(cr.st2 === "Balanced ✓", `full freighter load is in balance (${cr.st2})`);
+  return {st2:document.getElementById('st2s').textContent,main:rows.filter(r=>/ Main [A-N][LRP] /.test(r)).length,lower:rows.filter(r=>/ (1\\d|3\\d)P /.test(r)).length,facts:document.getElementById('facts').textContent}})()`);
+check(/main deck 27 pallet positions/.test(cr.facts) && /or 10 pallet positions/.test(cr.facts), `777F has 27 main-deck and 10 lower-deck pallet positions (${cr.facts.slice(0, 150)})`);
+check(cr.main === 27 && cr.lower === 10, `all 37 positions used: 27 main deck, 10 lower deck (main ${cr.main}, lower ${cr.lower})`);
+check(cr.st2 === "Balanced ✓ · 2 offloaded", `full freighter in balance, the 2 pallets without a position reported (${cr.st2})`);
 // 20 ft PGA pallets need two rows side by side: balancing single pallets must not leave them without room
 await go("/build");
 await js(`localStorage.clear()`);
 await go("/build");
-const pga = "AWB,Goods,Pieces,Weight,L,W,H\n071-66100011,Machinery skids,16,40000,200,120,180\n" + Array.from({ length: 10 }, (_, i) => `071-6620000${i},Steel beams ${i},1,1000,500,200,100`).join("\n") + "\n";
+const pga = "AWB,Goods,Pieces,Weight,L,W,H\n071-66100011,Machinery skids,12,30000,200,120,180\n" + Array.from({ length: 10 }, (_, i) => `071-6620000${i},Steel beams ${i},1,1000,500,200,100`).join("\n") + "\n";
 const pr = await js(`(async()=>{const s=document.getElementById('acSel');s.value='B777F';s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,400));
   const b0=document.getElementById('st1s').textContent;const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(pga)}],'pga.csv'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
   await new Promise(r=>{const iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0){clearInterval(iv);r()}},30)});await new Promise(r=>setTimeout(r,500));
   document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));
   return {flag:document.getElementById('flagBtn').hidden,stats:document.getElementById('stats').innerText.replace(/\\s+/g,' ')}})()`);
-check(pr.flag && /18 ULDs · 18 \//.test(pr.stats), `ten 20 ft pallets plus eight main-deck pallets all get a position (${pr.stats})`);
+check(pr.flag && /16 ULDs · 16 \//.test(pr.stats), `ten 20 ft pallets plus six main-deck pallets fill the 13 paired rows (${pr.stats})`);
 
 console.log("\nLocal performance (production build, this machine)");
 for (const p of ["/", "/build"]) {
