@@ -450,7 +450,7 @@ const AC=[
  {id:'A350-900',g:'belly',name:'Airbus A350-900',low:{fwd:{rows:10},aft:{rows:8}}},{id:'A350-1000',g:'belly',name:'Airbus A350-1000',low:{fwd:{rows:12},aft:{rows:10}}},{id:'B777-300ER',g:'belly',name:'Boeing 777-300ER',low:{fwd:{rows:12},aft:{rows:10}}},{id:'A330-300',g:'belly',name:'Airbus A330-300',low:{fwd:{rows:9},aft:{rows:7}}},
  {id:'B737-800',g:'narrow',name:'Boeing 737-800',bulkHolds:{fwd:{m3:19.6,kg:3500},aft:{m3:24.4,kg:4500}},door:'122 × 89',doorWH:[122,84]},{id:'B737-8',g:'narrow',name:'Boeing 737-8 (MAX)',bulkHolds:{fwd:{m3:19.6,kg:3500},aft:{m3:24.4,kg:4500}},door:'122 × 89',doorWH:[122,84]},
  {id:'A320neo',g:'narrow',name:'Airbus A320neo',akh:{fwd:{rows:3},aft:{rows:4}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124],bulkDoor:'95 × 77',bulkDoorWH:[95,77]},{id:'A321neo',g:'narrow',name:'Airbus A321neo',akh:{fwd:{rows:5},aft:{rows:5}},bulkHolds:{bulk:{m3:5.9,kg:1500}},door:'182 × 124',doorWH:[182,124],bulkDoor:'95 × 77',bulkDoorWH:[95,77]},
- {id:'B777F',g:'freighter',name:'Boeing 777 Freighter',low:{fwd:{rows:9},aft:{rows:7}},main:{rows:14}},{id:'B747-8F',g:'freighter',name:'Boeing 747-8F',low:{fwd:{rows:10},aft:{rows:8}},main:{rows:16}},
+ {id:'B777F',g:'freighter',name:'Boeing 777 Freighter',low:{fwd:{rows:9,pal:6},aft:{rows:7,pal:4}},main:{rows:14,lastSingle:true}},{id:'B747-8F',g:'freighter',name:'Boeing 747-8F',low:{fwd:{rows:10},aft:{rows:8}},main:{rows:16}},
  {id:'B767-300F',g:'freighter',name:'Boeing 767-300F',low:{fwd:{rows:7},aft:{rows:6}},main:{rows:12},mainTypes:['PMC6']},
  {id:'B737-800BCF',g:'freighter',name:'Boeing 737-800BCF (converted)',main:{rows:11,pitch:224,single:true},mainTypes:['PAGN'],noPGA:true}
 ];
@@ -475,6 +475,7 @@ const CATTXT={A:'Container',B:'Lower-deck pallet',C:'Freighter main deck',X:'Out
 const longPiece=s=>!fitsBase(s.l,s.w,318,244);
 const mainTypes=ac=>ac.mainTypes||['PMC6','PMC7'];
 const MP=ac=>(ac.main&&ac.main.pitch)||318;
+const mainPos=ac=>ac.main?ac.main.rows*(ac.main.single?1:2)-(ac.main.lastSingle?1:0):0;
 const pitchOf=(ac,key)=>key==='main'?MP(ac):156;
 function fitsDoor(s,wh){const d=[s.l,s.w,s.h].sort((a,b)=>a-b);return d[0]<=Math.min(...wh)&&d[1]<=Math.max(...wh)}
 const volM3=s=>s.pcs*s.l*s.w*s.h/1e6,volKg=s=>volM3(s)*1e6/R('rDiv'),chg=s=>Math.max(s.wt,volKg(s));
@@ -652,7 +653,7 @@ function buildUlds(){
 function planLoad(b){
   const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-18,18]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
   const lower=ac.low||ac.akh;if(lower)for(const k of['fwd','aft']){const r=lower[k].rows;C.push({key:k,name:k==='fwd'?'Forward hold':'Aft hold',len:r*156,used:0,blocks:[],a:arm[k],maxKg:r*2*R(ac.akh?'rAkh':'rAke')*(ac.akh?1:.9)})}
-  if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:arm.main,maxKg:ac.main.rows*(ac.main.single?1:2)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
+  if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:(()=>{const n=ac.main.rows;let s=0,k=0;for(let r=0;r<n;r++){const p=ac.main.single||(ac.main.lastSingle&&r===n-1)?1:2;s+=p*(arm.main[0]+(arm.main[1]-arm.main[0])*(r+.5)/n);k+=p}return[arm.main[0]-s/k,arm.main[1]-s/k]})(),maxKg:mainPos(ac)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
   const issues=[];let mom=0;if(!C.length)return{C,index:0,total:0,issues};
   const clash=(a,c)=>a.items.some(i=>c.items.some(j=>conflict(i.s,j.s)));
   const pairs=[];b.ulds.filter(u=>ULD[u.type].half).sort((x,y)=>y.kg-x.kg).forEach(u=>{const p=pairs.find(p=>p.length===1&&!clash(p[0],u));if(p)p.push(u);else pairs.push([u])});
@@ -663,19 +664,22 @@ function planLoad(b){
   const noPos=[];
   const lowC=C.filter(c=>c.key!=='main'),mainC=C.filter(c=>c.key==='main');
   for(const un of units){
-    const tiers=un.kind==='main'?[mainC]:un.kind==='ake'?[lowC]:[lowC,mainC],L=c=>c.key==='main'&&un.kind==='pal'?MP(ac):un.len;let ok=false;
+    const tiers=un.kind==='main'?[mainC]:un.kind==='ake'?[lowC]:[lowC,mainC],L=c=>c.key==='main'&&un.kind==='pal'?MP(ac):un.kind==='pal'&&lower&&lower[c.key]&&lower[c.key].pal?c.len/lower[c.key].pal:un.len;let ok=false;
     for(const tier of tiers){if(ok)break;
       const cands=tier.map(c=>({c,arm:posArm(c,c.used,L(c))})).sort((x,y)=>Math.abs(mom+un.w*x.arm)-Math.abs(mom+un.w*y.arm)).map(x=>x.c);
       for(const c of cands){if(c.key==='main'){const len=L(c),pitch=MP(ac),rows=Math.round(c.len/pitch),need=Math.round(len/pitch);c.occ=c.occ||new Array(rows).fill(null);
           let best=null,kept=false;
-          for(const r of need>1?[...Array(rows).keys()].sort((a,b)=>(a%need)-(b%need)||a-b):[...Array(rows).keys()]){if(r+need>rows||c.occ.slice(r,r+need).some(Boolean))continue;if(best&&need>1&&r%need&&best.r%need===0)break;
-            const nb=[c.occ[r-1],c.occ[r+need]].filter(Boolean),a=posArm(c,r*pitch,len),score=Math.abs(mom+un.w*a);
+          for(const r of need>1?[...Array(rows).keys()].sort((a,b)=>(a%need)-(b%need)||a-b):[...Array(rows).keys()]){if(r+need>rows||c.occ.slice(r,r+need).some(Boolean))continue;const sr=!!ac.main.lastSingle&&r+need===rows;if(sr&&(un.ulds.length>1||need>1))continue;if(best&&need>1&&r%need&&best.r%need===0)break;
+            const nb=[c.occ[r-1],c.occ[r+need]].filter(Boolean),a=posArm(c,r*pitch,len),inLim=x=>x/1000>=R('rIdxF')&&x/1000<=R('rIdxA'),score=Math.abs(mom+un.w*a)-(sr&&un.ulds.length===1&&inLim(mom+un.w*a)?1e12:0);
             if(nb.some(o=>o.ulds.some(x=>un.ulds.some(y=>clash(x,y))))){kept=true;continue}
             if(!best||score<best.score-1e-9)best={r,a,score}}
-          if(!best)continue;
+          if(!best){if(un.kind==='main'&&need===1&&un.ulds.length===2&&ac.main.lastSingle&&!c.occ[rows-1]&&!(c.occ[rows-2]&&c.occ[rows-2].ulds.some(x=>clash(x,un.ulds[0])))){const keep=un.ulds[0],drop=un.ulds[1],st=(rows-1)*pitch,a=posArm(c,st,pitch),blk={start:st,len:pitch,ulds:[keep],arm:a,w:keep.kg};
+              c.blocks.push(blk);c.occ[rows-1]=blk;c.used=Math.max(c.used,st+pitch);mom+=keep.kg*a;keep.side='P';keep.pos=String.fromCharCode(64+rows)+'P';keep.blk={c:'main',start:st,len:pitch};
+              noPos.push({s:drop.items[0].s,why:`no free main-deck position left for ${drop.id} (${fmt(drop.kg)} kg): main deck 100% used`,uld:drop});ok=true;break}
+            continue}
           const st=best.r*pitch,blk={start:st,len,ulds:un.ulds,arm:best.a,w:un.w};c.blocks.push(blk);for(let k=0;k<need;k++)c.occ[best.r+k]=blk;c.used=Math.max(c.used,st+len);mom+=un.w*best.a;
           if(kept&&!issues.some(i=>i.t.startsWith('Dangerous goods kept apart')))issues.push({k:'info',t:'Dangerous goods kept apart: at least one main-deck position between incompatible pallets'});
-          const lab=String.fromCharCode(65+best.r);un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'||ac.main.single?'P':'L');u.pos=lab+u.side;u.blk={c:'main',start:st,len}});ok=true;break}
+          const lab=String.fromCharCode(65+best.r);un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'||ac.main.single||(ac.main.lastSingle&&best.r===rows-1)?'P':'L');u.pos=lab+u.side;u.blk={c:'main',start:st,len}});ok=true;break}
         const len=L(c),pitch=pitchOf(ac,c.key),prev=[...c.blocks].reverse().find(x=>!x.gap);let st=c.used,gap=prev&&prev.ulds.some(a=>un.ulds.some(x=>clash(a,x)));if(gap)st+=pitch;if(st+len>c.len)continue;
         if(gap){c.blocks.push({start:c.used,len:pitch,ulds:[],gap:true});issues.push({k:'info',t:`One position left empty in the ${c.name.toLowerCase()} to keep dangerous goods apart`})}
         const a=posArm(c,st,len);c.blocks.push({start:st,len,ulds:un.ulds,arm:a,w:un.w});c.used=st+len;mom+=un.w*a;
@@ -1026,7 +1030,7 @@ function buildList(){
   const bulkRows=bulk.map(h=>`<button type="button" class="ulrow" data-k="B:${h.k}" ${sel2==='B:'+h.k?'aria-current="true"':''}><i class="sw" style="background:#8CC152;width:14px;height:30px"></i><span style="min-width:0">${BULKN[h.k]}<br><span class="mono mut" style="font-size:12px">${awbN(h)} shipments loose · ${kgF(h.usedKg)}</span></span><span class="tag" style="background:var(--panel2)">${Math.round(h.usedKg/h.kg*100)}%</span></button>`).join('');
   if(!plan.C.length){const n=bulk.reduce((s,h)=>s+h.items.length,0);
     st.innerHTML=`<div class="stat"><b class="mono">0</b><span>ULDs (bulk only)</span></div><div class="stat"><b class="mono">${n}</b><span>shipments loose</span></div><div class="stat"><b class="mono">${kgF(bkg)}</b><span>loaded</span></div>`;box.innerHTML=bulkRows}
-  else{const list=SL.flatMap(sl=>sl.ulds.map(u=>({sl,u}))),kg=list.reduce((s,x)=>s+x.u.kg,0)+bkg,slots=plan.C.reduce((s,c)=>s+Math.round(c.len/pitchOf(build.ac,c.key))*(c.key==='main'&&build.ac.main.single?1:2),0),awbs=new Set(list.flatMap(x=>x.u.items.map(i=>i.s.awb))).size;
+  else{const list=SL.flatMap(sl=>sl.ulds.map(u=>({sl,u}))),kg=list.reduce((s,x)=>s+x.u.kg,0)+bkg,slots=plan.C.reduce((s,c)=>{const lw=build.ac.low&&build.ac.low[c.key];return s+(c.key==='main'?mainPos(build.ac):lw&&lw.pal&&c.blocks.some(b=>b.ulds&&b.ulds.some(u=>!ULD[u.type].half))?lw.pal:Math.round(c.len/pitchOf(build.ac,c.key))*2)},0),awbs=new Set(list.flatMap(x=>x.u.items.map(i=>i.s.awb))).size;
     st.innerHTML=`<div class="stat"><b class="mono">${list.length}</b><span>ULDs · ${list.length} / ${slots} positions</span></div><div class="stat"><b class="mono">${awbs}</b><span>AWBs on board</span></div><div class="stat"><b class="mono">${kgF(kg)}</b><span>loaded</span></div>`;
     box.innerHTML=list.map(({sl,u})=>{const cs=consign(u),shcs=[...new Set(cs.flatMap(c=>c.s.shc))].slice(0,3);
       return `<button type="button" class="ulrow" data-k="${sl.key}" data-s="${u.side}" ${sl.key===sel2&&u.side===side2?'aria-current="true"':''}><span class="stack">${cs.slice().reverse().map(c=>`<i style="flex:${c.share.toFixed(3)};background:${c.col}"></i>`).join('')}</span><span style="min-width:0"><span class="mono" style="font-weight:600">${u.id}</span> · ${esc(cs[0].s.nat||'Cargo')}<br><span class="mono mut" style="font-size:12px">${sl.c.key==='main'?'Main ':''}${u.pos} · ${cs.length} AWB${cs.length>1?'s':''} · ${kgF(u.kg)}</span></span><span class="shcs">${shcHtml(shcs)}${u.flags.has('DG')?'<span class="shc dg">DG</span>':''}</span></button>`}).join('')+bulkRows}
@@ -1236,8 +1240,8 @@ function renderLoad(){
   stopAnim2();pendingId=null;phase='done';shown2=null;
   const has=!!(build&&plan);$('p2main').hidden=!has;$('p2empty').hidden=has;
   if(!has){$('st2s').textContent='Positions and weight & balance';$('loadTitle').textContent='Your flight · '+acNow().name;$('loadSub').textContent='';$('hchips').innerHTML='';return}
-  const ac=build.ac,lo=R('rIdxF'),hi=R('rIdxA'),idx=plan.index,bad=plan.issues.some(i=>i.k==='bad')||build.offload.some(o=>o.uld),ok=(!plan.C.length||(idx>=lo&&idx<=hi))&&!bad;
-  $('st2s').textContent=plan.C.length?(ok?'Balanced ✓':'Check balance'):'Bulk loading';
+  const ac=build.ac,lo=R('rIdxF'),hi=R('rIdxA'),idx=plan.index,offN=build.offload.filter(o=>o.uld).length,balOk=(!plan.C.length||(idx>=lo&&idx<=hi))&&!plan.issues.some(i=>i.k==='bad'),bad=!balOk||offN>0,ok=!bad;
+  $('st2s').textContent=plan.C.length?(balOk?(offN?`Balanced ✓ · ${offN} offloaded`:'Balanced ✓'):'Check balance'):'Bulk loading';
   SL=slotsOf();
   const keep=selUid&&findUld(selUid);
   if(keep){sel2=keep.sl.key;side2=keep.u.side}
@@ -1245,9 +1249,9 @@ function renderLoad(){
   const a=SIDE[ac.id],role=ac.g==='belly'?'Passenger · lower deck':ac.g==='freighter'?(ac.low?'Freighter · main and lower deck':'Converted freighter · main deck, bulk lower deck'):ac.akh?'Narrow-body · AKH containers and bulk':'Narrow-body · bulk holds';
   const loaded=SL.flatMap(s=>s.ulds),kg=loaded.reduce((s,u)=>s+u.kg,0)+(build.bulk||[]).reduce((s,h)=>s+h.usedKg,0),dg=loaded.some(u=>u.flags.has('DG'))||(build.bulk||[]).some(h=>h.items.some(s=>s.dg));
   $('loadTitle').textContent='Your flight · '+ac.name;$('loadSub').textContent='Tonight · '+role;
-  $('hchips').innerHTML=(plan.C.length?`<span class="hchip">${loaded.length} ULDs</span>`:'<span class="hchip">Bulk only</span>')+`<span class="hchip">${kgF(kg)}</span>${dg?'<span class="hchip bad">DG · NOTOC</span>':''}<span class="hchip ${ok?'ok':'bad'}">${ok?'✓ Within limits':'⚠ Check the load'}</span>`;
+  $('hchips').innerHTML=(plan.C.length?`<span class="hchip">${loaded.length} ULDs</span>`:'<span class="hchip">Bulk only</span>')+`<span class="hchip">${kgF(kg)}</span>${dg?'<span class="hchip bad">DG · NOTOC</span>':''}<span class="hchip ${ok?'ok':'bad'}">${ok?'✓ Within limits':balOk?`⚠ ${offN} ULD${offN>1?'s':''} offloaded`:'⚠ Check the load'}</span>`;
   const lowRows=(ac.low?ac.low.fwd.rows+ac.low.aft.rows:ac.akh?ac.akh.fwd.rows+ac.akh.aft.rows:0);
-  $('facts').textContent=`${ac.name} · length ${a.len} m · fuselage ${a.dia} m`+(ac.main?` · main deck ${ac.main.rows*(ac.main.single?1:2)} pallet positions`:'')+(lowRows?` · lower deck ${lowRows*2} ${ac.akh?'AKH':'LD3'} positions`:'')+(build.bulk?` · bulk ${fmt(Object.values(ac.bulkHolds).reduce((s,h)=>s+h.m3,0),1)} m³`:'');
+  $('facts').textContent=`${ac.name} · length ${a.len} m · fuselage ${a.dia} m`+(ac.main?` · main deck ${mainPos(ac)} pallet positions`:'')+(lowRows?` · lower deck ${lowRows*2} ${ac.akh?'AKH':'LD3'}${ac.low&&ac.low.fwd.pal?` or ${ac.low.fwd.pal+ac.low.aft.pal} pallet`:''} positions`:'')+(build.bulk?` · bulk ${fmt(Object.values(ac.bulkHolds).reduce((s,h)=>s+h.m3,0),1)} m³`:'');
   setModeBtns();refresh2();
   const al=[...build.offload.filter(o=>o.uld).map(o=>({k:'bad',t:`${o.uld.id}: ${o.why}`})),...plan.issues];
   $('loadAlerts').innerHTML=al.length?al.map(x=>`<div class="alert ${x.k}">${x.k==='bad'?'⛔':'ℹ'}<span>${esc(x.t)}</span></div>`).join(''):'<div class="alert ok">✓<span>All ULDs placed, within limits, dangerous goods kept apart.</span></div>';
