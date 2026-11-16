@@ -35,7 +35,8 @@ const waitRow = async (pred, ms = 8000) => { const t = Date.now(); while (Date.n
 
 /* ---------- app ---------- */
 const next = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(APP)], {
-  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec` }, stdio: ["ignore", "pipe", "pipe"],
+  // all test browsers share one address, so allow more usage events per minute than a real visitor gets (60)
+  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_TRACK_PER_MIN: "600" }, stdio: ["ignore", "pipe", "pipe"],
 });
 let serverLog = "";
 next.stdout.on("data", (d) => (serverLog += d));
@@ -148,6 +149,48 @@ check(!!(await waitRow((r) => r.event === "upload file")), "upload is counted");
 await js(`document.getElementById('toLoad').click()`);
 check(await until(`!document.getElementById('p2')||!document.getElementById('p2').hidden`), "Load to aircraft opens the hold view");
 check(!!(await waitRow((r) => r.event === "load aircraft")), "load aircraft is counted");
+
+console.log("\nPrint and save: flight load plan and ULD build sheets");
+// the cargo on board still includes the hostile CSV rows from above: printed names must stay text
+const exp = await js(`(async()=>{let blob=null,name='';const oc=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return oc.call(URL,b)};const ac=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){name=this.download};
+  document.getElementById('dlFlight').click();await new Promise(r=>setTimeout(r,400));HTMLAnchorElement.prototype.click=ac;URL.createObjectURL=oc;const html=blob?await blob.text():'';
+  const d=new DOMParser().parseFromString(html,'text/html'),onAttr=[...d.querySelectorAll('*')].some(e=>[...e.attributes].some(a=>/^on/i.test(a.name)));
+  const loaded=new Set([...document.querySelectorAll('#ulds .ulrow')].map(r=>r.innerText.split(' ')[0])).size;
+  return {name,sheets:d.querySelectorAll('.sheet').length,svgs:d.querySelectorAll('.sheet svg').length,loaded,scripts:d.querySelectorAll('script').length,onAttr,img:!!d.querySelector('img[src="x"]'),
+    hasPlan:/Flight load plan/.test(d.body.textContent),hasEvil:d.body.textContent.includes('<img src=x onerror'),xss:window.__xss}})()`);
+check(/^adeyiq-load-plan-.+\.html$/.test(exp.name) && exp.hasPlan, `"⬇ HTML" saves the flight load plan (${exp.name})`);
+check(exp.sheets === exp.loaded + 1 && exp.svgs >= exp.loaded, `load plan plus one build sheet with a 3D picture per loaded ULD (${exp.sheets} sheets, ${exp.loaded} ULDs)`);
+check(exp.scripts === 0 && !exp.onAttr && !exp.img && exp.hasEvil && exp.xss === undefined, "cargo names with HTML/script are printed as text, never as code");
+const pu = await js(`(async()=>{let doc=null;const o=window.open;window.open=()=>({document:{open(){},write(h){doc=h},close(){}},focus(){},print(){}});
+  document.getElementById('back').click();await new Promise(r=>setTimeout(r,500));const c=document.querySelector('#strip .uchip');if(c)c.click();await new Promise(r=>setTimeout(r,300));
+  document.getElementById('prtUld').click();await new Promise(r=>setTimeout(r,700));window.open=o;const d=new DOMParser().parseFromString(doc||'','text/html');
+  return {sheets:d.querySelectorAll('.sheet').length,title:d.title,svg:!!d.querySelector('.sheet svg'),checks:/Built by/.test(d.body.textContent)}})()`);
+check(pu.sheets === 1 && /build sheet/.test(pu.title) && pu.svg && pu.checks, `"Print ULD" makes one build sheet with the 3D picture and sign-off lines (${pu.title})`);
+check(!!(await waitRow((r) => r.event === "download flight")) && !!(await waitRow((r) => r.event === "print uld")), "prints and downloads are counted");
+// loose cargo (narrow-bodies) and DG quantities: the export must match what is actually on board
+async function exportFor(acId, csv) {
+  await go("/build");
+  await js(`localStorage.clear()`);
+  await go("/build");
+  return js(`(async()=>{const s=document.getElementById('acSel');s.value=${JSON.stringify(acId)};s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,400));
+  const b0=document.getElementById('st1s').textContent;const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(csv)}],'x.csv'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
+  await new Promise(r=>{const iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0){clearInterval(iv);r()}},30)});await new Promise(r=>setTimeout(r,500));
+  document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));
+  let blob=null;const oc=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return oc.call(URL,b)};const ac=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){};
+  document.getElementById('dlFlight').click();await new Promise(r=>setTimeout(r,400));HTMLAnchorElement.prototype.click=ac;URL.createObjectURL=oc;
+  const html=blob?await blob.text():'',d=new DOMParser().parseFromString(html,'text/html'),h2=[...d.querySelectorAll('h2')],tbl=t=>{const h=h2.find(x=>x.textContent.startsWith(t));return h?[...h.nextElementSibling.querySelectorAll('tbody tr')].map(r=>[...r.cells].map(c=>c.textContent.trim())):null};
+  return {ok:!!blob,loose:tbl('Loose cargo'),notoc:tbl('Dangerous goods')}})()`);
+}
+const b738 = await exportFor("B737-800", "AWB,Goods,Pieces,Weight,L,W,H,DG,UN\n071-90000011,Spare parts,10,300,50,40,30,,\n071-90000022,Perfume,4,40,40,30,30,3,UN1266\n");
+check(b738.ok && b738.loose && b738.loose.some((r) => r[1] === "071-90000022") && b738.notoc && b738.notoc[0][4] === "4", `737-800 (loose cargo only) can be printed: loose AWBs and their DG are in the plan (${JSON.stringify(b738.notoc)})`);
+const bcf = await exportFor("B737-800BCF", "AWB,Goods,Pieces,Weight,L,W,H,DG,UN\n071-93000011,Lithium battery packs,52,20800,150,100,150,9,UN3481\n");
+check(bcf.ok && bcf.notoc && bcf.notoc[0][4] === "44" && bcf.notoc[0][5] === "17,600", `NOTOC counts only the DG pieces loaded, not the booked total (${bcf.notoc && bcf.notoc[0].slice(4, 6).join(" pcs, ")} kg of 52 pcs booked)`);
+await go("/build");
+await js(`localStorage.clear()`);
+await go("/build");
+await js(`document.getElementById('sampleBtn').click()`);
+await sleep(1500);
+await js(`document.getElementById('toLoad').click()`);
 
 await js(`(()=>{document.getElementById('rateBtn').click();document.querySelectorAll('#fbQs .scale').forEach(s=>s.querySelector('button:last-child').click());document.getElementById('fbC').value='e2e comment | with pipe';document.getElementById('fbSend').click();return true})()`);
 const fb = await waitRow((r) => r.event === "feedback");

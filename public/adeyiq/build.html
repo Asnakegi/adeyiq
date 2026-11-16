@@ -318,7 +318,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <div class="stage">
       <div>
         <div class="isoWrap"><svg id="iso" viewBox="0 0 640 420" tabindex="0" role="img" aria-label="3D view of the selected ULD with its pieces. Drag or use the arrow keys to turn it."></svg><div class="tip" id="tip" hidden></div></div>
-        <div class="isobar"><button class="btn sm" id="spin" type="button" aria-pressed="true">Auto-rotate</button><span class="note">Drag to turn · click a box to select it · Ctrl or Shift + click to add more</span><span class="selbar" id="selBar" hidden></span></div>
+        <div class="isobar"><button class="btn sm" id="spin" type="button" aria-pressed="true">Auto-rotate</button><button class="btn sm" id="prtUld" type="button" title="Build sheet for this ULD: print, or choose Save as PDF">🖨 Print ULD</button><span class="note">Drag to turn · click a box to select it · Ctrl or Shift + click to add more</span><span class="selbar" id="selBar" hidden></span></div>
       </div>
       <div class="info" id="info"></div>
     </div>
@@ -331,7 +331,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <div class="p2head">
     <div><h2 id="loadTitle">Your flight</h2><div class="sub" id="loadSub"></div></div>
     <div class="hchips" id="hchips"></div>
-    <div style="display:flex;gap:8px"><button class="btn" id="back" type="button">← ULD build-up</button><button class="btn sec" id="reassign" type="button">Rebalance</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="back" type="button">← ULD build-up</button><button class="btn sec" id="reassign" type="button">Rebalance</button><button class="btn" id="prtFlight" type="button" title="Load plan and a build sheet for every ULD: print, or choose Save as PDF">🖨 Print / PDF</button><button class="btn" id="dlFlight" type="button" title="Save the load plan and build sheets as one HTML file">⬇ HTML</button></div>
   </div>
   <div class="card empty" id="p2empty" hidden>Build ULDs first, then load them here.</div>
   <div id="p2main" style="display:flex;flex-direction:column;gap:14px">
@@ -1425,6 +1425,74 @@ $('sampleBtn').onclick=()=>{const S=[['071-18402213',10,120,80,90,1450,'Auto par
   ['071-18513326',20,80,60,60,700,'Textiles','GEN','','',0,0,'PMC:1'],['071-18524430',18,60,50,50,520,'Spare parts','GEN','','',0,0,'PMC:1']]
   .map(r=>mk({awb:r[0],pcs:r[1],l:r[2],w:r[3],h:r[4],wt:r[5],nat:r[6],shc:r[7],dg:r[8],un:r[9],excl:!!r[10],ohg:r[11],pin:r[12]||''}));addShips(S.filter(s=>!ships.some(x=>x.awb===s.awb)));toast('Sample cargo added, including overhang and a hand-built pallet')};
 $('clearBtn').onclick=async()=>{if(!ships.length)return;report('Shipments!A1',ships.map(s=>shipRow(s,'deleted')));for(const id of ships.map(s=>s.id))await delShip(id,true);refresh()};
+/* ---------- print and save: ULD build sheets and the flight load plan (print to paper or "Save as PDF", or download as HTML) ---------- */
+const PRINT_CSS=`@page{size:A4;margin:12mm}
+*{box-sizing:border-box}body{margin:0;font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:11.5px;color:#0A2540;background:#fff}
+h1{font-family:"Barlow Condensed","Arial Narrow",Arial,sans-serif;font-size:26px;margin:0}h2{font-family:"Barlow Condensed","Arial Narrow",Arial,sans-serif;font-size:17px;margin:14px 0 6px}
+.sheet{page-break-after:always;break-after:page}.sheet:last-child{page-break-after:auto;break-after:auto}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:3px solid #FFD21F;padding-bottom:6px;margin-bottom:8px}
+.top>div:first-child{flex:1;min-width:0}.top>div:last-child{flex:none;text-align:right;padding-right:2px}
+.brand{font-size:11px;color:#425466}.brand b{display:inline-block;background:#FFD21F;color:#0A2540;border-radius:4px;padding:0 6px;margin-right:6px;font-weight:700}
+.big{font-family:"IBM Plex Mono",Consolas,monospace;font-size:28px;font-weight:700;text-align:right}.pos{font-size:13px;color:#425466;text-align:right}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 12px;margin:6px 0}.grid div{border-bottom:1px solid #E3E8EE;padding:2px 0}.grid span{display:block;font-size:9.5px;color:#697386;text-transform:uppercase;letter-spacing:.04em}
+.fill{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 2px}.fill span{min-width:150px;border-bottom:1px solid #0A2540;padding-top:12px;font-size:10px;color:#697386}
+table{width:100%;border-collapse:collapse;margin:4px 0}th,td{text-align:left;padding:3px 5px;border-bottom:1px solid #E3E8EE;vertical-align:top}th{font-size:9.5px;text-transform:uppercase;color:#697386;letter-spacing:.04em;border-bottom:1.5px solid #0A2540}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.tot td{font-weight:700;border-top:1.5px solid #0A2540}.mono{font-family:"IBM Plex Mono",Consolas,monospace}
+.pic{text-align:center;margin:4px 0}.pic svg{width:100%;max-width:520px;height:auto}.acpic svg{width:100%;height:auto}
+.dg{border:1.5px solid #DF1B41;color:#8a0f28;padding:6px 8px;border-radius:4px;margin:6px 0}.warn{border:1.5px solid #B26B00;color:#6b4100;padding:6px 8px;border-radius:4px;margin:6px 0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.chips b{border:1px solid #0A2540;border-radius:12px;padding:2px 9px;font-weight:600}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin-top:8px}.checks div{border-bottom:1px solid #0A2540;padding-top:14px;font-size:10px;color:#425466}
+.box{display:inline-block;width:11px;height:11px;border:1.3px solid #0A2540;margin-right:6px;vertical-align:-1px}
+.foot{margin-top:10px;font-size:9px;color:#697386;border-top:1px solid #E3E8EE;padding-top:4px}
+.tag{display:inline-block;border:1px solid #697386;border-radius:3px;padding:0 4px;margin:0 2px 1px 0;font-size:9.5px}.tag.dg{border-color:#DF1B41;color:#DF1B41}`;
+const fmtWhen=d=>d.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const prtRootVars=()=>{const m=(document.querySelector('style')||{}).textContent;const r=m&&m.match(/:root\{([^}]*)\}/);return r?`:root{${r[1]}}`:''};
+const shcTags=s=>[...(s.dg?[`<span class="tag dg">DG ${esc(s.dg)}${s.un?' '+esc(s.un):''}</span>`]:[]),...s.shc.map(c=>`<span class="tag">${esc(c)}</span>`)].join('')||'–';
+const posLabel=u=>u.pos?`${u.blk&&u.blk.c==='main'?'Main deck ':''}${u.pos}`:'not yet loaded';
+function uldSvg(u){const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 640 420');s.setAttribute('xmlns','http://www.w3.org/2000/svg');try{drawUldTo(s,u,-.5,null,null,0,null)}catch(e){return''}return s.outerHTML}
+function uldSheet(u,ac,when){
+  const T=ULD[u.type],pk=packUld(u),cs=consign(u),pcs=u.items.reduce((a,i)=>a+i.p,0),dgs=[...new Map(u.items.filter(i=>i.s.dg).map(i=>[i.s.awb,i.s])).values()];
+  const rows=cs.map(e=>`<tr><td class="mono">${esc(e.awb)}</td><td>${esc(e.s.nat||'')}</td><td class="n">${e.p} <span style="color:#697386">/ ${e.s.pcs}</span></td><td class="n">${fmt(e.kg)}</td><td class="mono">${e.s.l}×${e.s.w}×${e.s.h}</td><td>${shcTags(e.s)}</td></tr>`).join('');
+  return `<section class="sheet"><div class="top"><div><div class="brand"><b>AdeyIQ</b>ULD build sheet · ${esc(ac.name)}</div><h1>${esc(T.name)}</h1></div><div><div class="big">${esc(u.id)}</div><div class="pos">${esc(posLabel(u))}</div></div></div>
+  <div class="grid"><div><span>Gross weight</span>${fmt(u.kg)} kg of ${fmt(u.max)}</div><div><span>Volume fill</span>${Math.round(u.m3/u.cap*100)}% (${fmt(u.m3,1)} m³)</div><div><span>Built height</span>${Math.round(pk.top)} cm · contour ${T.H} cm</div><div><span>Pieces · AWBs</span>${pcs} pcs · ${cs.length} AWB${cs.length>1?'s':''}</div></div>
+  ${u.kg>u.max?`<div class="warn">Over the ${fmt(u.max)} kg limit of this ULD (${fmt(u.kg)} kg).</div>`:''}${pk.top>T.H+.5?`<div class="warn">Built height ${Math.round(pk.top)} cm is above the ${T.H} cm contour.</div>`:''}${pk.notShown?`<div class="warn">${pk.notShown} piece(s) could not be placed inside the contour in the 3D check.</div>`:''}
+  <div class="pic">${uldSvg(u)}</div>
+  <table><thead><tr><th>AWB</th><th>Goods</th><th class="n">Pieces (of AWB)</th><th class="n">kg</th><th>L×W×H cm</th><th>SHC / DG</th></tr></thead><tbody>${rows}<tr class="tot"><td colspan="2">Total</td><td class="n">${pcs}</td><td class="n">${fmt(u.kg)}</td><td colspan="2"></td></tr></tbody></table>
+  ${dgs.length?`<div class="dg"><b>Dangerous goods on this ULD:</b> ${dgs.map(s=>`${esc(s.awb)} class ${esc(s.dg)}${s.un?' '+esc(s.un):''}`).join(' · ')}. Include in the NOTOC; check segregation and labels.</div>`:''}
+  <div class="checks"><div><span class="box"></span>Pieces counted against the AWBs</div><div><span class="box"></span>Contour checked</div><div>Actual weight (kg)</div><div>ULD tag no.</div><div>Built by</div><div>Checked by · time</div></div>
+  <div class="foot">Generated by AdeyIQ (adeyiq.vercel.app) on ${esc(when)}. Planning aid: actual weights, contour and the final load sheet come from the airline's approved procedures and weight-and-balance system.</div></section>`}
+const deckOrd=u=>u.blk?({main:0,fwd:1,aft:2}[u.blk.c]??3):4,placedSorted=()=>build.ulds.filter(u=>u.pos).sort((a,b)=>deckOrd(a)-deckOrd(b)||a.blk.start-b.blk.start||a.pos.localeCompare(b.pos));
+function flightSheet(ac,when){
+  const placed=placedSorted();
+  const off=build.offload.filter(o=>o.uld),loose=build.offload.filter(o=>!o.uld),bulkH=(build.bulk||[]).filter(h=>h.items.length),bulkKg=bulkH.reduce((s,h)=>s+h.usedKg,0),bulkPcs=bulkH.reduce((s,h)=>s+h.items.reduce((a,x)=>a+x.pcs,0),0),kg=placed.reduce((s,u)=>s+u.kg,0)+bulkKg;
+  const pos=placed.map(u=>{const cs=consign(u);return`<tr><td class="mono">${esc(u.pos)}</td><td>${u.blk.c==='main'?'Main':u.blk.c==='fwd'?'Fwd hold':'Aft hold'}</td><td class="mono">${esc(u.id)}</td><td>${esc(u.type.replace(/PMCL|PMC6|PMC7/,'PMC'))}</td><td class="mono">${cs.map(e=>esc(e.awb)).join(', ')}</td><td class="n">${u.items.reduce((a,i)=>a+i.p,0)}</td><td class="n">${fmt(u.kg)}</td><td>${[...u.flags].map(f=>`<span class="tag${f==='DG'?' dg':''}">${esc(f)}</span>`).join('')||'–'}</td></tr>`}).join('');
+  const holds=plan.C.map(c=>`<tr><td>${esc(c.name)}</td><td class="n">${Math.round((c.fill??(c.used-(c.lead||0)))/c.len*100)}%</td><td class="n">${fmt(c.kg)}</td><td class="n">${fmt(c.maxKg)}</td></tr>`).join('');
+  const dgOn=new Map(),addDg=(s,p,kgv,where)=>{const e=dgOn.get(s)||{s,p:0,kg:0,at:[]};e.p+=p;e.kg+=kgv;if(!e.at.includes(where))e.at.push(where);dgOn.set(s,e)};
+  placed.forEach(u=>u.items.filter(i=>i.s.dg).forEach(i=>addDg(i.s,i.p,i.s.wt/i.s.pcs*i.p,u.pos)));bulkH.forEach(h=>h.items.filter(x=>x.dg).forEach(x=>addDg(x._of||x,x.pcs,x.wt,BULKN[h.k]||h.k)));
+  const dgShips=[...dgOn.keys()],dgRows=[...dgOn.values()].map(e=>`<tr><td class="mono">${esc(e.s.awb)}</td><td>${esc(e.s.nat||'')}</td><td>${esc(e.s.dg)}</td><td>${esc(e.s.un||'')}</td><td class="n">${e.p}</td><td class="n">${fmt(e.kg)}</td><td class="mono">${e.at.map(esc).join(', ')}</td></tr>`).join('');
+  const bulkRows=bulkH.flatMap(h=>h.items.map(x=>`<tr><td>${esc(BULKN[h.k]||h.k)}</td><td class="mono">${esc(x.awb)}</td><td>${esc(x.nat||'')}</td><td class="n">${x.pcs}</td><td class="n">${fmt(x.wt)}</td><td>${shcTags(x)}</td></tr>`)).join('');
+  const acSvg=(()=>{const s=$('ac');return s&&s.childElementCount?s.outerHTML:''})();
+  return `<section class="sheet"><div class="top"><div><div class="brand"><b>AdeyIQ</b>Flight load plan</div><h1>${esc(ac.name)}</h1></div><div><div class="pos">${esc(when)}</div></div></div>
+  <div class="fill"><span>Flight</span><span>Date</span><span>From</span><span>To</span><span>Prepared by</span></div>
+  <div class="chips">${placed.length?`<b>${placed.length} ULDs</b>`:''}${bulkH.length?`<b>${bulkPcs} pcs loose</b>`:''}<b>${(kg/1000).toFixed(1)} t</b><b>${esc($('st2s').textContent)}</b><b>Balance index ${fmt(plan.index,1)}</b>${off.length?`<b style="border-color:#DF1B41;color:#DF1B41">${off.length} ULD${off.length>1?'s':''} offloaded</b>`:''}${dgShips.length?'<b style="border-color:#DF1B41;color:#DF1B41">DG · NOTOC</b>':''}</div>
+  ${acSvg?`<div class="acpic">${acSvg}</div>`:''}
+  ${plan.C.length?`<h2>Holds</h2><table><thead><tr><th>Hold</th><th class="n">Used</th><th class="n">kg</th><th class="n">Limit</th></tr></thead><tbody>${holds}</tbody></table>`:''}
+  ${placed.length?`<h2>Positions</h2><table><thead><tr><th>Pos</th><th>Deck</th><th>ULD</th><th>Type</th><th>AWBs</th><th class="n">Pcs</th><th class="n">kg</th><th>Flags</th></tr></thead><tbody>${pos}<tr class="tot"><td colspan="5">Total on board</td><td class="n">${placed.reduce((s,u)=>s+u.items.reduce((a,i)=>a+i.p,0),0)}</td><td class="n">${fmt(kg-bulkKg)}</td><td></td></tr></tbody></table>`:''}
+  ${bulkRows?`<h2>Loose cargo in the holds</h2><table><thead><tr><th>Hold</th><th>AWB</th><th>Goods</th><th class="n">Pcs</th><th class="n">kg</th><th>SHC / DG</th></tr></thead><tbody>${bulkRows}${bulkH.map(h=>`<tr class="tot"><td colspan="3">${esc(BULKN[h.k]||h.k)} total · ${fmt(h.used,1)} of ${fmt(h.m3,1)} m³</td><td class="n">${h.items.reduce((a,x)=>a+x.pcs,0)}</td><td class="n">${fmt(h.usedKg)} / ${fmt(h.kg)}</td><td></td></tr>`).join('')}</tbody></table>`:''}
+  ${bulkH.length?`<h2>Total on board</h2><div class="chips"><b>${placed.reduce((s,u)=>s+u.items.reduce((a,i)=>a+i.p,0),0)+bulkPcs} pcs</b><b>${fmt(kg)} kg</b></div>`:''}
+  ${off.length||loose.length?`<h2>Not loaded</h2><table><thead><tr><th>ULD / AWB</th><th class="n">Pcs</th><th class="n">kg</th><th>Reason</th></tr></thead><tbody>${off.map(o=>`<tr><td class="mono">${esc(o.uld.id)}</td><td class="n">${o.uld.items.reduce((a,i)=>a+i.p,0)}</td><td class="n">${fmt(o.uld.kg)}</td><td>${esc(o.why)}</td></tr>`).join('')}${loose.map(o=>`<tr><td class="mono">${esc(o.s.awb)}</td><td class="n">${o.s.pcs}</td><td class="n">${fmt(o.s.wt)}</td><td>${esc(o.why)}</td></tr>`).join('')}</tbody></table>`:''}
+  ${dgRows?`<h2>Dangerous goods (for the NOTOC)</h2><table><thead><tr><th>AWB</th><th>Goods</th><th>Class</th><th>UN</th><th class="n">Pcs</th><th class="n">kg</th><th>Positions</th></tr></thead><tbody>${dgRows}</tbody></table>`:''}
+  <div class="foot">Generated by AdeyIQ (adeyiq.vercel.app) on ${esc(when)}. Planning aid with placeholder limits: the load sheet, NOTOC and final weight and balance come from the airline's approved system.</div></section>`}
+function printDoc(title,body){return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${prtRootVars()}${PRINT_CSS}</style></head><body>${body}</body></html>`}
+function flightDoc(){const ac=acNow(),when=fmtWhen(new Date());if(!plan)plan=planLoad(build);const placed=placedSorted();return printDoc(`AdeyIQ load plan · ${ac.name}`,flightSheet(ac,when)+placed.map(u=>uldSheet(u,ac,when)).join(''))}
+function openPrint(html){const w=window.open('','_blank');if(!w){toast('Allow pop-ups for this site to print, or use Download HTML');return false}w.document.open();w.document.write(html);w.document.close();w.focus();setTimeout(()=>{try{w.print()}catch(e){}},500);return true}
+function saveHtml(html,name){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+const fileStamp=()=>new Date().toISOString().slice(0,16).replace(/[-:]/g,'').replace('T','-');
+$('prtUld').onclick=()=>{const u=build&&build.ulds.find(x=>x.id===selU);if(!u){toast('Select a ULD first');return}const ac=acNow();openPrint(printDoc(`AdeyIQ build sheet · ${u.id}`,uldSheet(u,ac,fmtWhen(new Date()))))};
+const hasFlight=()=>!!build&&(build.ulds.length>0||(build.bulk||[]).some(h=>h.items.length));
+$('prtFlight').onclick=()=>{if(!hasFlight()){toast('Add cargo first');return}openPrint(flightDoc())};
+$('dlFlight').onclick=()=>{if(!hasFlight()){toast('Add cargo first');return}saveHtml(flightDoc(),`adeyiq-load-plan-${acNow().id}-${fileStamp()}.html`);toast('Load plan saved as HTML')};
+
 /* ---------- feedback: five questions → Google Sheet (Usage rows with event "feedback", laid out in the Feedback tab) ---------- */
 const FBQ=[{k:'q1',t:'1. Overall, how satisfied are you with the Cargo Builder?',o:[1,2,3,4,5],lo:'Not satisfied',hi:'Very satisfied'},
  {k:'q2',t:'2. Compared with a real build-up on the ground, the system builds…',o:[[-2,'Much less'],[-1,'A bit less'],[0,'About right'],[1,'A bit more'],[2,'Much more']]},

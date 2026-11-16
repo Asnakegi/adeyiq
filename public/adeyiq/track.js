@@ -36,6 +36,9 @@
     else if (id === "reassign") later("rebalance", loaded);
     else if (id === "bLoad") send("loading animation", txt("bT"));
     else if (id === "bReplay") send("replay build-up", txt("bT"));
+    else if (id === "prtUld") send("print uld", txt("info").slice(0, 60));
+    else if (id === "prtFlight") send("print flight", loaded());
+    else if (id === "dlFlight") send("download flight", loaded());
     else if (t.hasAttribute("data-req")) send("request access opened", t.getAttribute("data-req"));
     else if (t.classList.contains("pick")) later("change aircraft", function () { return t.dataset.ac || ""; });
   }, true);
