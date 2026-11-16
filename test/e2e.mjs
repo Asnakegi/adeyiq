@@ -35,7 +35,8 @@ const waitRow = async (pred, ms = 8000) => { const t = Date.now(); while (Date.n
 
 /* ---------- app ---------- */
 const next = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(APP)], {
-  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec` }, stdio: ["ignore", "pipe", "pipe"],
+  // all test browsers share one address, so allow more usage events per minute than a real visitor gets (60)
+  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_TRACK_PER_MIN: "600" }, stdio: ["ignore", "pipe", "pipe"],
 });
 let serverLog = "";
 next.stdout.on("data", (d) => (serverLog += d));

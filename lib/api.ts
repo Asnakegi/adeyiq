@@ -101,7 +101,8 @@ async function readBody(req: Request, max: number): Promise<{ ok: true; data: Re
 }
 
 /* ---------- POST /api/track ---------- */
-export const TRACK_LIMIT = { perMinute: 60, maxBody: 4000 };
+// ADEYIQ_TRACK_PER_MIN is only for the local end-to-end run, where every test browser shares one address
+export const TRACK_LIMIT = { perMinute: Number(process.env.ADEYIQ_TRACK_PER_MIN) || 60, maxBody: 4000 };
 export async function handleTrack(req: Request, deps: Deps): Promise<{ status: number; row?: Record<string, unknown> }> {
   const ua = req.headers.get("user-agent") || "";
   if (BOT.test(ua)) return { status: 204 };
