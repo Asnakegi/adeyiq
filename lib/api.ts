@@ -26,6 +26,9 @@ export const EVENTS = new Set([
   "replay build-up",
   "request access opened",
   "feedback",
+  "print uld",
+  "print flight",
+  "download flight",
 ]);
 const BOT = /bot|crawl|spider|slurp|preview|headless|lighthouse|pingdom|monitor/i;
 

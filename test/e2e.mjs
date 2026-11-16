@@ -149,6 +149,25 @@ await js(`document.getElementById('toLoad').click()`);
 check(await until(`!document.getElementById('p2')||!document.getElementById('p2').hidden`), "Load to aircraft opens the hold view");
 check(!!(await waitRow((r) => r.event === "load aircraft")), "load aircraft is counted");
 
+console.log("\nPrint and save: flight load plan and ULD build sheets");
+// the cargo on board still includes the hostile CSV rows from above: printed names must stay text
+const exp = await js(`(async()=>{let blob=null,name='';const oc=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return oc.call(URL,b)};const ac=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){name=this.download};
+  document.getElementById('dlFlight').click();await new Promise(r=>setTimeout(r,400));HTMLAnchorElement.prototype.click=ac;URL.createObjectURL=oc;const html=blob?await blob.text():'';
+  const d=new DOMParser().parseFromString(html,'text/html'),onAttr=[...d.querySelectorAll('*')].some(e=>[...e.attributes].some(a=>/^on/i.test(a.name)));
+  const loaded=new Set([...document.querySelectorAll('#ulds .ulrow')].map(r=>r.innerText.split(' ')[0])).size;
+  return {name,sheets:d.querySelectorAll('.sheet').length,svgs:d.querySelectorAll('.sheet svg').length,loaded,scripts:d.querySelectorAll('script').length,onAttr,img:!!d.querySelector('img[src="x"]'),
+    hasPlan:/Flight load plan/.test(d.body.textContent),hasEvil:d.body.textContent.includes('<img src=x onerror'),xss:window.__xss}})()`);
+check(/^adeyiq-load-plan-.+\.html$/.test(exp.name) && exp.hasPlan, `"⬇ HTML" saves the flight load plan (${exp.name})`);
+check(exp.sheets === exp.loaded + 1 && exp.svgs >= exp.loaded, `load plan plus one build sheet with a 3D picture per loaded ULD (${exp.sheets} sheets, ${exp.loaded} ULDs)`);
+check(exp.scripts === 0 && !exp.onAttr && !exp.img && exp.hasEvil && exp.xss === undefined, "cargo names with HTML/script are printed as text, never as code");
+const pu = await js(`(async()=>{let doc=null;const o=window.open;window.open=()=>({document:{open(){},write(h){doc=h},close(){}},focus(){},print(){}});
+  document.getElementById('back').click();await new Promise(r=>setTimeout(r,500));const c=document.querySelector('#strip .uchip');if(c)c.click();await new Promise(r=>setTimeout(r,300));
+  document.getElementById('prtUld').click();await new Promise(r=>setTimeout(r,700));window.open=o;const d=new DOMParser().parseFromString(doc||'','text/html');
+  return {sheets:d.querySelectorAll('.sheet').length,title:d.title,svg:!!d.querySelector('.sheet svg'),checks:/Built by/.test(d.body.textContent)}})()`);
+check(pu.sheets === 1 && /build sheet/.test(pu.title) && pu.svg && pu.checks, `"Print ULD" makes one build sheet with the 3D picture and sign-off lines (${pu.title})`);
+check(!!(await waitRow((r) => r.event === "download flight")) && !!(await waitRow((r) => r.event === "print uld")), "prints and downloads are counted");
+await js(`document.getElementById('toLoad').click()`);
+
 await js(`(()=>{document.getElementById('rateBtn').click();document.querySelectorAll('#fbQs .scale').forEach(s=>s.querySelector('button:last-child').click());document.getElementById('fbC').value='e2e comment | with pipe';document.getElementById('fbSend').click();return true})()`);
 const fb = await waitRow((r) => r.event === "feedback");
 check(!!fb && /q1=\d.*\|q5=10\|role=.*\|c=e2e comment\s+\/\s+with pipe$/.test(fb.detail), "feedback reaches the sheet in the Feedback-tab format, pipes in comments neutralised" + (fb ? "" : " (no row)"));
