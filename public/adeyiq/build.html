@@ -225,9 +225,17 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 .selbar b{font-family:var(--mono)}
 .mergeline{font-size:12px;color:var(--muted);margin-top:8px;padding:7px 9px;border-radius:8px;background:var(--panel2)}
 /* feedback questionnaire */
-#fbDlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
-#fbDlg::backdrop{background:rgba(10,37,64,.55)}
-#fbDlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+#fbDlg,#dgDlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
+#fbDlg::backdrop,#dgDlg::backdrop{background:rgba(10,37,64,.55)}
+#fbDlg form,#dgDlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+/* DG acceptance check */
+.dgres{display:flex;flex-direction:column;gap:10px}
+.dgcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.dgcard h3{margin:0;font-size:15px}
+.dgv{border-radius:9px;padding:8px 10px;font-weight:600;font-size:14px}
+.dgv.ok{background:var(--ok-bg);color:var(--ok)}.dgv.warn{background:var(--warn-bg);color:var(--warn)}.dgv.bad{background:var(--bad-bg);color:var(--bad)}
+.dgkv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}.dgkv span:nth-child(odd){color:var(--muted)}
+.dgpick{display:flex;flex-wrap:wrap;gap:6px}
 .fbq{display:flex;flex-direction:column;gap:6px}
 .fbq>b{font-size:14px}
 .scale{display:flex;gap:6px;flex-wrap:wrap}
@@ -268,6 +276,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <a class="btn ghost" id="specBtn" href="/aircraft-data" title="Doors, holds, contours and ULDs for this aircraft">⚙ Aircraft Spec: <span id="specAc">B787-9</span></a>
   <button class="btn ghost" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
   <button class="btn ghost" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">✈ Engines &amp; gear</button>
+  <button class="btn ghost" id="dgBtn" type="button" title="Look up a UN number: can it fly on this aircraft, and what must it be kept apart from">⚠ DG acceptance</button>
   <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
   <span class="note" id="upMsg" role="status"></span>
 </div>
@@ -416,6 +425,15 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <label class="fbq"><b>Anything we should fix or add? (optional)</b><textarea id="fbC" maxlength="150" placeholder="For example: AKE builds look lighter than ours"></textarea></label>
     <span class="err" id="fbErr" role="alert"></span>
     <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="fbLater">Not now</button><button class="btn pri" type="submit" id="fbSend">Send feedback</button></div>
+  </form>
+</dialog>
+<dialog id="dgDlg" aria-labelledby="dgT">
+  <form id="dgForm" method="dialog" novalidate>
+    <div class="addhd"><h2 id="dgT">DG acceptance check</h2><button class="x" type="button" id="dgX" aria-label="Close">×</button></div>
+    <p class="note" style="margin:-6px 0 0">Enter a UN number or part of a name. You see the basic entry, whether it can fly on the <b id="dgAc"></b>, and what it must be kept apart from.</p>
+    <div style="display:flex;gap:8px"><input id="dgQ" placeholder="UN3480 or 3480 or perfume" autocomplete="off" aria-label="UN number or name"><button class="btn pri" type="submit" id="dgGo">Check</button></div>
+    <div class="dgres" id="dgOut" role="status"></div>
+    <p class="note" id="dgSrc" style="margin:0">Planning aid only. Data: US 49 CFR 172.101 hazmat table, which is close to but not the same as the IATA List of Dangerous Goods. Confirm in the IATA DGR (incl. State and operator variations) before accepting.</p>
   </form>
 </dialog>
 <div class="nudge" id="fbNudge" hidden role="status"><span>How close was this build to what your team builds on the ground? Tell us in 30 seconds.</span><span style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sm" type="button" id="nudgeNo">Not now</button><button class="btn pri sm" type="button" id="nudgeYes">★ Rate</button></span></div>
@@ -1511,6 +1529,41 @@ const fbStore=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localS
 function openFb(){$('fbNudge').hidden=true;$('fbErr').textContent='';const d=$('fbDlg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 function closeFb(){const d=$('fbDlg');if(d.close)d.close();else d.removeAttribute('open')}
 $('rateBtn').onclick=openFb;$('fbX').onclick=closeFb;$('fbLater').onclick=closeFb;
+/* ---------- DG acceptance check ---------- */
+let UNL=null,dgHits=[];
+async function unList(){if(!UNL){const r=await fetch('/adeyiq/un-list.json');if(!r.ok)throw new Error('list '+r.status);UNL=await r.json()}return UNL}
+const dgSubs=(cls,labels)=>String(labels||'').split(/,\s*/).filter(l=>/^\d(\.\d)?$/.test(l)&&l!==cls&&!cls.startsWith(l+'.')&&l!==String(cls).split('.')[0]);
+function dgApart(cand,subs){const probes=[...DG.filter(d=>d[0]).map(([c,t])=>[mk({dg:c}),c==='1'?t+' (not 1.4S)':t]),[mk({dg:'9',un:'UN3480'}),'Lithium / sodium-ion batteries (UN3480, UN3090, UN3551)'],[mk({shc:'EAT'}),'Food (EAT, PER…)'],[mk({shc:'AVI'}),'Live animals (AVI)'],[mk({shc:'HEG'}),'Hatching eggs (HEG)'],[mk({shc:'FIL'}),'Undeveloped film (FIL)']];
+  const all=[cand,...subs.map(s=>mk({dg:s}))];return probes.filter(([p])=>all.some(c=>conflict(c,p))).map(([,t])=>t)}
+function dgVerdict(r,ac){const[,cls,,,pax,cao]=r,fr=ac.g==='freighter';
+  if(!cls||(pax==='Forbidden'&&cao==='Forbidden'))return['bad','Not loadable: forbidden on passenger and cargo aircraft'];
+  if(pax==='Forbidden')return fr?['warn',`Loadable on the ${ac.name} only as Cargo Aircraft Only (CAO label; keep it accessible where the DGR requires)`]:['bad',`Not loadable on the ${ac.name} (passenger aircraft): Cargo Aircraft Only. Book it on a freighter`];
+  return['ok',`Loadable on the ${ac.name}, within the package limits below`]}
+const dgQty=v=>/^\d/.test(v)?`${v} per package`:v||'—';
+function dgShow(id){const ac=acNow(),rows=(UNL.d[id]||[]);dgHits=rows.map(r=>({id,r}));
+  if(!rows.length){$('dgOut').innerHTML=`<div class="dgv warn">${esc(id)} is not in the list. Check the number in the IATA DGR, or enter the class by hand in Add Cargo.</div>`;return}
+  $('dgOut').innerHTML=rows.map((r,i)=>{const[name,cls,pg,labels,pax,cao]=r,[k,v]=dgVerdict(r,ac),subs=dgSubs(cls,labels),cand=mk({awb:'check',dg:cls,un:id,shc:id==='UN1845'?'ICE':''});
+    const apart=cand.dg?dgApart(cand,subs):[],clash=ships.filter(s=>conflict(cand,s)||subs.some(x=>conflict(mk({dg:x}),s)));
+    return`<div class="dgcard"><h3>${esc(id)} · ${esc(name)}</h3><div class="dgv ${k}">${esc(v)}</div>
+    <div class="dgkv"><span>Class / division</span><span>${esc(cls||'—')}${subs.length?` · subsidiary ${esc(subs.join(', '))}`:''}</span><span>Packing group</span><span>${esc(pg||'—')}</span><span>Hazard labels</span><span>${esc(labels||'none listed')}</span><span>Passenger aircraft</span><span>${esc(dgQty(pax))}</span><span>Cargo aircraft only</span><span>${esc(dgQty(cao))}</span></div>
+    ${apart.length?`<div class="dgkv"><span>Keep apart from</span><span>${apart.map(esc).join(' · ')}</span></div>`:'<div class="note">No class-to-class segregation needed (DGR Table 9.3.A).</div>'}
+    ${clash.length?`<div class="dgv warn">In your cargo now: ${clash.map(s=>esc(s.awb)+(s.dg?` (class ${esc(s.dg)})`:s.shc.length?` (${esc(s.shc.join(', '))})`:'')).join(', ')}. The build puts these in a different ULD.</div>`:''}
+    ${k==='bad'&&v.startsWith('Not loadable: forbidden')?'':`<div><button class="btn sm" type="button" data-dgadd="${i}">＋ Add to cargo</button></div>`}</div>`}).join('')}
+function dgPick(list){$('dgOut').innerHTML=list.length?`<div class="note">Choose an entry:</div><div class="dgpick">${list.map(([id,name])=>`<button class="btn sm" type="button" data-dgid="${esc(id)}">${esc(id)} · ${esc(name.slice(0,48))}</button>`).join('')}</div>`:'<div class="dgv warn">Nothing found. Try the UN number, or a shorter part of the name.</div>'}
+async function dgCheck(){const q=$('dgQ').value.trim();if(!q){$('dgQ').focus();return}
+  try{await unList()}catch(e){$('dgOut').innerHTML='<div class="dgv bad">The DG list could not be loaded. Check your connection and try again.</div>';return}
+  const m=q.match(/^(?:UN|ID)?\s*(\d{1,4})$/i);if(m)return dgShow('UN'+m[1].padStart(4,'0'));
+  if(q.length<3){$('dgOut').innerHTML='<div class="dgv warn">Type at least 3 letters of the name.</div>';return}
+  const t=q.toLowerCase(),seen=new Set(),hits=[];for(const[id,rows]of Object.entries(UNL.d))for(const r of rows)if(r[0].toLowerCase().includes(t)&&!seen.has(id)){seen.add(id);hits.push([id,r[0]])}
+  hits.length===1?dgShow(hits[0][0]):dgPick(hits.slice(0,12))}
+function dgAdd(i){const h=dgHits[+i];if(!h)return;const[name,cls,,,pax]=h.r,cand=mk({dg:cls});const d=$('dgDlg');if(d.close)d.close();else d.removeAttribute('open');
+  if(editId)endEdit();panel('addPanel',true);$('sDg').value=cand.dg;$('sUn').value=h.id;$('sNat').value=name.replace(/\s*\(check in DGR\)/,'').slice(0,40);
+  const shc=new Set($('sShc').value.split(/[,\s;/]+/).filter(Boolean));if(pax==='Forbidden')shc.add('CAO');if(h.id==='UN1845')shc.add('ICE');$('sShc').value=[...shc].join(', ');
+  toast(`${h.id} filled in. Add pieces, weight and size, then press Add`)}
+$('dgBtn').onclick=()=>{$('dgAc').textContent=acNow().name+(acNow().g==='freighter'?' (freighter)':' (passenger aircraft)');const d=$('dgDlg');if(d.showModal)d.showModal();else d.setAttribute('open','');setTimeout(()=>$('dgQ').focus(),5);unList().catch(()=>{})};
+$('dgX').onclick=()=>{const d=$('dgDlg');if(d.close)d.close();else d.removeAttribute('open')};
+$('dgForm').addEventListener('submit',e=>{e.preventDefault();dgCheck()});
+$('dgOut').addEventListener('click',e=>{const a=e.target.closest('[data-dgadd]'),p=e.target.closest('[data-dgid]');if(a)dgAdd(a.dataset.dgadd);if(p){$('dgQ').value=p.dataset.dgid;dgShow(p.dataset.dgid)}});
 $('fbForm').addEventListener('submit',e=>{e.preventDefault();const miss=FBQ.filter(q=>fbA[q.k]===undefined);if(miss.length){$('fbErr').textContent='Please answer question '+miss.map(q=>q.k.slice(1)).join(', ')+'.';return}
   const c=$('fbC').value.replace(/[|\n\r]+/g,' / ').trim().slice(0,150),detail=FBQ.map(q=>q.k+'='+fbA[q.k]).join('|')+'|role='+$('fbRole').value+'|c='+c;
   const dev=innerWidth<768?'phone':innerWidth<1100?'tablet':'desktop',acId=$('acSel').value;

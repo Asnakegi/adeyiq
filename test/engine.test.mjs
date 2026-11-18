@@ -135,6 +135,19 @@ test("explosive divisions are read as class 1, except 1.4S", () => {
   assert.ok(conflict(dg("1.1"), dg("3")));
 });
 
+test("DG acceptance list (public/adeyiq/un-list.json) has the entries cargo teams check most", () => {
+  const L = JSON.parse(fs.readFileSync(new URL("../public/adeyiq/un-list.json", import.meta.url), "utf8"));
+  assert.ok(L.n > 2000 && Object.keys(L.d).length === L.n, `${L.n} UN numbers`);
+  const first = (id) => L.d[id][0];
+  for (const id of ["UN3480", "UN3090", "UN3551"]) assert.equal(first(id)[4], "Forbidden", `${id} is cargo aircraft only`);
+  assert.equal(first("UN1845")[1], "9", "dry ice is class 9");
+  assert.equal(first("UN1266")[1], "3", "perfumery products are class 3");
+  assert.equal(first("UN0012")[1], "1.4S", "small-arms cartridges are 1.4S");
+  assert.equal(dg(first("UN0012")[1]).dg, "1.4S");
+  assert.equal(dg(first("UN0081")[1]).dg, "1", "blasting explosives map to class 1");
+  for (const rows of Object.values(L.d)) for (const r of rows) assert.equal(r.length, 6);
+});
+
 test("packing density of a full AKE does not get worse", () => {
   const r = checkBuild("AKE", [{ s: ship(50, 40, 40, 60), p: 60 }]);
   // Baseline, not an ideal: the slanted AKE floor allows roughly 45 of these boxes by hand; the engine places 36 today.
