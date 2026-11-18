@@ -98,6 +98,43 @@ test("big builds (over 160 pieces) use layer packing and keep the same rules", (
   assert.equal(r.notDrawn, 0);
 });
 
+// DG segregation rules (IATA DGR Table 9.3.A and 9.3.2.1.3), read from the same page
+const dgSrc =
+  slice("const DG=[", "\n") + "\n" +
+  slice("const FOOD=", "\n  return null}") + "\n  return null}\n" +
+  slice("function mk(o)", "}}\n") + "}}\n" +
+  "this.D={conflict,mk};";
+const dctx = { Math, String, Array, Number, Date, uid: () => "id" };
+vm.createContext(dctx);
+vm.runInContext(dgSrc, dctx);
+const { conflict, mk } = dctx.D;
+const dg = (cls, un = "", shc = "") => mk({ awb: "x", dg: cls, un, shc });
+
+test("Table 9.3.A pairs are segregated, others are not", () => {
+  for (const [a, b] of [["3", "5.1"], ["4.1", "5.1"], ["4.2", "5.1"], ["4.3", "8"], ["1", "2.2"]])
+    assert.ok(conflict(dg(a), dg(b)) && conflict(dg(b), dg(a)), `${a} and ${b} must be kept apart`);
+  for (const [a, b] of [["2.2", "5.1"], ["3", "8"], ["1.4S", "3"], ["6.1", "5.1"], ["9", "3"]])
+    assert.equal(conflict(dg(a), dg(b)), null, `${a} and ${b} may travel together`);
+});
+
+test("UN3480 / UN3090 / UN3551 batteries are kept apart from 1, 2.1, 3, 4.1 and 5.1 (DGR 9.3.2.1.3)", () => {
+  for (const un of ["UN3480", "UN 3090", "3551"])
+    for (const c of ["1", "2.1", "3", "4.1", "5.1"]) {
+      assert.ok(conflict(dg("9", un), dg(c)), `${un} with class ${c}`);
+      assert.ok(conflict(dg(c), dg("9", un)), `class ${c} with ${un}`);
+    }
+  for (const c of ["1.4S", "2.2", "4.2", "4.3", "5.2", "8", "9"])
+    assert.equal(conflict(dg("9", "UN3480"), dg(c)), null, `UN3480 with class ${c} needs no segregation`);
+  assert.equal(conflict(dg("9", "UN3481"), dg("3")), null, "batteries in or with equipment are not in 9.3.2.1.3");
+});
+
+test("explosive divisions are read as class 1, except 1.4S", () => {
+  assert.equal(dg("1.1D").dg, "1");
+  assert.equal(dg("Class 1.3G").dg, "1");
+  assert.equal(dg("1.4s").dg, "1.4S");
+  assert.ok(conflict(dg("1.1"), dg("3")));
+});
+
 test("packing density of a full AKE does not get worse", () => {
   const r = checkBuild("AKE", [{ s: ship(50, 40, 40, 60), p: 60 }]);
   // Baseline, not an ideal: the slanted AKE floor allows roughly 45 of these boxes by hand; the engine places 36 today.
