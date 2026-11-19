@@ -12,8 +12,8 @@ things that only the owner can do are finished:
    test endpoint (section 2). Until then, the signed protocol has only been run against a local stand-in. That
    stand-in runs the real `.gs` file with simulated Google services. `sheetConfigured: true` proves nothing here: it
    only means the two environment variables are set.
-2. **GitHub Actions passes on the draft pull request** (section 5). CI runs only for pull requests and for pushes to
-   `main`, so no run exists for this branch yet.
+2. ~~GitHub Actions passes on the pull request~~ **Done:** PR 6 CI passed (section 5). PR 6 was opened as a normal PR,
+   not a draft. Convert it to draft, or simply do not merge it until Stage B.
 3. **The High-risk claude.ai artifacts get a decision.** They are outside this release, but they are the largest
    remaining confidentiality risk (section 7).
 
@@ -123,11 +123,8 @@ snapshot, which is why the table above has the extra step.
 
 ## 5. CI on GitHub vs local results
 
-- **The draft PR is not created yet.** `gh` is not installed and the browser pane is not signed in to GitHub, so the
-  owner opens it at <https://github.com/Asnakegi/adeyiq/compare/main...security-audit?expand=1> → "Create draft pull
-  request".
-- **CI has not run yet.** Workflow `.github/workflows/ci.yml` runs on `pull_request` and on pushes to `main` only.
-  The GitHub API shows no runs for `5099c74`.
+- **Pull request:** <https://github.com/Asnakegi/adeyiq/pull/6>, created by the owner, open and not merged.
+- Workflow `.github/workflows/ci.yml` runs on `pull_request` and on pushes to `main`.
 - **Local results at `5099c74`** (Windows 11, Node 26.13 locally; CI uses Node 24):
 
 | Check | Local |
@@ -150,7 +147,14 @@ Differences to watch for on CI (Ubuntu):
 - Chrome. CI uses the runner's preinstalled Chrome, locally the desktop Chrome; both run headless over CDP.
 - The e2e CSP checks read real response headers, so a mismatch would fail loudly. It would not pass silently.
 
-These results will be filled in here after the run: CI result: _pending (owner creates the draft PR)_.
+**CI result (pull request 6, commit `25da7d7`, run 44508658305): success.** On ubuntu-latest with Node 24, every
+step passed: `npm ci`, lint, typecheck, check:scripts, `npm test`, build, `test:e2e` and
+`npm audit --omit=dev --audit-level=high`. Differences from the local run:
+- CI's audit covers only production dependencies at level high or above. Locally the full `npm audit` (dev included)
+  reported 0.
+- The per-test counts (42 unit, 105 e2e) come from the local run. GitHub only shows job logs to signed-in users, so the
+  CI counts were not read. The CI steps would fail on any failing test, and all of them passed.
+- `25da7d7` differs from the tested `5099c74` only by report files.
 
 ## 6. CacheService, quotas and logging: what is best effort
 
