@@ -1,0 +1,2 @@
+# vendored third-party files must stay byte-identical to the official release (hashes are checked)
+public/vendor/** -text
