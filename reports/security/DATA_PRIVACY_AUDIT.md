@@ -2,6 +2,13 @@
 
 **Date:** 19 November 2026 · branch `security-audit` (fixes not yet deployed)
 
+> **Revision 2 (19 Nov 2026):** the owner's review found that the first-pass Apps Script fix was syntactically
+> invalid and that no test covered it. See `REMEDIATION_REPORT.md` for the corrected design, the tests that were
+> missing, and the current status. Statuses below are updated; superseded statements are marked.
+
+**Revision 2 changes:** the Excel reader is now self-hosted, so the browser contacts only AdeyIQ and Google Fonts
+(38 requests in the latest run, no cargo). Writes to the sheet are signed and refused without the key.
+
 ## Sensitive-data inventory
 
 | Data | Where it is created | Where it is stored | Leaves the browser? |

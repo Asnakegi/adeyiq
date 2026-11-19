@@ -16,7 +16,8 @@ For the owner. Nothing here has been changed in production by the audit.
 - [ ] In the Google Sheet, check the tabs "Shipments", "ULD builds" and "Load plans". If they hold other people's
       cargo, delete those rows or tabs (keep a private copy first if needed).
 
-## Google Apps Script (A-5, A-8)
+## Google Apps Script (A-5, A-8): follow `REMEDIATION_REPORT.md` section 6 for the exact order
+- [ ] The new script **fails closed**: set `ADEYIQ_KEY` (Apps Script) and `ADEYIQ_SHEET_KEY` (Vercel), both the same and at least 32 characters, **before** merging, or recording stops.
 - [ ] Open the sheet → Extensions → Apps Script. Replace the code with `scripts/access-requests.gs` from `main`.
 - [ ] Project Settings → Script properties → add `ADEYIQ_KEY` = a long random value (e.g. 40+ characters from a
       password generator). Never paste it into chat, code or the sheet.
@@ -53,8 +54,8 @@ For the owner. Nothing here has been changed in production by the audit.
 - [ ] After merge, confirm `script-src` no longer lists `cdn.jsdelivr.net`.
 
 ## Dependencies and supply chain
-- [ ] Self-host SheetJS 0.20.3+ (official source, cdn.sheetjs.com) under `public/vendor/`, with its hash recorded, and
-      remove cdnjs from the CSP. Re-run the e2e Excel tests. Needs your approval.
+- [x] SheetJS 0.20.3 self-hosted under `public/vendor/sheetjs/0.20.3/` with license and hashes (revision 2).
+- [ ] When SheetJS publishes a newer release, update it the same way (see its README).
 - [ ] Add Subresource Integrity, or self-host, for any remaining CDN script.
 - [ ] GitHub: enable Dependabot alerts, secret scanning and push protection; protect `main` (require CI, no force pushes).
 - [ ] Pin GitHub Actions to commit SHAs instead of `@v4` tags.

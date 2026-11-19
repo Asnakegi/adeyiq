@@ -1,5 +1,10 @@
 # Security fixes
 
+> **Revision 2 (19 Nov 2026):** the owner's review found that the first-pass Apps Script fix was syntactically
+> invalid and that no test covered it. See `REMEDIATION_REPORT.md` for the corrected design, the tests that were
+> missing, and the current status. Statuses below are updated; superseded statements are marked.
+
+
 Branch `security-audit`, commit `35674ba` (plus the reports). **Not merged and not deployed.** The Apps Script change
 also needs to be pasted into the script editor and deployed by the owner.
 
@@ -14,7 +19,7 @@ also needs to be pasted into the script editor and deployed by the owner.
 | A-6 spreadsheet ID in public code | ID removed from the website copy; `report()` is a no-op without it | `public/adeyiq/build.html` |
 | A-11 `esc()` | Also escapes `'` | `public/adeyiq/build.html` |
 | A-10 CSP | Unused `https://cdn.jsdelivr.net` removed from `script-src` | `next.config.ts` |
-| A-5 unauthenticated writes | Optional shared secret: `ADEYIQ_SHEET_KEY` (Vercel) sent as `key`; script refuses writes without it once `ADEYIQ_KEY` is set | `lib/sheet.ts`, `scripts/access-requests.gs` |
+| A-5 unauthenticated writes | ~~Optional shared secret sent as `key`~~ (superseded: the script was invalid and the design failed open). Revision 2: HMAC-signed envelope with timestamp and nonce, fail closed on both sides | `lib/sheet.ts`, `scripts/access-requests.gs`, API routes |
 | A-8 error disclosure, formula guard | Replies `{ok:false}` only, error logged for the owner; leading TAB/CR also neutralised | `scripts/access-requests.gs` |
 | Privacy text | Status-only events, referrer origin, Clear advice, local printing, Vercel Web Analytics | `public/adeyiq/privacy.html` |
 
@@ -24,7 +29,7 @@ Cargo-building and load-planning code was **not changed**.
 
 | Test | What it proves |
 |---|---|
-| `test/sheet.test.ts` (2 tests) | The secret is added when configured and absent otherwise; failures return `false` |
+| `test/sheet.test.ts` (2 tests, **superseded**) | Covered only the Next.js side. Revision 2 replaces it with 5 tests against the real script, plus `test/gs.test.mjs` (8) and `scripts/check-syntax.mjs` |
 | e2e "Privacy" (9 checks) | Synthetic cargo via CSV, Excel and the form never appears in any browser request or forwarded row, across build, load, print, export, aircraft switch, refresh and clear; only AdeyIQ, Google Fonts and cdnjs are contacted; third-party requests carry no data; usage details have no weights, DG or ULD ids; referrer is an origin; no spreadsheet ID or Apps Script URL in the page; Clear empties storage |
 | e2e "Hostile manifests" (10 checks) | CSV and Excel formulas stay text and fetch nothing; a damaged .xlsx no longer freezes the page; wrong file types and binary CSVs are refused; >5,000 lines refused; absurd values skipped quickly; `__proto__`/`constructor` headers don't pollute; Unicode and HTML shown as text; HTML export has no script, handlers or `javascript:` |
 | e2e "API" (5 checks) | Non-allowed methods get 405; malformed requests get a short error without internals |
@@ -48,7 +53,7 @@ Cargo-building and load-planning code was **not changed**.
 | A-3 | Tab frozen, e2e timed out after 8 min | Message after ≤15 s, page responsive (e2e pass) |
 | A-4 | 999,999,999 pieces accepted | Line skipped with reason in 355 ms (e2e pass) |
 | A-6 | Sheet ID in `/build` source | Not present (e2e pass) |
-| A-5, A-8 | – | Unit-tested on the Next side; **Apps Script side not verifiable until deployed** |
+| A-5, A-8 | – | ~~Unit-tested on the Next side; Apps Script side not verifiable until deployed~~. Revision 2: the real script is parsed in CI and its behaviour tested (valid, missing, wrong, replayed, stale, tampered) |
 
 ## Remaining risks
 

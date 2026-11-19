@@ -1,5 +1,13 @@
 # Security test results
 
+> **Revision 2 (19 Nov 2026):** the owner's review found that the first-pass Apps Script fix was syntactically
+> invalid and that no test covered it. See `REMEDIATION_REPORT.md` for the corrected design, the tests that were
+> missing, and the current status. Statuses below are updated; superseded statements are marked.
+
+**Revision 2 totals (clean `npm ci`):** check:scripts 11/11 parse · unit 40/40 · e2e 100/100 · lint 0 errors · typecheck · build · audit 0.
+First-pass rows that relied on the permissive mock sheet are marked below.
+
+
 **Environment:** local production build (`next start`, port 5300), mock Google Sheet (port 5301), headless Chrome
 driven over the DevTools protocol, Windows 11, Node 26, 19 November 2026. No active tests against production; the
 live site was only read (headers, page source).
@@ -35,7 +43,10 @@ The e2e runner starts its own server and mock sheet, so it never contacts produc
 | API | Cross-site POST, missing Origin, unknown event, oversize, rate limits, honeypot, bot UA | Pass | `test/api.test.ts`, e2e |
 | API | PUT/DELETE `/api/track`, GET `/api/request`, POST `/api/health` | Pass: 405 | e2e |
 | API | Malformed JSON reply has no internals | Pass: `{"ok":false}` | e2e |
-| Sheet writer | Shared secret added when configured; failures return false | Pass | `test/sheet.test.ts` |
+| Sheet writer | ~~Shared secret added when configured~~ (first pass: Next side only, **did not cover the script**) → revision 2: signed writes accepted by the real script; wrong, missing and short keys refused; key never in URL or body | Pass | `test/sheet.test.ts`, `test/gs.test.mjs` |
+| Apps Script | Syntax of `scripts/*.gs` and all browser scripts | Pass (fails on the first-pass commit) | `npm run check:scripts` |
+| Apps Script | Direct calls bypassing the website: unsigned, wrongly signed, replayed | Pass | e2e |
+| SheetJS | Self-hosted 0.20.3 served unchanged (SHA-256) | Pass | e2e |
 | Regression | Packing-engine invariants, oversize checks, 777F 300-piece charter (37/37, Balanced ✓ · 2 offloaded), prints and exports | Pass | `npm test`, e2e |
 | Dependencies | `npm audit --omit=dev` | Pass: 0 | npm |
 
@@ -53,4 +64,5 @@ The e2e runner starts its own server and mock sheet, so it never contacts produc
 | Vercel Web Analytics payloads | The script exists only on Vercel; not tested against production |
 | Safari, Firefox, mobile browsers | Only headless Chrome available |
 | Load or volume testing against production | Out of scope by instruction |
-| SheetJS 0.20.x upgrade | Needs owner approval to download and vendor the library |
+| ~~SheetJS 0.20.x upgrade~~ | Done in revision 2 (owner requested it) |
+| Apps Script in Google's runtime | Tested in Node with stand-in services; the real deployment must be checked after the owner deploys it |

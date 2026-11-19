@@ -5,6 +5,10 @@
 **Also inspected:** the owner's local claude.ai artifact copies (`adeyiq-builder.html`, `adeyiq-modules.html`) and the
 live site's public response headers (read-only GET requests only).
 
+> **Revision 2 (19 Nov 2026):** the owner's review found that the first-pass Apps Script fix was syntactically
+> invalid and that no test covered it. See `REMEDIATION_REPORT.md` for the corrected design, the tests that were
+> missing, and the current status. Statuses below are updated; superseded statements are marked.
+
 ## Executive summary
 
 - **Website (adeyiq.vercel.app):** cargo manifests do **not** leave the browser. This was verified in code and by
@@ -71,10 +75,11 @@ shared with; Vercel Web Analytics payload contents on production; Safari/Firefox
 | A-2 | Medium | Usage analytics carried cargo-derived totals (kg, t, DG flag, ULD ids/positions, ULD panel text) | **Fixed + verified** |
 | A-3 | Medium | Malformed .xlsx froze the builder tab permanently (SheetJS 0.18.5 hang on main thread) | **Fixed + verified** |
 | A-4 | Medium | No upload limits: absurd piece counts, huge files and row counts; damaged files failed silently | **Fixed + verified** |
-| A-5 | Medium | Apps Script accepts unauthenticated writes from anyone holding the `/exec` URL | **Fix implemented, needs owner deployment** |
+| A-5 | Medium | Apps Script accepts unauthenticated writes from anyone holding the `/exec` URL | **Fixed in revision 2** (signed, fail-closed); needs owner configuration and deployment |
 | A-6 | Medium | Spreadsheet ID hard-coded in the public `build.html` | **Fixed + verified** (still in local artifact copy) |
-| A-7 | Medium | SheetJS 0.18.5 has public advisories (CVE-2023-30533 prototype pollution, CVE-2024-22363 ReDoS) | **Mitigated** (worker, limits, options); upgrade open |
-| A-8 | Low | Apps Script replied with internal error text; formula guard missed leading TAB/CR | **Fix implemented, needs owner deployment** |
+| A-7 | Medium | SheetJS 0.18.5 has public advisories (CVE-2023-30533 prototype pollution, CVE-2024-22363 ReDoS) | **Fixed in revision 2**: self-hosted 0.20.3, verified |
+| A-8 | Low | Apps Script replied with internal error text; formula guard missed leading TAB/CR | **Fixed in revision 2** (unit-tested with the real script); needs deployment |
+| A-16 | High | First-pass fix left `scripts/access-requests.gs` syntactically invalid, uncovered by any test | **Fixed in revision 2**; syntax check added to CI |
 | A-9 | Low | Full referring URL sent with usage events | **Fixed + verified** (origin only) |
 | A-10 | Low | CSP allowed an unused script host (`cdn.jsdelivr.net`) | **Fixed + verified** |
 | A-11 | Low | `esc()` did not escape single quotes (no exploitable sink found) | **Fixed** (defence in depth) |
