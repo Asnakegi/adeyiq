@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test test/api.test.ts test/engine.test.mjs && node test/oversize.js",
+    "test": "node --test test/api.test.ts test/sheet.test.ts test/engine.test.mjs && node test/oversize.js",
     "typecheck": "tsc --noEmit",
     "test:e2e": "node test/e2e.mjs"
   },

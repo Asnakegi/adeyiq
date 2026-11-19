@@ -4,6 +4,8 @@
  * Required environment variable: ADEYIQ_SHEET_URL (the web app URL ending in /exec). Empty = nothing is sent.
  */
 export const SHEET_URL = process.env.ADEYIQ_SHEET_URL || "";
+/** Optional shared secret, sent with every write; the Apps Script refuses writes without it once ADEYIQ_KEY is set there. */
+export const SHEET_KEY = process.env.ADEYIQ_SHEET_KEY || "";
 
 const TIMEOUT_MS = 8000;
 
@@ -13,7 +15,7 @@ export async function toSheet(body: Record<string, unknown>): Promise<boolean> {
     const res = await fetch(SHEET_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(SHEET_KEY ? { ...body, key: SHEET_KEY } : body),
       redirect: "follow",
       cache: "no-store",
       signal: AbortSignal.timeout(TIMEOUT_MS),
