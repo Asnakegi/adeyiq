@@ -77,3 +77,27 @@ test("unknown types are refused; replies and logs never contain the key or row d
   const text = JSON.stringify(g.logs);
   assert.ok(!text.includes(KEY) && !text.includes("SECRETVISITOR"), text);
 });
+
+test("email budget is kept per UTC day in Script properties, not the 6-hour cache", () => {
+  let clock = Date.UTC(2026, 10, 20, 8, 0, 0);
+  const g = loadGs({ key: KEY, now: () => clock });
+  const req = { type: "request", name: "Ana", email: "ana@cargo.example" };
+  for (let i = 0; i < 52; i++) { g.doPost(sign(req, KEY, clock)); clock += 61_000; } // spread over ~53 minutes (under the per-minute cap)
+  assert.equal(g.mails.length, 50);
+  g.cache.clear(); // cache eviction must not reset the daily budget
+  g.doPost(sign(req, KEY, clock));
+  assert.equal(g.mails.length, 50);
+  clock = Date.UTC(2026, 10, 21, 0, 5, 0); // next UTC day
+  g.doPost(sign(req, KEY, clock));
+  assert.equal(g.mails.length, 51);
+  assert.deepEqual([...g.props.keys()], ["mail:2026-11-21"], "old day counters are removed");
+});
+
+test("errors are logged by step and type only, never with user data from the error message", () => {
+  const g = loadGs({ key: KEY, mailError: "Invalid email: private.person@example.test" });
+  const r = g.doPost(sign({ type: "request", name: "Ana", email: "private.person@example.test" }, KEY));
+  assert.deepEqual(r, { ok: false });
+  const text = JSON.stringify(g.logs);
+  assert.ok(g.logs.some((l) => l[1] === 'AdeyIQ write failed at step "email" (Error)'), text);
+  assert.ok(!text.includes("private.person"), text);
+});

@@ -14,6 +14,12 @@
  * Refused: missing or wrong signature, timestamps older or newer than 5 minutes, a nonce seen in the last 10 minutes
  * (replay), more than 120 writes a minute in total (flood cap). Rejections are logged without secrets or row data.
  *
+ * Best-effort guarantees (Google CacheService): the replay check and the per-minute cap live in the script cache,
+ * which Google may evict before the stated time. An evicted nonce can be replayed until its 5-minute timestamp
+ * window closes, and an evicted counter lets a minute exceed the cap. Writes are serialised by a script lock, so
+ * check-and-store is not racy. The daily email budget is kept in Script properties (persistent), not the cache.
+ * Logs contain only fixed reasons, the failing step and the error type: never the key, the body or user data.
+ *
  *   type "request" → one row in "Access requests" + an email to you (at most 50 emails a day)
  *   type "usage"   → one row in "Usage" (page opens and tool actions, with country and city)
  */
@@ -25,13 +31,16 @@ const MAX_PAYLOAD = 10000;
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
+  let step = 'lock';
   try {
     lock.waitLock(10000);
+    step = 'verify';
     const auth = verify_(e);
     if (!auth.ok) { console.warn('AdeyIQ write refused: ' + auth.why); return out_({ ok: false }); }
     if (!underLimit_()) { console.warn('AdeyIQ write refused: more than ' + MAX_WRITES_PER_MINUTE + ' writes this minute'); return out_({ ok: false }); }
     const d = auth.data;
     if (d.type === 'usage') {
+      step = 'append usage';
       append_('Usage', [new Date(), clip_(d.event, 40), clip_(d.page, 80), clip_(d.visitor, 20), clip_(d.session, 20),
         clip_(d.country, 4), clip_(d.region, 60), clip_(d.city, 80), clip_(d.aircraft, 40), clip_(d.detail, 300), clip_(d.device, 20), clip_(d.ref, 200)]);
       return out_({ ok: true });
@@ -42,7 +51,9 @@ function doPost(e) {
     if (!clip_(d.name, 200) || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return out_({ ok: false });
     const row = [new Date(), clip_(d.name, 200), email, clip_(d.company, 200), clip_(d.phone, 60),
       clip_([].concat(d.modules || []).join(', '), 200), clip_(d.message, 2000), clip_(d.page, 200), 'New'];
+    step = 'append request';
     append_('Access requests', row);
+    step = 'email';
     if (NOTIFY && mailBudget_()) {
       MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'AdeyIQ access request: ' + row[1],
         ['Name: ' + row[1], 'Email: ' + row[2], 'Company: ' + (row[3] || '-'), 'Phone: ' + (row[4] || '-'),
@@ -51,8 +62,8 @@ function doPost(e) {
     }
     return out_({ ok: true });
   } catch (err) {
-    // only the error message, never the request body or the key; callers get no details
-    console.error('AdeyIQ write failed: ' + String((err && err.message) || err).slice(0, 200));
+    // the step and the error type only: messages can contain user data (e.g. an invalid email address)
+    console.error('AdeyIQ write failed at step "' + step + '" (' + String((err && err.name) || 'Error').slice(0, 40) + ')');
     return out_({ ok: false });
   } finally {
     try { lock.releaseLock(); } catch (ignore) { /* lock was not taken */ }
@@ -99,10 +110,12 @@ function underLimit_() {
   return n <= MAX_WRITES_PER_MINUTE;
 }
 
+/* emails sent today (UTC), persisted in Script properties because cache entries expire after at most 6 hours */
 function mailBudget_() {
-  const cache = CacheService.getScriptCache(), k = 'm:' + new Date().toISOString().slice(0, 10);
-  const n = Number(cache.get(k) || 0) + 1;
-  cache.put(k, String(n), 21600);
+  const props = PropertiesService.getScriptProperties(), k = 'mail:' + new Date().toISOString().slice(0, 10);
+  const n = Number(props.getProperty(k) || 0) + 1;
+  props.setProperty(k, String(n));
+  props.getKeys().forEach(function (old) { if (old.indexOf('mail:') === 0 && old !== k) props.deleteProperty(old); });
   return n <= MAX_EMAILS_PER_DAY;
 }
 

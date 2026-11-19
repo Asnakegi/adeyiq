@@ -67,6 +67,10 @@ for (const p of ["/", "/build", "/adeyiq/xlsx-worker.js", "/vendor/sheetjs/0.20.
   check(h && !/cdnjs|jsdelivr|unpkg/.test(h) && /worker-src 'self'/.test(h), `${p}: security policy allows no script CDN`);
 }
 check(/cdnjs.cloudflare.com/.test((await fetch(BASE + "/adeyiq_cargo_optimizer_v4.html")).headers.get("content-security-policy") || ""), "only the legacy optimizer demo may load from cdnjs");
+for (const p of ["/", "/build", "/hold-view", "/aircraft-data", "/privacy"]) {
+  const s = ((await fetch(BASE + p)).headers.get("content-security-policy") || "").match(/script-src ([^;]*)/)?.[1] || "";
+  check(!s.includes("unsafe-inline") && /'sha256-[A-Za-z0-9+/=]{44}'/.test(s), `${p}: inline scripts are allowed by hash, not by 'unsafe-inline'`);
+}
 {
   const v = await fetch(BASE + "/vendor/sheetjs/0.20.3/xlsx.full.min.js"), t = await v.text();
   const sha = (await import("node:crypto")).createHash("sha256").update(t).digest("hex");
