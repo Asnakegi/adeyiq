@@ -7,6 +7,8 @@
 **Revision 2 totals (clean `npm ci`):** check:scripts 11/11 parse · unit 40/40 · e2e 100/100 · lint 0 errors · typecheck · build · audit 0.
 First-pass rows that relied on the permissive mock sheet are marked below.
 
+**Revision 3 totals (release review, `5099c74`):** check:scripts 11/11 · unit 42/42 (2 new: daily email budget survives cache eviction; error logs hold no user data) · e2e 105/105 (5 new: product pages allow inline scripts by hash, not `unsafe-inline`) · lint 0 errors · typecheck · build · audit 0. `scripts/verify-sheet-endpoint.mjs` passed 5/5 against a local stand-in running the real `.gs`. **It has not yet been run against a deployed Google endpoint** (owner step, `RELEASE_READINESS.md` section 2). GitHub CI: pending the draft PR. Since revision 2 the product pages no longer contact cdnjs (SheetJS is self-hosted).
+
 
 **Environment:** local production build (`next start`, port 5300), mock Google Sheet (port 5301), headless Chrome
 driven over the DevTools protocol, Windows 11, Node 26, 19 November 2026. No active tests against production; the

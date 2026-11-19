@@ -16,7 +16,12 @@ For the owner. Nothing here has been changed in production by the audit.
 - [ ] In the Google Sheet, check the tabs "Shipments", "ULD builds" and "Load plans". If they hold other people's
       cargo, delete those rows or tabs (keep a private copy first if needed).
 
-## Google Apps Script (A-5, A-8): follow `REMEDIATION_REPORT.md` section 6 for the exact order
+## Google Apps Script (A-5, A-8)
+
+> **Superseded by `RELEASE_READINESS.md` sections 2–4:** a separate test endpoint, then a *new* production deployment,
+> with no write gap and rollback by Vercel Instant Rollback. Use those steps, not the "edit the existing deployment"
+> steps below. The items below stay as a reference for what must be true afterwards.
+
 - [ ] The new script **fails closed**: set `ADEYIQ_KEY` (Apps Script) and `ADEYIQ_SHEET_KEY` (Vercel), both the same and at least 32 characters, **before** merging, or recording stops.
 - [ ] Open the sheet → Extensions → Apps Script. Replace the code with `scripts/access-requests.gs` from `main`.
 - [ ] Project Settings → Script properties → add `ADEYIQ_KEY` = a long random value (e.g. 40+ characters from a

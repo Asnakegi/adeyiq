@@ -93,6 +93,9 @@ Authentication cases tested against the real script:
 
 ## 6. Deployment order (important: the new script fails closed)
 
+> **Superseded:** `RELEASE_READINESS.md` replaces this procedure with a zero-gap rollout (test endpoint first, then a
+> new production deployment, switched in the same Vercel deploy). The text below is kept for the record.
+
 Merging before configuration would **stop usage recording and make the access form show its fallback** until both
 values are set. This is not silent: health shows `sheetConfigured: false` and Vercel logs name the missing setting.
 
