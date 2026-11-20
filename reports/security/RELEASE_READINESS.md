@@ -5,21 +5,35 @@ SheetJS in a worker, and the fixes listed in `REMEDIATION_REPORT.md`.
 
 ## Verdict
 
-**Not production-ready yet.** The code and the automated tests are ready. The release stays blocked until three
-things that only the owner can do are finished:
+**Released to production on 20 November 2026** (PR 6 merged as `869bee2`, Vercel production deploy at 23:44 local
+time). The signed Apps Script integration is live. Production checks after the deploy:
 
-1. ~~A real signed write reaches a real Google Sheet~~ **Done on 20 Nov 2026 (Stage A, steps 1–7):** against a real
-   test deployment on a blank "AdeyIQ TEST" sheet, all 5 checks of `scripts/verify-sheet-endpoint.mjs` passed, and
-   the Usage tab got exactly one `owner-verify` row. The first run failed because Google's consent screen had not
-   granted the spreadsheet permission (granular consent). See "Stage A findings" below. Stage A steps 8–9 (the PR preview writing
-   through Vercel) were done the same day and found a duplicate-row bug, now fixed (see findings). Still open: the
-   production switch (Stage B).
-2. ~~GitHub Actions passes on the pull request~~ **Done:** PR 6 CI passed (section 5). PR 6 was opened as a normal PR,
-   not a draft. Convert it to draft, or simply do not merge it until Stage B.
-3. **The High-risk claude.ai artifacts get a decision.** They are outside this release, but they are the largest
-   remaining confidentiality risk (section 7).
+| Check | Result |
+|---|---|
+| `/api/health` | `ok: true, sheetConfigured: true` |
+| Security headers on `/build` | One CSP, `script-src 'self'` + 8 hashes (no `'unsafe-inline'`), HSTS, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy |
+| Excel upload on the live builder | 2 shipments added, 2 ULDs built; page has no `window.XLSX`; no console errors |
+| Signed write through the live site | New Usage row (owner visitor, "upload file", "2 ULDs built") in the production sheet |
+| New production deployment, checked directly before the switch | All 5 signed checks passed; one `owner-verify` row |
 
-Nothing was deployed. No credentials or production data were changed.
+Rollback stays available: Vercel Instant Rollback to the previous production deployment (old code with its old
+environment snapshot) plus the old Apps Script deployment "AdeyIQ website", which is still active. The old URL is saved
+on the owner's PC only.
+
+Still open (not blockers for this release, but not finished):
+
+1. **Archive the old Apps Script deployment** ("AdeyIQ website", version 1) after about a week without problems
+   (around 27 Nov 2026). Until then anyone holding its URL can still write unsigned rows. This is the step that
+   closes the unsigned-write path for good.
+2. **claude.ai artifacts (High):** owner decision pending (`ARTIFACT_REMEDIATION_PLAN.md`).
+3. Clean-up after step 1: the "AdeyIQ TEST" sheet and its script, the Preview variables for branch `security-audit`,
+   and the local test key file.
+4. Review the unused Vercel variables `NEXTAUTH_URL` and `DATABASE_URL`, and the dev-only `minimatch` advisory.
+
+No system is unhackable; these controls reduce risk and do not guarantee that data cannot leak.
+
+Earlier status (kept for the record): the release was blocked until a real signed write reached a real sheet
+(done in Stage A), CI passed on the PR (done), and the artifact risk was accounted for (documented, decision pending).
 
 ## 1. Why a separate endpoint
 
