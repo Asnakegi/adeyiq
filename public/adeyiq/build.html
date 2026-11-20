@@ -697,17 +697,21 @@ function planLoad(b){
     for(const tier of tiers){if(ok)break;
       const cands=tier.map(c=>({c,arm:posArm(c,c.used,L(c))})).sort((x,y)=>Math.abs(mom+un.w*x.arm)-Math.abs(mom+un.w*y.arm)).map(x=>x.c);
       for(const c of cands){if(c.key==='main'){const len=L(c),pitch=MP(ac),rows=Math.round(c.len/pitch),need=Math.round(len/pitch);c.occ=c.occ||new Array(rows).fill(null);
+          /* a lower-deck pallet (PMCL) on the main deck is turned 244 cm across like a main-deck PMC, so two share a row (left and right):
+             a row holding one such pallet (and not the single centreline row) stays open for a second one that has no DG conflict with it */
+          const pair=un.kind==='pal'&&need===1&&!ac.main.single,canJoin=o=>pair&&o&&o.half&&o.ulds.length===1&&!o.ulds.some(x=>un.ulds.some(y=>clash(x,y)));
           let best=null,kept=false;
-          for(const r of need>1?[...Array(rows).keys()].sort((a,b)=>(a%need)-(b%need)||a-b):[...Array(rows).keys()]){if(r+need>rows||c.occ.slice(r,r+need).some(Boolean))continue;const sr=!!ac.main.lastSingle&&r+need===rows;if(sr&&(un.ulds.length>1||need>1))continue;if(best&&need>1&&r%need&&best.r%need===0)break;
+          for(const r of need>1?[...Array(rows).keys()].sort((a,b)=>(a%need)-(b%need)||a-b):[...Array(rows).keys()]){const join=canJoin(c.occ[r]);if(r+need>rows||(!join&&c.occ.slice(r,r+need).some(Boolean)))continue;const sr=!!ac.main.lastSingle&&r+need===rows;if(sr&&(un.ulds.length>1||need>1))continue;if(best&&need>1&&r%need&&best.r%need===0)break;
             const nb=[c.occ[r-1],c.occ[r+need]].filter(Boolean),a=posArm(c,r*pitch,len),inLim=x=>x/1000>=R('rIdxF')&&x/1000<=R('rIdxA'),score=Math.abs(mom+un.w*a)-(sr&&un.ulds.length===1&&inLim(mom+un.w*a)?1e12:0);
             if(nb.some(o=>o.ulds.some(x=>un.ulds.some(y=>clash(x,y))))){kept=true;continue}
-            if(!best||score<best.score-1e-9)best={r,a,score}}
+            if(!best||score<best.score-1e-9)best={r,a,score,join}}
           if(!best){if(un.kind==='main'&&need===1&&un.ulds.length===2&&ac.main.lastSingle&&!c.occ[rows-1]&&!(c.occ[rows-2]&&c.occ[rows-2].ulds.some(x=>clash(x,un.ulds[0])))){const keep=un.ulds[0],drop=un.ulds[1],st=(rows-1)*pitch,a=posArm(c,st,pitch),blk={start:st,len:pitch,ulds:[keep],arm:a,w:keep.kg};
               c.blocks.push(blk);c.occ[rows-1]=blk;c.used=Math.max(c.used,st+pitch);mom+=keep.kg*a;keep.side='P';keep.pos=String.fromCharCode(64+rows)+'P';keep.blk={c:'main',start:st,len:pitch};
               noPos.push({s:drop.items[0].s,why:`no free main-deck position left for ${drop.id} (${fmt(drop.kg)} kg): main deck 100% used`,uld:drop});ok=true;break}
             continue}
-          const st=best.r*pitch,blk={start:st,len,ulds:un.ulds,arm:best.a,w:un.w};c.blocks.push(blk);for(let k=0;k<need;k++)c.occ[best.r+k]=blk;c.used=Math.max(c.used,st+len);mom+=un.w*best.a;
           if(kept&&!issues.some(i=>i.t.startsWith('Dangerous goods kept apart')))issues.push({k:'info',t:'Dangerous goods kept apart: at least one main-deck position between incompatible pallets'});
+          if(best.join){const o=c.occ[best.r],lab=String.fromCharCode(65+best.r);o.ulds=[...o.ulds,...un.ulds];o.w+=un.w;o.half=false;mom+=un.w*o.arm;o.ulds.forEach((u,i)=>{u.side=i?'R':'L';u.pos=lab+u.side;u.blk={c:'main',start:o.start,len:o.len}});ok=true;break}
+          const st=best.r*pitch,blk={start:st,len,ulds:un.ulds,arm:best.a,w:un.w,half:pair&&!(ac.main.lastSingle&&best.r===rows-1)};c.blocks.push(blk);for(let k=0;k<need;k++)c.occ[best.r+k]=blk;c.used=Math.max(c.used,st+len);mom+=un.w*best.a;
           const lab=String.fromCharCode(65+best.r);un.ulds.forEach((u,i)=>{u.side=un.ulds.length>1?(i?'R':'L'):(un.kind==='pal'||ac.main.single||(ac.main.lastSingle&&best.r===rows-1)?'P':'L');u.pos=lab+u.side;u.blk={c:'main',start:st,len}});ok=true;break}
         const len=L(c),pitch=pitchOf(ac,c.key),prev=[...c.blocks].reverse().find(x=>!x.gap);let st=c.used,gap=prev&&prev.ulds.some(a=>un.ulds.some(x=>clash(a,x)));if(gap)st+=pitch;if(st+len>c.len)continue;
         if(gap){c.blocks.push({start:c.used,len:pitch,ulds:[],gap:true});issues.push({k:'info',t:`One position left empty in the ${c.name.toLowerCase()} to keep dangerous goods apart`})}
@@ -1083,7 +1087,7 @@ function uldTip(u){return `<div style="margin-top:6px"><span class="mono">${u.po
 /* ---------- inside the hold: internal contour, positions, door, loader ---------- */
 const A1=.92,B1=.22,A2=.5,B2=.4,DV=[1,-A2/A1,B2+(A2/A1)*B1];
 function inProf(u){switch(u.type){
-  case'AKE':return{p:ULD.AKE.prof,W:201,Dp:153,H:163};case'AKH':return{p:ULD.AKH.prof,W:156,Dp:153,H:114};case'PMCL':return{p:ULD.PMCL.prof,W:318,Dp:244,H:163};
+  case'AKE':return{p:ULD.AKE.prof,W:201,Dp:153,H:163};case'AKH':return{p:ULD.AKH.prof,W:156,Dp:153,H:114};case'PMCL':return u.blk&&u.blk.c==='main'?{p:[[0,0],[244,0],[244,140],[226,163],[18,163],[0,140]],W:244,Dp:318,H:163}:{p:ULD.PMCL.prof,W:318,Dp:244,H:163};
   case'PAGN':return{p:ULD.PAGN.prof,W:318,Dp:224,H:208};case'PGA':return{p:[[0,0],[244,0],[244,220],[200,300],[0,300]],W:244,Dp:606,H:300};case'PMC7':return{p:[[0,0],[244,0],[244,200],[180,300],[0,300]],W:244,Dp:318,H:300};
   default:return{p:[[0,0],[244,0],[244,160],[174,244],[0,244]],W:244,Dp:318,H:244}}}
 function holdGeo(){
