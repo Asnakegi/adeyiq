@@ -21,6 +21,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # parses scripts/*.gs (Apps Script) and every browser script of the product pages
+      - run: npm run check:scripts
       - run: npm test
       - run: npm run build
       # local production build + mock sheet + headless Chrome (preinstalled on ubuntu-latest); never touches production

@@ -18,6 +18,7 @@ Cargo that users enter in the builder stays in their browser (local storage); th
 | Name | Required | Scope | Purpose |
 |---|---|---|---|
 | `ADEYIQ_SHEET_URL` | Yes | Production and Preview | Apps Script web app URL ending in `/exec`. Without it, usage is not recorded and the access form shows its copy-and-send fallback (the API answers 503). |
+| `ADEYIQ_SHEET_KEY` | Yes | Production and Preview | Signing key, at least 32 characters, identical to the Apps Script property `ADEYIQ_KEY`. Without it nothing is written (fail closed): `/api/health` shows `sheetConfigured:false`. Never commit or log it; rotate in both places together. |
 | `ADEYIQ_TRACK_PER_MIN` | No | Never set on Vercel | Test only. Raises the per-visitor usage-event limit (default 60 a minute) for the local end-to-end run, where all test browsers share one address. |
 
 Never commit the value: anyone holding the URL can write rows to the sheet. After changing a variable, redeploy for it to take effect.

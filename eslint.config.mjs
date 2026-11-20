@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // vendored third-party code (SheetJS), kept byte-identical to the official release
+    "public/vendor/**",
   ]),
 ]);
 

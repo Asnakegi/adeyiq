@@ -440,11 +440,10 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 <div class="nudge" id="fbNudge" hidden role="status"><span>How close was this build to what your team builds on the ground? Tell us in 30 seconds.</span><span style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sm" type="button" id="nudgeNo">Not now</button><button class="btn pri sm" type="button" id="nudgeYes">★ Rate</button></span></div>
 
 <p style="text-align:center;font-size:13px;margin:24px 16px"><a href="/privacy">Privacy</a> · Cargo you enter is saved in this browser only and is not sent to AdeyIQ.</p>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
 const $=id=>document.getElementById(id);
-const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=(n,d=0)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
 const uid=()=>Math.random().toString(36).slice(2,10);
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -539,8 +538,9 @@ function parseCSV(t){const f=t.split('\n')[0],sep=f.includes('\t')?'\t':(f.split
   for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===sep){row.push(cur);cur=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cur);out.push(row);row=[];cur=''}else cur+=c}
   if(cur!==''||row.length){row.push(cur);out.push(row)}return out}
 function mk(o){let dg=String(o.dg||'').trim().replace(/^class\s*/i,'').toUpperCase();if(/^1\.[1-6][A-L]?$/.test(dg))dg=dg==='1.4S'?'1.4S':'1';const known=DG.map(d=>d[0]);dg=known.includes(dg)?dg:'';
-  const sub=dg?[...new Set((Array.isArray(o.sub)?o.sub:String(o.sub||'').split(/[,;/\s]+/)).map(v=>{v=String(v).trim().replace(/^class/i,'').toUpperCase();return/^1\.[1-6][A-L]?$/.test(v)&&v!=='1.4S'?'1':v}).filter(v=>v&&v!==dg&&known.includes(v)))]:[];
-  return{id:o.id||uid(),awb:o.awb||'',pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:o.nat||'',shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>x.trim().toUpperCase()).filter(Boolean),dg,sub,un:String(o.un||'').toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,at:o.at||new Date().toISOString()}}
+  const cap=(v,n)=>String(v==null?'':v).slice(0,n);
+  const sub=dg?[...new Set((Array.isArray(o.sub)?o.sub:String(o.sub||'').split(/[,;/\s]+/)).map(v=>{v=String(v).trim().replace(/^class/i,'').toUpperCase();return/^1\.[1-6][A-L]?$/.test(v)&&v!=='1.4S'?'1':v}).filter(v=>v&&v!==dg&&known.includes(v)))].slice(0,4):[];
+  return{id:o.id||uid(),awb:cap(o.awb,40),pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:cap(o.nat,200),shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>cap(x,8).trim().toUpperCase()).filter(Boolean).slice(0,12),dg,sub,un:cap(o.un,12).toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,at:o.at||new Date().toISOString()}}
 /* manual placement: "Load on" choices */
 function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boolean))].sort();const next=k=>k+':'+(1+Math.max(0,...used.filter(p=>p.startsWith(k)).map(p=>+p.split(':')[1])));
   const label=p=>{const[k,n]=p.split(':');return k==='PMC'?`Manual pallet ${n}`:`Manual container ${n}`};
@@ -550,14 +550,17 @@ function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boole
 async function updateShip(id,patch){const s=ships.find(x=>x.id===id);if(!s)return;Object.assign(s,patch);
   if(db&&storeOk&&canWrite!==false){try{const{id:_,...b}=s;await db.doc('shipments/'+id).set(b);savedFlash();return}catch(e){}}saveLocal();refresh()}
 /* AWB is optional; when typed by hand it must look like an AWB. Files are lenient (any AWB text, DG without UN is flagged, not rejected). */
-function validate(s,fromFile){if(!fromFile&&s.awb&&!/^\d{3}-?\d{8}$/.test(s.awb.replace(/\s/g,'')))return'AWB should look like 071-12345675, or leave it empty';if(!(s.wt>0))return'enter the weight in kg';if(!(s.l>0&&s.w>0&&s.h>0))return'enter length, width and height';if(!fromFile&&s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))return'dangerous goods need a UN number, like UN1263';return null}
+/* upload and input limits: keep a malicious or broken manifest from freezing the page */
+const LIM={fileMB:10,rows:5000,ships:5000,pcs:10000,kg:250000,cm:2000};
+function validate(s,fromFile){if(!fromFile&&s.awb&&!/^\d{3}-?\d{8}$/.test(s.awb.replace(/\s/g,'')))return'AWB should look like 071-12345675, or leave it empty';if(!(s.wt>0))return'enter the weight in kg';if(s.pcs>LIM.pcs)return`more than ${LIM.pcs.toLocaleString('en-US')} pieces on one line`;if(s.wt>LIM.kg)return`more than ${LIM.kg.toLocaleString('en-US')} kg on one line`;if(s.l>LIM.cm||s.w>LIM.cm||s.h>LIM.cm)return`a dimension above ${LIM.cm} cm`;if(!(s.l>0&&s.w>0&&s.h>0))return'enter length, width and height';if(!fromFile&&s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))return'dangerous goods need a UN number, like UN1263';return null}
 
 /* ---------- saving (quiet) ---------- */
-const GS={server:'Google Sheets',id:'1-jMbYE7sy6ikGYviHWyP2L-txICiTru2_ue7HdG4AxQ'};
+/* the website never writes cargo anywhere: the spreadsheet id is not published here */
+const GS={server:'Google Sheets',id:''};
 const now=()=>new Date().toISOString().slice(0,19).replace('T',' ');
 function uldOf(s){return build?build.ulds.find(u=>u.items.some(i=>i.s===s)):null}
 function shipRow(s,ev){const u=uldOf(s);return[now(),'',$('acSel').value,s.awb,s.pcs,s.l,s.w,s.h,s.wt,+volM3(s).toFixed(3),Math.round(volKg(s)),Math.round(chg(s)),category(s),s.nat,s.shc.join(' '),s.dg,s.un,s.excl?'yes':'no',s.ohg,u?u.id:'',u&&u.pos?u.pos:'',ev]}
-async function report(range,rows){if(!mcp||!rows.length)return;try{await mcp.callTool(GS.server,'append_values',{spreadsheetId:GS.id,range,values:rows});savedFlash()}catch(e){if(['not_granted','capability_disabled','capability_removed'].includes(e&&e.code))mcp=null}}
+async function report(range,rows){if(!mcp||!GS.id||!rows.length)return;try{await mcp.callTool(GS.server,'append_values',{spreadsheetId:GS.id,range,values:rows});savedFlash()}catch(e){if(['not_granted','capability_disabled','capability_removed'].includes(e&&e.code))mcp=null}}
 function reportPlan(){if(!build||!plan)return;const ac=$('acSel').value,t=now();
   const ul=build.ulds.map(u=>[t,'',ac,u.id,ULD[u.type].name,u.pos||'',Math.round(u.kg),u.max,+u.m3.toFixed(2),+u.cap.toFixed(1),[...new Set(u.items.map(i=>i.s.awb))].join(' '),[...u.flags].join(' ')]);
   const k=key=>Math.round(plan.C.filter(c=>c.key===key).reduce((s,c)=>s+c.kg,0));
@@ -1383,11 +1386,20 @@ function startEdit(id){const s=ships.find(x=>x.id===id);if(!s)return;editId=id;p
 function endEdit(){editId=null;$('addTitle').textContent='Add cargo';$('fSubmit').textContent='Add';$('editCancel').hidden=true;$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sWtMode').value='t';wtHint()}
 $('editCancel').onclick=()=>endEdit();
 $('upBtn').onclick=()=>$('file').click();
+/* Excel is read in a background worker that is stopped after 15 s: a malformed or hostile file cannot freeze the page */
+function readXlsx(buf,done){let w;try{w=new Worker('/adeyiq/xlsx-worker.js')}catch(e){toast('Save the file as CSV and upload again');return}
+  const tm=setTimeout(()=>{w.terminate();toast('This Excel file took too long to read. Save it again as .xlsx or CSV')},15000);
+  w.onmessage=e=>{clearTimeout(tm);w.terminate();if(!e.data||e.data.error||!Array.isArray(e.data.rows)){toast('This Excel file could not be read. Save it again as .xlsx or CSV');return}done(e.data.rows)};
+  w.onerror=()=>{clearTimeout(tm);w.terminate();toast('This Excel file could not be read. Save it again as .xlsx or CSV')};
+  w.postMessage({buf,rows:LIM.rows+2},[buf])}
 $('file').onchange=()=>{const f=$('file').files[0];$('file').value='';if(!f)return;const r=new FileReader();
-  const done=rows=>{const{list,errs,notes}=rowsToShips(rows);if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);
+  if(f.size>LIM.fileMB*1024*1024){toast(`The file is larger than ${LIM.fileMB} MB. Split it and upload again`);return}
+  if(!/\.(csv|txt|tsv|xlsx|xls)$/i.test(f.name)){toast('Upload a CSV or Excel file (.csv, .xlsx, .xls)');return}
+  const done=rows=>{if(rows.length-1>LIM.rows){toast(`The file has more than ${LIM.rows.toLocaleString('en-US')} lines. Split it and upload again`);return}
+    const{list,errs,notes}=rowsToShips(rows);if(ships.length+list.length>LIM.ships){toast(`More than ${LIM.ships.toLocaleString('en-US')} shipments in total. Clear some cargo first`);return}if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);
     const nn=notes||[];$('upMsg').textContent=[errs.length?`Skipped: ${errs.slice(0,2).join('; ')}${errs.length>2?' …':''}`:'',nn.length?`Check: ${nn.slice(0,2).join('; ')}${nn.length>2?` … (+${nn.length-2})`:''}`:''].filter(Boolean).join(' · ')};
-  if(/\.xlsx?$/i.test(f.name)){if(!window.XLSX){toast('Save the file as CSV and upload again');return}r.onload=()=>{const wb=XLSX.read(r.result,{type:'array'});done(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false}))};r.readAsArrayBuffer(f)}
-  else{r.onload=()=>done(parseCSV(String(r.result)));r.readAsText(f)}};
+  if(/\.xlsx?$/i.test(f.name)){r.onload=()=>readXlsx(r.result,done);r.readAsArrayBuffer(f)}
+  else{r.onload=()=>{const t=String(r.result);if(/\u0000/.test(t.slice(0,4096))){toast('This is not a text CSV file. Save it as CSV and upload again');return}done(parseCSV(t))};r.readAsText(f)}};
 /* ---------- engines: approximate public figures (fan diameter m, length m, dry weight kg) ---------- */
 const ENG=[
  ['GE Aerospace / CFM','CFM56-3C','737 Classic',1.52,2.36,1950],['GE Aerospace / CFM','CFM56-5B','A320ceo family',1.735,2.60,2380],['GE Aerospace / CFM','CFM56-7B','737NG',1.55,2.51,2370],

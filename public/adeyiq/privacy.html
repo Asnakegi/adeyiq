@@ -39,8 +39,8 @@ th{color:var(--fg)}
 <p>To see how the site is used, each page sends a short event to our server when it opens and when you use main tools such as add cargo, upload or load aircraft. Each event contains:</p>
 <ul>
 <li>a random visitor id created in your browser (not linked to your name), plus a random id for the current visit</li>
-<li>the page, the action and a short summary of the result, such as how many ULDs were built</li>
-<li>the aircraft type selected, your screen width (to tell phone, tablet or desktop apart) and the page that linked you here</li>
+<li>the page, the action and a short status, such as how many ULDs were built or whether the load is balanced (never AWB numbers, goods, dimensions, weights or DG details)</li>
+<li>the aircraft type selected, your screen width (to tell phone, tablet or desktop apart) and the website that linked you here (its address only, not the full link)</li>
 <li>the country, region and city of your network, as provided by our hosting provider</li>
 </ul>
 <p>We do not store your IP address or the cargo details you enter. Events from known automated scanners are ignored.</p>
@@ -54,9 +54,9 @@ th{color:var(--fg)}
 <h2>Where the data is kept</h2>
 <div class="wrap-table"><table>
 <tr><th>Service</th><th>What it does</th></tr>
-<tr><td>Vercel</td><td>Hosts the site and provides the network location. Like any web host, it keeps short-term request logs.</td></tr>
+<tr><td>Vercel</td><td>Hosts the site and provides the network location. Like any web host, it keeps short-term request logs. Vercel Web Analytics also counts page views (page address, no cookies).</td></tr>
 <tr><td>Google (Sheets and Apps Script)</td><td>Stores usage events, access requests and feedback in a private spreadsheet only the AdeyIQ team can open, and sends an email notice for each access request.</td></tr>
-<tr><td>Google Fonts, cdnjs</td><td>Deliver fonts, and on /build the spreadsheet reader for Excel uploads. Your browser downloads these files directly, so those services see your IP address.</td></tr>
+<tr><td>Google Fonts</td><td>Delivers the fonts. Your browser downloads them directly, so Google sees your IP address. The spreadsheet reader for Excel uploads is served by AdeyIQ itself and runs in your browser.</td></tr>
 </table></div>
 
 <h2>Cookies</h2>
@@ -64,11 +64,12 @@ th{color:var(--fg)}
 
 <h2>Your choices</h2>
 <ul>
-<li>Clearing this site's data in your browser removes your saved cargo and resets the visitor id.</li>
+<li>The <b>Clear</b> button in the Cargo Builder deletes the cargo saved in this browser. On a shared computer, use it when you finish. Clearing this site's data in your browser removes your saved cargo and resets the visitor id.</li>
+<li>Printing, saving as PDF and saving as HTML happen in your browser: the documents are not sent to AdeyIQ.</li>
 <li>To ask what we hold about you, or to have your access request or feedback deleted, send the Request access form on the <a href="/">home page</a> with "Privacy request" in the message. We reply to the email you give.</li>
 </ul>
 <p>We have not yet set a fixed period for keeping these records. Until we do, they are kept until you ask us to delete them or we no longer need them.</p>
-<p>Last updated: 12 November 2026.</p>
+<p>Last updated: 19 November 2026.</p>
 </main>
 </body>
 </html>

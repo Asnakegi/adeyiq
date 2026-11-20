@@ -6,6 +6,8 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import vm from "node:vm";
+import { loadGs } from "./gs-harness.mjs";
 
 const APP = 5300, SHEET = 5301, CDP = 9340;
 const BASE = `http://localhost:${APP}`;
@@ -18,7 +20,9 @@ const CI = !!process.env.GITHUB_ACTIONS;
 const annotate = (msg) => { if (CI) console.log(`::error title=e2e::${String(msg).replace(/\r?\n/g, " ").slice(0, 900)}`); };
 const check = (ok, msg) => { results.push([ok, msg]); console.log(`  ${ok ? "PASS" : "FAIL"}  ${msg}`); if (!ok) { fails++; annotate("FAIL " + msg); } };
 
-/* ---------- mock sheet (stands in for the Apps Script web app) ---------- */
+/* ---------- mock sheet: the REAL scripts/access-requests.gs, run with stand-in Google services ---------- */
+const SHEET_KEY = "e2e-signing-key-" + "x".repeat(32);
+const gs = loadGs({ key: SHEET_KEY });
 const rows = [];
 let sheetMode = "ok";
 const sheet = http.createServer((req, res) => {
@@ -26,9 +30,10 @@ const sheet = http.createServer((req, res) => {
   req.on("data", (c) => (b += c));
   req.on("end", () => {
     if (sheetMode === "fail") { res.writeHead(500); return res.end("down"); }
-    try { rows.push(JSON.parse(b)); } catch { rows.push({ bad: b }); }
+    const out = gs.doPost(b); // verifies signature, timestamp and nonce exactly as Apps Script will
+    if (out.ok) { try { rows.push(JSON.parse(JSON.parse(b).payload)); } catch { rows.push({ bad: b }); } }
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end('{"ok":true}');
+    res.end(JSON.stringify(out));
   });
 }).listen(SHEET);
 const waitRow = async (pred, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { const r = rows.find(pred); if (r) return r; await sleep(150); } return null; };
@@ -36,7 +41,7 @@ const waitRow = async (pred, ms = 8000) => { const t = Date.now(); while (Date.n
 /* ---------- app ---------- */
 const next = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(APP)], {
   // all test browsers share one address, so allow more usage events per minute than a real visitor gets (60)
-  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_TRACK_PER_MIN: "600" }, stdio: ["ignore", "pipe", "pipe"],
+  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_SHEET_KEY: SHEET_KEY, ADEYIQ_TRACK_PER_MIN: "600" }, stdio: ["ignore", "pipe", "pipe"],
 });
 let serverLog = "";
 next.stdout.on("data", (d) => (serverLog += d));
@@ -44,7 +49,7 @@ next.stderr.on("data", (d) => (serverLog += d));
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), "adeyiq-e2e-"));
 let chrome;
 function done() { try { if (chrome) chrome.kill(); } catch {} next.kill(); sheet.close(); console.log(fails ? `\n${fails} FAILED of ${results.length}` : `\nAll ${results.length} end-to-end checks passed`); process.exit(fails ? 1 : 0); }
-setTimeout(() => { console.log("TIMEOUT"); annotate(`timed out after ${results.length} checks; last: ${results.at(-1)?.[1] || "none"}`); fails++; done(); }, 240000);
+setTimeout(() => { console.log("TIMEOUT"); annotate(`timed out after ${results.length} checks; last: ${results.at(-1)?.[1] || "none"}`); fails++; done(); }, 480000);
 for (const ev of ["uncaughtException", "unhandledRejection"])
   process.on(ev, (e) => { console.log(ev, e); annotate(`${ev} after ${results.length} checks: ${e?.stack || e}`); fails++; done(); });
 
@@ -58,6 +63,20 @@ const home = await fetch(BASE + "/");
 const csp = home.headers.get("content-security-policy") || "";
 check(home.status === 200 && csp.includes("frame-ancestors 'self'") && home.headers.get("x-content-type-options") === "nosniff", "home page served with CSP and nosniff headers");
 for (const p of ["/build", "/hold-view", "/aircraft-data", "/privacy", "/dashboard"]) check((await fetch(BASE + p)).status === 200, `${p} returns 200`);
+for (const p of ["/", "/build", "/adeyiq/xlsx-worker.js", "/vendor/sheetjs/0.20.3/xlsx.full.min.js"]) {
+  const h = (await fetch(BASE + p)).headers.get("content-security-policy") || "";
+  check(h && !/cdnjs|jsdelivr|unpkg/.test(h) && /worker-src 'self'/.test(h), `${p}: security policy allows no script CDN`);
+}
+check(/cdnjs.cloudflare.com/.test((await fetch(BASE + "/adeyiq_cargo_optimizer_v4.html")).headers.get("content-security-policy") || ""), "only the legacy optimizer demo may load from cdnjs");
+for (const p of ["/", "/build", "/hold-view", "/aircraft-data", "/privacy"]) {
+  const s = ((await fetch(BASE + p)).headers.get("content-security-policy") || "").match(/script-src ([^;]*)/)?.[1] || "";
+  check(!s.includes("unsafe-inline") && /'sha256-[A-Za-z0-9+/=]{44}'/.test(s), `${p}: inline scripts are allowed by hash, not by 'unsafe-inline'`);
+}
+{
+  const v = await fetch(BASE + "/vendor/sheetjs/0.20.3/xlsx.full.min.js"), t = await v.text();
+  const sha = (await import("node:crypto")).createHash("sha256").update(t).digest("hex");
+  check(v.status === 200 && sha === "cc015130aa8521e7f088f88898eba949ccdcbfb38df0bd129b44b7273c3a6f41", `self-hosted SheetJS 0.20.3 is served unchanged (sha256 ${sha.slice(0, 12)}…)`);
+}
 const dash = await (await fetch(BASE + "/dashboard")).text();
 check(dash.includes("noindex") && dash.includes("invented sample data"), "demo dashboard is marked noindex and labelled as sample data");
 
@@ -71,6 +90,17 @@ check((await ev({ event: "open", detail: "x".repeat(5000) })).status === 413, "o
 check((await ev({ event: "open", page: "/e2e-http", visitor: "e2e-http" })).status === 204, "valid same-origin event accepted (204)");
 check(!!(await waitRow((r) => r.visitor === "e2e-http")), "accepted event reaches the sheet");
 check(!rows.some((r) => r.visitor === "e2e-bot"), "events from headless or bot browsers are not written");
+{
+  // straight to the Apps Script, bypassing the website: unsigned, wrongly signed and replayed writes are refused
+  const post = (b) => fetch(`http://127.0.0.1:${SHEET}/exec`, { method: "POST", body: JSON.stringify(b) }).then((r) => r.json());
+  const n0 = rows.length, crypto = await import("node:crypto");
+  const signed = (data, key) => { const ts = Date.now(), nonce = crypto.randomBytes(18).toString("base64url"), payload = JSON.stringify(data); return { v: 1, ts, nonce, payload, sig: crypto.createHmac("sha256", key).update(`${ts}.${nonce}.${payload}`).digest("base64") }; };
+  const a = await post({ type: "usage", event: "open", visitor: "attacker" });
+  const b = await post(signed({ type: "usage", event: "open", visitor: "attacker" }, "w".repeat(40)));
+  const good = signed({ type: "usage", event: "open", visitor: "e2e-replay" }, SHEET_KEY);
+  const c1 = await post(good), c2 = await post(good);
+  check(!a.ok && !b.ok && c1.ok && !c2.ok && rows.length === n0 + 1, "Apps Script refuses unsigned, wrongly signed and replayed writes; a correctly signed one is accepted once");
+}
 
 /* ---------- browser ---------- */
 // Ubuntu 24+ runners block the unprivileged namespaces Chrome's sandbox needs; the test only opens the local build
@@ -92,12 +122,15 @@ so.onmessage = (e) => {
   if (m.method === "Runtime.exceptionThrown") pageErrors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
   if (m.method === "Log.entryAdded" && m.params.entry.level === "error") pageErrors.push(m.params.entry.text + " " + (m.params.entry.url || ""));
   if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error") pageErrors.push(m.params.args.map((a) => a.value ?? a.description).join(" "));
+  // every request the browser makes, for the privacy checks (URL, body, headers)
+  if (m.method === "Network.requestWillBeSent") netLog.push({ url: m.params.request.url, body: m.params.request.postData || "", headers: JSON.stringify(m.params.request.headers || {}) });
 };
+const netLog = [];
 const send = (method, params = {}) => new Promise((res) => { const i = ++mid; pend.set(i, res); so.send(JSON.stringify({ id: i, method, params })); });
 const js = async (expr) => { const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true, timeout: 30000 }); if (r.result?.exceptionDetails) throw new Error(expr.slice(0, 80) + ": " + r.result.exceptionDetails.exception?.description); return r.result?.result?.value; };
 const until = async (expr, ms = 10000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await js(expr)) return true; await sleep(150); } return false; };
 const go = async (u) => { await send("Page.navigate", { url: BASE + u }); await until("document.readyState==='complete'"); await sleep(400); };
-await send("Runtime.enable"); await send("Page.enable"); await send("Log.enable");
+await send("Runtime.enable"); await send("Page.enable"); await send("Log.enable"); await send("Network.enable", { maxPostDataSize: 65536 });
 // headless Chrome names itself "HeadlessChrome", which the server drops as a bot (checked separately below); present as normal Chrome
 const realUA = (await send("Browser.getVersion")).result.userAgent.replace("HeadlessChrome", "Chrome");
 await send("Emulation.setUserAgentOverride", { userAgent: realUA });
@@ -289,6 +322,119 @@ console.log("  (ignored, expected locally: " + pageErrors.filter(expected).lengt
 const relevant = pageErrors.filter((e) => !expected(e));
 check(!relevant.some((e) => /Content Security Policy|Refused to/.test(e)), "no Content-Security-Policy violations" + (relevant.length ? "" : ""));
 check(relevant.length === 0, `no uncaught page errors${relevant.length ? ": " + relevant.slice(0, 5).join(" || ") : ""}`);
+
+// The builder page does not load SheetJS (only its worker does). Test .xlsx files are made here in Node with the same
+// self-hosted copy, never by injecting SheetJS into the page: that would define window.XLSX and hide page bugs.
+const SHEETJS = (() => {
+  const ctx = vm.createContext({ console });
+  vm.runInContext(fs.readFileSync(new URL("../public/vendor/sheetjs/0.20.3/xlsx.full.min.js", import.meta.url), "utf8"), ctx);
+  return ctx.XLSX;
+})();
+const xlsxB64 = (aoa, patch) => {
+  const ws = SHEETJS.utils.aoa_to_sheet(aoa);
+  if (patch) patch(ws);
+  const wb = SHEETJS.utils.book_new();
+  SHEETJS.utils.book_append_sheet(wb, ws, "S");
+  return SHEETJS.write(wb, { type: "base64", bookType: "xlsx" });
+};
+console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every request watched)");
+{
+  // distinctive synthetic values that must never appear in any request or in anything forwarded to the sheet
+  const MK = { awb: "999-77700011", awb2: "999-77700022", nat: "ZQXPRIVATECARGO", nat2: "ZQXXLSXCARGO", nat3: "ZQXMANUALCARGO", un: "UN3456", dims: "137x41x59", kg: "4321" };
+  const net0 = netLog.length, rows0 = rows.length;
+  await go("/build");
+  await js(`localStorage.clear()`);
+  await go("/build");
+  const csv = `AWB,Goods,Pieces,Weight,L,W,H,DG,UN\n${MK.awb},${MK.nat},3,${MK.kg},137,41,59,8,${MK.un}\n`;
+  const up = (name, content, isB64) => js(`(async()=>{const b0=document.getElementById('st1s').textContent;const c=${JSON.stringify(content)};const data=${isB64 ? "Uint8Array.from(atob(c),x=>x.charCodeAt(0))" : "c"};
+    const dt=new DataTransfer();dt.items.add(new File([data],${JSON.stringify(name)}));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
+    await new Promise(r=>{const t0=Date.now(),iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0||Date.now()-t0>4000){clearInterval(iv);r()}},40)});await new Promise(r=>setTimeout(r,1300));return document.getElementById('toast').textContent})()`);
+  await up("secret.csv", csv);
+  // the same kind of data as a real .xlsx, read by the page exactly as a visitor's file would be
+  check((await js(`typeof window.XLSX`)) === "undefined", "the builder page itself does not load SheetJS (Excel is read only in the worker)");
+  await up("secret.xlsx", xlsxB64([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], [MK.awb2, MK.nat2, 2, +MK.kg, 137, 41, 59]]), true);
+  await js(`(async()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'));e.dispatchEvent(new Event('change'))};if(document.getElementById('addPanel').hidden)document.getElementById('addToggle').click();
+    s('sAwb','999-77700033');s('sNat',${JSON.stringify(MK.nat3)});s('sPcs','2');s('sWt','${MK.kg}');s('sL','137');s('sW','41');s('sH','59');document.getElementById('fSubmit').click();await new Promise(r=>setTimeout(r,1500))})()`);
+  const n = await js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`);
+  check(n === 3, `synthetic cargo from CSV, Excel and the form is in the builder (${n} shipments)`);
+  await js(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const c=document.querySelector('#strip .uchip');if(c)c.click();await w(300);
+    const o=window.open;window.open=()=>({document:{open(){},write(){},close(){}},focus(){},print(){}});document.getElementById('prtUld').click();await w(500);
+    document.getElementById('toLoad').click();await w(1500);document.getElementById('prtFlight').click();await w(500);window.open=o;
+    const oc=URL.createObjectURL;URL.createObjectURL=b=>oc.call(URL,b);const ac=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){};document.getElementById('dlFlight').click();await w(500);HTMLAnchorElement.prototype.click=ac;URL.createObjectURL=oc;
+    document.getElementById('reassign').click();await w(400);document.getElementById('back').click();await w(400);
+    const s=document.getElementById('acSel');s.value='B777F';s.dispatchEvent(new Event('change',{bubbles:true}));await w(1500)})()`);
+  await go("/build"); // refresh: cargo comes back from this browser's storage only
+  const back = await js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`);
+  await js(`(async()=>{document.getElementById('clearBtn').click();await new Promise(r=>setTimeout(r,1500))})()`);
+  const cleared = await js(`(()=>{const v=localStorage.getItem('adeyiq-ships')||'[]';return {n:JSON.parse(v).length,hasMarker:Object.keys(localStorage).some(k=>/ZQX|999-777/.test(localStorage.getItem(k)||''))}})()`);
+  check(back === 3 && cleared.n === 0 && !cleared.hasMarker, `cargo survives a refresh in this browser, and "Clear" removes it from storage (before ${back}, after ${cleared.n})`);
+  await sleep(2500);
+  const reqs = netLog.slice(net0), fwd = rows.slice(rows0).map((r) => JSON.stringify(r)).join("\n");
+  const all = reqs.map((r) => r.url + " " + r.body + " " + r.headers).join("\n");
+  const leaks = Object.values(MK).concat(["999-77700033"]).filter((v) => all.includes(v) || all.includes(encodeURIComponent(v)) || fwd.includes(v));
+  check(leaks.length === 0, `no AWB, goods, UN number, weight or dimensions in any of ${reqs.length} browser requests or ${rows.length - rows0} forwarded rows${leaks.length ? " — found: " + leaks.join(", ") : ""}`);
+  const hosts = [...new Set(reqs.map((r) => { try { return new URL(r.url).host; } catch { return r.url.slice(0, 20); } }))].sort();
+  const allowed = ["localhost:" + APP, "fonts.googleapis.com", "fonts.gstatic.com"];
+  check(hosts.every((h) => allowed.includes(h) || h === ""), `browser only talks to AdeyIQ and Google Fonts; the Excel reader is self-hosted (${hosts.join(", ")})`);
+  const third = reqs.filter((r) => !r.url.startsWith(BASE) && !r.url.startsWith("data:") && !r.url.startsWith("blob:"));
+  check(third.every((r) => r.body === "" && !/[?&](awb|q|data)=/.test(r.url)), `third-party requests carry no body and no query data (${third.length} requests, all font/script downloads)`);
+  const details = rows.slice(rows0).filter((r) => r.type === "usage").map((r) => r.detail || "");
+  check(details.every((d) => !/\d[\d,.]*\s*(kg|t)\b/i.test(d) && !/DG|NOTOC|PMC\d|AKE\d|→/.test(d)), `usage events carry no weights, DG details or ULD ids (${details.filter(Boolean).slice(0, 4).join(" | ")})`);
+  const refs = rows.slice(rows0).filter((r) => r.ref).map((r) => r.ref);
+  check(refs.every((r) => !/[/?#][^/]/.test(r.replace(/^[a-z-]+:\/\/[^/]+/, ""))), `the referrer is sent as a site address only (${[...new Set(refs)].join(", ") || "none"})`);
+  const page = await (await fetch(BASE + "/build")).text();
+  check(!page.includes("1-jMbYE7sy6ikGYviHWyP2L") && !/script\.google\.com\/macros/.test(page), "no spreadsheet ID or Apps Script URL in the public builder page");
+}
+
+console.log("\nHostile manifests (synthetic)");
+{
+  await go("/build");
+  await js(`localStorage.clear()`);
+  await go("/build");
+  const up = (name, content, isB64) => js(`(async()=>{const c=${JSON.stringify(content)};const data=${isB64 ? "Uint8Array.from(atob(c),x=>x.charCodeAt(0))" : "c"};
+    document.getElementById('toast').textContent='';const dt=new DataTransfer();dt.items.add(new File([data],${JSON.stringify(name)}));const f=document.getElementById('file');f.files=dt.files;const t0=performance.now();f.dispatchEvent(new Event('change'));
+    await new Promise(r=>{const t1=Date.now(),iv=setInterval(()=>{if(document.getElementById('toast').textContent||Date.now()-t1>20000){clearInterval(iv);r()}},50)});await new Promise(r=>setTimeout(r,300));return {toast:document.getElementById('toast').textContent,n:JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length,ms:Math.round(performance.now()-t0)}})()`);
+  const net0 = netLog.length;
+  const f1 = await up("formula.csv", `AWB,Goods,Pieces,Weight,L,W,H\n071-11112222,"=HYPERLINK(""http://evil.test/x"",""click"")",1,10,50,40,30\n071-11113333,"=WEBSERVICE(""http://evil.test/y"")",1,10,50,40,30\n071-11114444,@SUM(1+1)*cmd|' /C calc'!A0,1,10,50,40,30\n`);
+  check(f1.n === 3 && (await js(`document.getElementById('cargo').textContent.includes('=HYPERLINK(')`)) && !netLog.slice(net0).some((r) => r.url.includes("evil.test")), "spreadsheet formulas in cells stay plain text and never trigger a request");
+  const xf = xlsxB64([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], ["071-22223333", "x", 1, 10, 50, 40, 30]], (ws) => {
+    ws.B2 = { t: "s", v: "cached", f: 'HYPERLINK("http://evil.test/z","x")' };
+  });
+  await up("formula.xlsx", xf, true);
+  check(!netLog.slice(net0).some((r) => r.url.includes("evil.test")), "an Excel formula cell is read as its stored value and never fetches anything");
+  const f2 = await up("broken.xlsx", Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0, 0, 0, 8, 0]), Buffer.alloc(300, 0x41)]).toString("base64"), true);
+  check(/could not be read|took too long/.test(f2.toast) && (await js(`1+1`)) === 2, `a damaged .xlsx (which hangs the Excel reader) no longer freezes the page and shows a message ("${f2.toast}")`);
+  const f3 = await up("notes.exe", "MZ\u0000\u0000binary");
+  check(/CSV or Excel/.test(f3.toast), `unexpected file types are refused ("${f3.toast}")`);
+  const f4 = await up("fake.csv", "PK\u0003\u0004\u0000\u0000\u0000binary\u0000data");
+  check(/not a text CSV/.test(f4.toast), `a binary file renamed .csv is refused ("${f4.toast}")`);
+  const big = "AWB,Goods,Pieces,Weight,L,W,H\n" + Array.from({ length: 5002 }, (_, i) => `071-${String(30000000 + i)},Box,1,10,50,40,30`).join("\n");
+  const f5 = await up("huge.csv", big);
+  check(/more than 5,000 lines/.test(f5.toast), `manifests over 5,000 lines are refused ("${f5.toast}")`);
+  const f6 = await up("bomb.csv", "AWB,Goods,Pieces,Weight,L,W,H\n071-44445555,Box,999999999,10,50,40,30\n071-44446666,Box,2,999999999,50,40,30\n071-44447777,Box,2,10,99999,40,30\n");
+  check(f6.ms < 4000 && /3 skipped/.test(f6.toast), `absurd pieces, weights and sizes are skipped and the page stays responsive (${f6.ms} ms, "${f6.toast}")`);
+  const before = await js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`);
+  await up("proto.csv", `__proto__,constructor,prototype,AWB,Goods,Pieces,Weight,L,W,H\n{"polluted":1},x,y,071-55556666,Box,1,10,50,40,30\n`);
+  check((await js(`({}).polluted===undefined&&Object.prototype.polluted===undefined`)) && (await js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`)) === before + 1, "__proto__ / constructor columns do not pollute JavaScript objects");
+  const uni = "‮gnp.exe‭ ​zero‍width 𝐁𝐎𝐋𝐃 ☢️ 中文 العربية <b>x</b>";
+  await up("unicode.csv", `AWB,Goods,Pieces,Weight,L,W,H\n071-66667777,${uni},1,10,50,40,30\n`);
+  check((await js(`document.getElementById('cargo').textContent.includes('<b>x</b>')&&!document.querySelector('#cargo b')`)), "Unicode controls, emoji and mixed scripts are shown as text, and HTML inside them stays text");
+  const html = await js(`(async()=>{let blob=null;const oc=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return oc.call(URL,b)};const ac=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){};
+    document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));document.getElementById('dlFlight').click();await new Promise(r=>setTimeout(r,500));HTMLAnchorElement.prototype.click=ac;URL.createObjectURL=oc;return blob?await blob.text():''})()`);
+  const d = html.replace(/<style[\s\S]*?<\/style>/, "");
+  check(html.length > 0 && !/<script|\son[a-z]+=|javascript:/i.test(d) && d.includes("&lt;b&gt;x&lt;/b&gt;"), "the HTML export contains no script, event handlers or javascript: links from cargo text");
+}
+
+console.log("\nAPI: methods and error replies");
+for (const [p, m] of [["/api/track", "PUT"], ["/api/track", "DELETE"], ["/api/request", "GET"], ["/api/health", "POST"]]) {
+  const r = await fetch(BASE + p, { method: m, headers: { origin: BASE } });
+  check(r.status === 405, `${m} ${p} is refused (${r.status})`);
+}
+{
+  const r = await fetch(BASE + "/api/request", { method: "POST", headers: { origin: BASE, "x-forwarded-for": "8.8.4.4" }, body: "{not json" });
+  const t = await r.text();
+  check(r.status === 400 && !/at |Error|stack|\.ts|\.js/.test(t), `a malformed request gets a short error with no internals (${r.status} ${t.slice(0, 40)})`);
+}
 
 console.log("\nRate limit (last, uses up this client's quota)");
 let codes = [];

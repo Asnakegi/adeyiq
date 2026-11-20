@@ -134,7 +134,7 @@ export const REQUEST_LIMIT = { perHour: 5, maxBody: 8000 };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export async function handleRequest(req: Request, deps: Deps): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!deps.configured) {
-    deps.log?.("access request refused: ADEYIQ_SHEET_URL is not set");
+    deps.log?.("access request refused: the sheet is not configured");
     return { status: 503, body: { ok: false, error: "not set up" } };
   }
   if (!sameOrigin(req)) return { status: 403, body: { ok: false, error: "forbidden" } };

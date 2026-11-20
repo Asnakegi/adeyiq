@@ -1,5 +1,5 @@
 import { handleRequest } from "@/lib/api";
-import { SHEET_URL, toSheetRetry } from "@/lib/sheet";
+import { sheetProblem, sheetReady, toSheetRetry } from "@/lib/sheet";
 
 export const maxDuration = 30;
 
@@ -7,8 +7,8 @@ export const maxDuration = 30;
 export async function POST(request: Request) {
   const r = await handleRequest(request, {
     write: toSheetRetry,
-    configured: !!SHEET_URL,
-    log: (m) => console.warn("[request] " + m),
+    configured: sheetReady(),
+    log: (m) => console.warn("[request] " + m + (sheetReady() ? "" : " (" + sheetProblem() + ")")),
   });
   return Response.json(r.body, { status: r.status });
 }

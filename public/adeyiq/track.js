@@ -1,5 +1,6 @@
 /* AdeyIQ usage counter: page opens and tool actions → /api/track → Google Sheet "Usage" tab.
-   Sends an anonymous random visitor id, the page, the action and a short summary; no names, no cargo details, no IP address. */
+   Sends an anonymous random visitor id, the page, the action and a short status (how many ULDs, balanced or not);
+   never AWBs, goods, dimensions, weights, DG details or file contents, no names, no IP address. */
 (function () {
   var vid = "anon";
   try {
@@ -18,14 +19,19 @@
     try {
       var pick = document.querySelector('.pick[aria-pressed="true"]');
       var ac = el("acSel") ? el("acSel").value : (pick && pick.dataset.ac) || "";
-      var body = JSON.stringify({ event: event, page: page, visitor: vid, session: sid, aircraft: ac || "", detail: String(detail || "").slice(0, 300), ref: document.referrer.slice(0, 200), w: innerWidth });
+      var body = JSON.stringify({ event: event, page: page, visitor: vid, session: sid, aircraft: ac || "", detail: String(detail || "").slice(0, 300), ref: refOrigin(), w: innerWidth });
       if (navigator.sendBeacon) navigator.sendBeacon("/api/track", new Blob([body], { type: "text/plain" }));
       else fetch("/api/track", { method: "POST", body: body, keepalive: true });
     } catch (e) {}
   }
+  /* only the site that linked here (scheme + host), never the full referring URL */
+  function refOrigin() { try { if (!document.referrer) return ""; var u = new URL(document.referrer); return (u.protocol + "//" + u.host).slice(0, 100); } catch { return ""; } }
+  /* a status without numbers that come from the cargo (weights, tonnes): e.g. "9 ULDs built" or "Balanced ✓ · 2 offloaded" */
+  function count(id) { var m = /^\s*(\d+)\s+ULDs?\b/.exec(txt(id)); return m ? m[1] + " ULDs built" : ""; }
+  function status() { return txt("st2s").replace(/[\d.,]+\s*(kg|t)\b/gi, "").trim(); }
   function later(event, info) { setTimeout(function () { send(event, info ? info() : ""); }, 900); }
-  function built() { return [txt("st1s"), txt("sum")].filter(Boolean).join(" · "); }
-  function loaded() { return [txt("st2s"), txt("hchips")].filter(Boolean).join(" · "); }
+  function built() { return count("st1s"); }
+  function loaded() { return status(); }
   send("open");
   document.addEventListener("click", function (e) {
     var t = e.target && e.target.closest && e.target.closest("button");
@@ -34,9 +40,9 @@
     if (id === "sampleBtn") later("try sample", built);
     else if (id === "toLoad" || id === "st2") later("load aircraft", loaded);
     else if (id === "reassign") later("rebalance", loaded);
-    else if (id === "bLoad") send("loading animation", txt("bT"));
-    else if (id === "bReplay") send("replay build-up", txt("bT"));
-    else if (id === "prtUld") send("print uld", txt("info").slice(0, 60));
+    else if (id === "bLoad") send("loading animation", "");
+    else if (id === "bReplay") send("replay build-up", "");
+    else if (id === "prtUld") send("print uld", "");
     else if (id === "prtFlight") send("print flight", loaded());
     else if (id === "dlFlight") send("download flight", loaded());
     else if (t.hasAttribute("data-req")) send("request access opened", t.getAttribute("data-req"));
