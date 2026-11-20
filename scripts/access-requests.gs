@@ -19,6 +19,9 @@
  * window closes, and an evicted counter lets a minute exceed the cap. Writes are serialised by a script lock, so
  * check-and-store is not racy. The daily email budget is kept in Script properties (persistent), not the cache.
  * Logs contain only fixed reasons, the failing step and the error type: never the key, the body or user data.
+ * Retries: the website sends the same request id (rid) on every retry of one write. A rid seen in the last 10 minutes is
+ * answered ok without writing again, so a slow reply or a retry never duplicates a row. Once the row is saved the
+ * request counts as done: a failed notification email is logged, not reported as a failed write.
  *
  *   type "request" → one row in "Access requests" + an email to you (at most 50 emails a day)
  *   type "usage"   → one row in "Usage" (page opens and tool actions, with country and city)
@@ -39,10 +42,14 @@ function doPost(e) {
     if (!auth.ok) { console.warn('AdeyIQ write refused: ' + auth.why); return out_({ ok: false }); }
     if (!underLimit_()) { console.warn('AdeyIQ write refused: more than ' + MAX_WRITES_PER_MINUTE + ' writes this minute'); return out_({ ok: false }); }
     const d = auth.data;
+    const rid = typeof d.rid === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(d.rid) ? d.rid : '';
+    const cache = CacheService.getScriptCache();
+    if (rid && cache.get('r:' + rid)) return out_({ ok: true }); // already saved by an earlier try of the same write
     if (d.type === 'usage') {
       step = 'append usage';
       append_('Usage', [new Date(), clip_(d.event, 40), clip_(d.page, 80), clip_(d.visitor, 20), clip_(d.session, 20),
         clip_(d.country, 4), clip_(d.region, 60), clip_(d.city, 80), clip_(d.aircraft, 40), clip_(d.detail, 300), clip_(d.device, 20), clip_(d.ref, 200)]);
+      if (rid) cache.put('r:' + rid, '1', 600);
       return out_({ ok: true });
     }
     if (d.type !== 'request') return out_({ ok: false });
@@ -53,12 +60,18 @@ function doPost(e) {
       clip_([].concat(d.modules || []).join(', '), 200), clip_(d.message, 2000), clip_(d.page, 200), 'New'];
     step = 'append request';
     append_('Access requests', row);
+    if (rid) cache.put('r:' + rid, '1', 600);
     step = 'email';
     if (NOTIFY && mailBudget_()) {
-      MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'AdeyIQ access request: ' + row[1],
-        ['Name: ' + row[1], 'Email: ' + row[2], 'Company: ' + (row[3] || '-'), 'Phone: ' + (row[4] || '-'),
-         'Modules: ' + row[5], 'Message: ' + (row[6] || '-'), 'Location: ' + (row[7] || '-'), '',
-         'All requests: ' + SpreadsheetApp.getActive().getUrl()].join('\n'));
+      try {
+        MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'AdeyIQ access request: ' + row[1],
+          ['Name: ' + row[1], 'Email: ' + row[2], 'Company: ' + (row[3] || '-'), 'Phone: ' + (row[4] || '-'),
+           'Modules: ' + row[5], 'Message: ' + (row[6] || '-'), 'Location: ' + (row[7] || '-'), '',
+           'All requests: ' + SpreadsheetApp.getActive().getUrl()].join('\n'));
+      } catch (mailErr) {
+        // the request is saved in the sheet; only the notification failed (e.g. the send-email permission is missing)
+        console.error('AdeyIQ request saved; notification email failed (' + String((mailErr && mailErr.name) || 'Error').slice(0, 40) + ')');
+      }
     }
     return out_({ ok: true });
   } catch (err) {

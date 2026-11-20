@@ -52,11 +52,14 @@ export async function toSheet(body: Record<string, unknown>): Promise<boolean> {
 /**
  * Google Apps Script handles only a limited number of writes at the same moment; extra ones time out.
  * Retry a failed write a few times with growing, random delays so bursts of visitors are not lost.
- * Each try is signed again (new timestamp and nonce), so retries are never mistaken for replays.
+ * Each try is signed again (new timestamp and nonce), so retries are never mistaken for replays. All tries share one
+ * request id (rid): if an earlier try was saved but its reply was lost or late, the script answers ok without saving
+ * the row a second time.
  */
 export async function toSheetRetry(body: Record<string, unknown>, tries = 4): Promise<boolean> {
+  const once = { ...body, rid: randomBytes(12).toString("base64url") };
   for (let i = 0; i < tries; i++) {
-    if (await toSheet(body)) return true;
+    if (await toSheet(once)) return true;
     if (i < tries - 1) await new Promise((r) => setTimeout(r, 600 * 2 ** i + Math.random() * 900));
   }
   return false;

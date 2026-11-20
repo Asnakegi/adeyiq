@@ -76,3 +76,24 @@ test("toSheet reports failure (false) instead of throwing when the sheet is down
   delete process.env.ADEYIQ_SHEET_URL;
   delete process.env.ADEYIQ_SHEET_KEY;
 });
+
+test("a saved write whose reply is lost is retried without a second row (found on the real test endpoint)", async () => {
+  process.env.ADEYIQ_SHEET_URL = "https://example.test/exec";
+  process.env.ADEYIQ_SHEET_KEY = KEY;
+  const gs = loadGs({ key: KEY });
+  const m = await load("lostreply");
+  const rids = new Set<string>();
+  let tries = 0;
+  await withFetch((_u, body) => {
+    tries++;
+    rids.add(JSON.parse(JSON.parse(body).payload).rid);
+    const r = gs.doPost(body); // the script saves the row...
+    return tries < 3 ? new Response("gateway timeout", { status: 504 }) : new Response(JSON.stringify(r)); // ...but the first replies are lost
+  }, async () => {
+    assert.equal(await m.toSheetRetry({ type: "request", name: "Ana", email: "ana@cargo.example" }), true);
+  });
+  assert.equal(tries, 3);
+  assert.equal(rids.size, 1, "every try carries the same request id");
+  assert.equal(gs.appended.length, 1, "one row, not three");
+  assert.equal(gs.mails.length, 1, "one email");
+});

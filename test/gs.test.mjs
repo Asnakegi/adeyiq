@@ -93,11 +93,27 @@ test("email budget is kept per UTC day in Script properties, not the 6-hour cach
   assert.deepEqual([...g.props.keys()], ["mail:2026-11-21"], "old day counters are removed");
 });
 
-test("errors are logged by step and type only, never with user data from the error message", () => {
+test("a failed notification email does not fail a saved request, and logs no user data", () => {
   const g = loadGs({ key: KEY, mailError: "Invalid email: private.person@example.test" });
   const r = g.doPost(sign({ type: "request", name: "Ana", email: "private.person@example.test" }, KEY));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: true }, "the row is saved, so the website must not retry");
+  assert.equal(g.appended.length, 1);
   const text = JSON.stringify(g.logs);
-  assert.ok(g.logs.some((l) => l[1] === 'AdeyIQ write failed at step "email" (Error)'), text);
+  assert.ok(g.logs.some((l) => l[1] === "AdeyIQ request saved; notification email failed (Error)"), text);
   assert.ok(!text.includes("private.person"), text);
+});
+
+test("retries of one write (same rid) save one row, even with new signatures", () => {
+  const g = loadGs({ key: KEY });
+  const req = { type: "request", name: "Ana", email: "ana@cargo.example", rid: "rid-0123456789ab" };
+  for (let i = 0; i < 4; i++) assert.deepEqual(g.doPost(sign(req, KEY)), { ok: true }, "try " + (i + 1));
+  assert.equal(g.appended.length, 1, "one row in Access requests");
+  assert.equal(g.mails.length, 1, "one email");
+  for (let i = 0; i < 3; i++) g.doPost(sign({ ...usage, rid: "rid-usage-000001" }, KEY));
+  assert.equal(g.appended.filter((a) => a.tab === "Usage").length, 1, "one Usage row");
+  g.doPost(sign({ ...req, rid: "rid-other-000001" }, KEY));
+  assert.equal(g.appended.length, 3, "a different rid is a new write");
+  g.doPost(sign({ ...usage, rid: "bad id!" }, KEY));
+  g.doPost(sign({ ...usage, rid: "bad id!" }, KEY));
+  assert.equal(g.appended.length, 5, "a malformed rid is ignored, not trusted");
 });
