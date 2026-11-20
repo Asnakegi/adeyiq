@@ -12,3 +12,4 @@ The `.xlsx` files are made from the `.json` files (rows as arrays) by `node test
 | `lwh-tabs.tsv` | tab separated, `L (cm)` / `W (cm)` / `H (cm)`, weight per piece on some lines, a repeated header (page break) |
 | `merged-awb.json` → `.xlsx` | title rows, two-row header (`Dimensions (cm)` over `L W H`), blank cells under an AWB (merged cells), empty column and rows |
 | `inches-lbs.json` → `.xlsx` | `Dims (in)`, `Weight (lbs)`, `Nature & quantity of goods`, `Pkgs`, sizes as `L47 W31 H24` |
+| `piece-list.csv` | charter request: one row per piece, a "Piece ID" column (a label, not a count), no AWB, a totals block above the table |

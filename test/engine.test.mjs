@@ -328,3 +328,13 @@ test("sizes in plain millimetres are spotted from the column, and a file with no
   assert.equal(bad.list.length, 0);
   assert.match(bad.errs[0], /no weight or size columns/);
 });
+
+test("sample: charter piece list, a Piece ID column is a label and never a piece count", () => {
+  const r = readFixture("piece-list.csv");
+  assert.equal(r.info.hdr, 7, "the totals block above is not taken as the header");
+  assert.deepEqual(plain(brief(r)), [["PC-001", 1, 517, "105x78x62"], ["PC-002", 1, 654, "106x79x79"], ["PC-003", 1, 729, "107x80x96"]]);
+  assert.ok(r.notes.some((n) => /Piece ID/.test(n)));
+  for (const h of ["Piece ID", "Pcs no.", "Item code", "Ref"]) assert.equal(imp.headerField(h).k, "ref", h);
+  for (const h of ["No. of pcs", "Number of pieces"]) assert.equal(imp.headerField(h).k, "pcs", h);
+  assert.equal(imp.parsePcs("PC-002"), null);
+});

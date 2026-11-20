@@ -547,6 +547,9 @@ function headerField(txt){const t=htok(txt),j=' '+t.join(' ')+' ',any=ws=>ws.spl
   if(any('sub subrisk subsidiary secondary'))set('sub',8);
   if(any('exclusive excl')||/ own uld /.test(j))set('excl',7);
   if(any('ohg overhang'))set('ohg',7);
+  /* "Piece ID", "Pcs no.", "Item code", "Ref": a label for each line, never a piece count */
+  const idw=any('id ids ref refs reference code serial sn tag barcode')||(/^(no|nr|num|number)$/.test(t[t.length-1]||'')&&t.length>1&&!any('of'));
+  if(idw&&(k==='pcs'||(k==='nat'&&s<=4)||(!k&&t.length===1))){k='ref';s=4}
   const unit=any('mm')?'mm':any('cm cms cmt')?'cm':any('m mtr mtrs metre metres meter meters')?'m':any('in inch inches inh')?'in':'';
   return{k,s,unit,wunit:any('lb lbs pound pounds')?'lb':''}}
 const colName=i=>{let s='';i++;while(i>0){const r=(i-1)%26;s=String.fromCharCode(65+r)+s;i=(i-r-1)/26}return s};
@@ -561,7 +564,7 @@ function num(s){const m=String(s==null?'':s).replace(/[\u00a0\u202f]/g,' ').matc
 function parseWt(s,wunit){const v=num(s);if(v==null)return null;const x=String(s).toLowerCase();
   const f=/\d\s*(lbs?|pounds?|#)/.test(x)||(wunit==='lb'&&!/kg/.test(x))?0.45359237:/\d\s*(t|tons?|tonnes?|mt)\b/.test(x)?1000:1;return Math.round(v*f*10)/10}
 /* pieces: "3", "3 pcs", "3 PKG", "3/3" */
-function parsePcs(s){const v=num(s);return v==null?null:Math.round(v)}
+function parsePcs(s){if(!/^\s*\d/.test(String(s==null?'':s)))return null;const v=num(s);return v==null?null:Math.round(v)}
 const UCM={mm:0.1,cm:1,m:100,in:2.54};
 function dimUnit(x){return/\d\s*mm\b|\bmm\b|\bmmt\b/.test(x)?'mm':/\d\s*cms?\b|\bcms?\b|\bcmt\b/.test(x)?'cm':/\d\s*(in|inch|inches|ins)\b|\b(inch|inches|inh)\b|\d\s*("|″|'')/.test(x)?'in':/\d\s*(m|mtrs?|metres?|meters?)\b|\b(mtrs?|metres?|meters?)\b/.test(x)?'m':''}
 const PCW='pcs?|pces?|pieces?|pkgs?|packages?|ctns?|cartons?|colli|plts?|pallets?|units?|boxes|box';
@@ -609,7 +612,7 @@ function guessCols(rows,start,m,used,blank){const smp=rows.slice(start,start+300
   if(!m.wt&&!m.wpp){const c=rest.filter(c=>!used.has(c.i)).sort((a,b)=>b.med-a.med)[0];if(c){m.wt={i:c.i,label:'',guessed:true};used.add(c.i);g.push('wt')}}
   take('nat',c=>c.blank&&c.txt>=0.6,c=>c.len);
   return g}
-const FNAME={awb:'AWB',pcs:'Pieces',wt:'Weight',wpp:'Weight per piece',dims:'Dimensions',l:'Length',w:'Width',h:'Height',nat:'Goods',shc:'SHC',dg:'DG class',un:'UN number',sub:'Sub risk',excl:'Exclusive',ohg:'Overhang'};
+const FNAME={awb:'AWB',pcs:'Pieces',wt:'Weight',wpp:'Weight per piece',dims:'Dimensions',l:'Length',w:'Width',h:'Height',nat:'Goods',shc:'SHC',dg:'DG class',un:'UN number',sub:'Sub risk',excl:'Exclusive',ohg:'Overhang',ref:'Reference'};
 const FERR={'enter the weight in kg':'no weight','enter length, width and height':'no dimensions'};
 function rowsToShips(rows){rows=(Array.isArray(rows)?rows:[]).map(r=>Array.isArray(r)?r.map(c=>c==null?'':String(c)):[]);
   const list=[],errs=[],notes=[],info={hdr:-1,cols:[],ignored:[],guessed:[],skip:{},title:0,split:0,rule:IMP_RULE};
@@ -625,6 +628,8 @@ function rowsToShips(rows){rows=(Array.isArray(rows)?rows:[]).map(r=>Array.isArr
   for(const k in FNAME){let b=-1;best.forEach((x,i)=>{if(x.k===k&&(b<0||x.s>best[b].s))b=i});if(b>=0){m[k]={i:b,label:hdr[b],unit:best[b].unit,wunit:best[b].wunit};used.add(b)}}
   best.forEach((x,i)=>{if(x.k==='chg'||x.k==='vol'){used.add(i);info.ignored.push({col:colName(i),label:hdr[i],why:x.k==='chg'?'chargeable weight is not gross weight':'volume: the sizes are used instead'})}});
   info.guessed=guessCols(rows,start,m,used,i=>hi<0||!hdr[i]);
+  /* no AWB column: a piece / item reference labels the lines instead of "No AWB 1, 2 …" */
+  if(!m.awb&&m.ref){m.awb=m.ref;notes.push(`no AWB column: "${m.ref.label}" is used as the label of each line`)}delete m.ref;
   if(hi<0){const first=rows.findIndex(r=>(m.awb&&/^\d{3}[-\s]?\d{8}$/.test(String(r[m.awb.i]||'').trim()))||(m.dims&&parseDims(r[m.dims.i],'',true))||r.filter(c=>num(c)!=null&&/^[\d.,\s'’]+/.test(c.trim())).length>=3);
     start=Math.max(0,first);info.title=rows.slice(0,start).filter(r=>!blankRow(r)).length}
   info.hdr=hi;if(!m.wt&&!m.wpp&&!m.dims&&!(m.l&&m.w&&m.h))return{list,errs:['no weight or size columns found. Name the columns like AWB, Pieces, Weight, Dims (or L, W, H)'],notes,info};

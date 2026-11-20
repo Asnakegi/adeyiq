@@ -1,0 +1,11 @@
+Air cargo charter request,,,,,,,
+Origin,,Destination,,Cargo ready,,,
+AAA,,BBB,,1 Dec 2026,,,
+,,,,,,,
+Total pieces,,Gross weight (kg),,Total volume (m³),,,
+3,,"1,900",,2.0,,,
+,,,,,,,
+Piece ID,Nature of goods,Packaging,Length (cm),Width (cm),Height (cm),Gross kg,Volume (m³)
+PC-001,Pump assemblies,Crate,105,78,62,517,0.508
+PC-002,Textile rolls,Pallet,106,79,79,654,0.662
+PC-003,Ceramic tiles,Pallet,107,80,96,729,0.822
