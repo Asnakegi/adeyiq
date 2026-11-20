@@ -61,6 +61,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#i
 .step[aria-selected="true"] .num{background:var(--accent);color:var(--accent-ink)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;box-shadow:0 2px 5px -1px rgba(50,50,93,.08),0 1px 3px -1px rgba(0,0,0,.06)}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.upsum{font-size:13px}.upsum p{margin:6px 0}.upsum ul{margin:2px 0 6px;padding-left:18px}.upsum li{margin:1px 0;overflow-wrap:anywhere}
 .drawers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;align-items:start}
 .ship select{font-size:12px;padding:4px 6px;border-radius:7px;width:200px;max-width:100%}
 @media (max-width:560px){.ship{grid-template-columns:12px minmax(0,1fr) auto auto auto}.ship select{grid-column:2/-1;grid-row:2;width:100%}}
@@ -278,8 +279,8 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <button class="btn ghost" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">✈ Engines &amp; gear</button>
   <button class="btn ghost" id="dgBtn" type="button" title="Look up a UN number: can it fly on this aircraft, and what must it be kept apart from">⚠ DG acceptance</button>
   <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
-  <span class="note" id="upMsg" role="status"></span>
 </div>
+<div class="card upsum" id="upSum" hidden><div class="addhd"><b id="upSumT">Import</b><button class="x" type="button" id="upSumX" aria-label="Close">×</button></div><div id="upSumB"></div></div>
 <div class="drawers" id="drawers" hidden>
     <div class="card" id="addPanel" hidden>
       <div class="addhd"><b id="addTitle">Add cargo</b><button class="x" type="button" data-close="addPanel" aria-label="Close">×</button></div>
@@ -518,23 +519,163 @@ function charge(s,u){const c=chg(s);const kind=u?(u.type==='PGA'?'PGA':ULD[u.typ
   const useOhg=s.ohg>0&&kind!=='PGA',ohg=useOhg?c*(s.ohg<T?R('rOhgLo'):R('rOhgHi'))/100:0;if(ohg)why+=` + OHG ${s.ohg<T?R('rOhgLo'):R('rOhgHi')}%`;return{kg:base+ohg,why}}
 
 /* ---------- reading files ---------- */
-const HDR={awb:['awb','awbno','awbnumber','airwaybill','mawb'],pcs:['pcs','pieces','piece','qty','quantity','nop'],l:['l','length','len','lengthcm'],w:['w','width','widthcm'],h:['h','height','heightcm'],dims:['dims','dim','dimensions','size','lxwxh'],wt:['weight','wt','gross','grossweight','grosskg','kg','weightkg','totalweight','totalkg'],wpp:['weightperpiece','weightperpc','weightpc','wtperpc','wtperpiece','kgperpiece','kgperpc','pieceweight','pcweight','unitweight'],nat:['nature','natureofgoods','goods','description','commodity','nog'],shc:['shc','handling','specialhandling','shcs'],dg:['dg','dgclass','class','hazardclass'],un:['un','unnumber','unno'],sub:['sub','subrisk','subsidiary','subsidiaryrisk','subsidiaryhazard','subsidiaryclass','sublabel'],excl:['exclusive','ownuld','excl'],ohg:['ohg','overhang','overhangpct']};
-const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-function rowsToShips(rows){if(rows.length<2)return{list:[],errs:['the file needs a header row and at least one line']};
-  const m={};rows[0].forEach((h,i)=>{const n=norm(h);for(const k in HDR)if(HDR[k].includes(n)&&m[k]==null)m[k]=i});const list=[],errs=[];
-  const notes=[];
-  rows.slice(1).forEach((r,i)=>{if(!r||r.every(c=>String(c||'').trim()===''))return;const g=k=>m[k]!=null?r[m[k]]:'';
-    let l=+g('l'),w=+g('w'),h=+g('h');if((!l||!w||!h)&&m.dims!=null){const d=String(g('dims')).toLowerCase().match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)/);if(d){l=+d[1];w=+d[2];h=+d[3]}}
-    const dgRaw=String(g('dg')||'').trim();
-    const s=mk({awb:String(g('awb')).trim(),pcs:+g('pcs')||1,l,w,h,wt:(+String(g('wt')).replace(/[^0-9.]/g,''))||(+String(g('wpp')).replace(/[^0-9.]/g,''))*(+g('pcs')||1),nat:String(g('nat')||'').trim(),shc:String(g('shc')||''),dg:dgRaw,sub:String(g('sub')||''),un:String(g('un')||'').trim(),excl:/^(y|yes|true|1|x)$/i.test(String(g('excl')).trim()),ohg:+g('ohg')||0});
-    /* no DG class in the file = not dangerous goods */
-    if(!s.dg&&dgRaw&&!/^(no|n|none|nil|non[\s-]?dg|gen|general|-|0|na|n\/a)$/i.test(dgRaw))notes.push(`line ${i+2}: DG "${dgRaw}" has no class, loaded as non-DG, check it`);
-    const e=validate(s,true);if(e){errs.push(`line ${i+2}: ${e}`);return}
-    if(s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))notes.push(`line ${i+2}: DG class ${s.dg} has no UN number`);
-    if(!s.awb)s.awb=nextNoAwb(list);list.push(s)});return{list,errs,notes}}
+/* Real manifests differ from file to file. Headers are matched by their words ("Gross Wt (kg)", "No. of pcs",
+   "Nature & quantity of goods"), the header row may sit under title rows, and a column without a header is guessed
+   from what is in it. Chargeable / volumetric weight is never used as gross weight. Nothing here leaves the browser. */
+const IMP_RULE='A line with several sizes (like "2/120x80x60, 1/60x40x40") becomes one shipment per size, and its weight is shared by volume.';
+const htok=s=>String(s==null?'':s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(Boolean);
+const DIMW=[['l','l len lgth length long'],['w','w wd wid width breadth wide'],['h','h ht hgt height high']];
+/* what one header cell means: field k with a score (higher wins), plus the units it names */
+function headerField(txt){const t=htok(txt),j=' '+t.join(' ')+' ',any=ws=>ws.split(' ').some(w=>t.includes(w));let k='',s=0;const set=(f,v)=>{if(v>s){k=f;s=v}};
+  const dl=DIMW.filter(d=>any(d[1])).map(d=>d[0]),dimw=any('dims dim dimension dimensions size sizes measurement measurements meas');
+  const wtw=any('weight wt wgt wght kg kgs kilo kilos gw lb lbs pounds mass')||/ g w | gr wt /.test(j);
+  if(any('chargeable chargable chg chrg cw volumetric vw billable')||/ (vol|volume|dim|dimensional) (wt|weight|kg|kgs) /.test(j))set('chg',10);
+  if(any('volume vol m3 cbm cubic'))set('vol',6);
+  if(wtw&&any('per each ea pc pce piece unit'))set('wpp',8);
+  if(wtw)set('wt',any('net nett')&&!any('gross')?3:5);
+  if(dl.length>=2||any('lxwxh lxbxh lwh'))set('dims',7);
+  if(dimw&&dl.length!==1)set('dims',6);
+  if(dl.length===1&&t.length<=4)set(dl[0],dimw?8:5);
+  if(any('pcs pc pce pces piece pieces pkg pkgs package packages qty quantity nop ctn ctns carton cartons colli units count packs'))set('pcs',5);
+  if(any('nature goods description desc commodity commodities contents content nog stc'))set('nat',6);
+  if(any('cargo item items product products'))set('nat',4);
+  if(any('awb mawb airwaybill waybill')||/ air way bill /.test(j))set('awb',7);
+  if(any('hawb hwb'))set('awb',3);
+  if(any('shc shcs sph handling'))set('shc',6);
+  if(any('dg dgr hazard hazardous haz imo class'))set('dg',5);
+  if(any('un unno unnumber'))set('un',6);
+  if(any('sub subrisk subsidiary secondary'))set('sub',8);
+  if(any('exclusive excl')||/ own uld /.test(j))set('excl',7);
+  if(any('ohg overhang'))set('ohg',7);
+  const unit=any('mm')?'mm':any('cm cms cmt')?'cm':any('m mtr mtrs metre metres meter meters')?'m':any('in inch inches inh')?'in':'';
+  return{k,s,unit,wunit:any('lb lbs pound pounds')?'lb':''}}
+const colName=i=>{let s='';i++;while(i>0){const r=(i-1)%26;s=String.fromCharCode(65+r)+s;i=(i-r-1)/26}return s};
+/* a number written any common way: "1,234.5", "1.234,5", "1 234", "450KG" */
+function num(s){const m=String(s==null?'':s).replace(/[\u00a0\u202f]/g,' ').match(/\d+(?:[.,]\d+|[ '’]\d{3}(?!\d))*/);if(!m)return null;let t=m[0].replace(/[ '’]/g,'');
+  const c=t.lastIndexOf(','),d=t.lastIndexOf('.');
+  if(c>=0&&d>=0)t=c>d?t.replace(/\./g,'').replace(',','.'):t.replace(/,/g,'');
+  else if(c>=0)t=/^\d{1,3}(,\d{3})+$/.test(t)||t.split(',').length>2?t.replace(/,/g,''):t.replace(',','.');
+  else if(d>=0&&t.split('.').length>2)t=t.replace(/\./g,'');
+  const v=parseFloat(t);return isFinite(v)?v:null}
+/* weight in kg; pounds and tonnes are converted */
+function parseWt(s,wunit){const v=num(s);if(v==null)return null;const x=String(s).toLowerCase();
+  const f=/\d\s*(lbs?|pounds?|#)/.test(x)||(wunit==='lb'&&!/kg/.test(x))?0.45359237:/\d\s*(t|tons?|tonnes?|mt)\b/.test(x)?1000:1;return Math.round(v*f*10)/10}
+/* pieces: "3", "3 pcs", "3 PKG", "3/3" */
+function parsePcs(s){const v=num(s);return v==null?null:Math.round(v)}
+const UCM={mm:0.1,cm:1,m:100,in:2.54};
+function dimUnit(x){return/\d\s*mm\b|\bmm\b|\bmmt\b/.test(x)?'mm':/\d\s*cms?\b|\bcms?\b|\bcmt\b/.test(x)?'cm':/\d\s*(in|inch|inches|ins)\b|\b(inch|inches|inh)\b|\d\s*("|″|'')/.test(x)?'in':/\d\s*(m|mtrs?|metres?|meters?)\b|\b(mtrs?|metres?|meters?)\b/.test(x)?'m':''}
+const PCW='pcs?|pces?|pieces?|pkgs?|packages?|ctns?|cartons?|colli|plts?|pallets?|units?|boxes|box';
+/* one size: "120x80x60", "120*80*60", "120 X 80 X 60", "L120 W80 H60", "120/80/60", with an optional piece count
+   ("2/120x80x60", "2 @ 120x80x60", "120x80x60 (2)", "2 pcs 120x80x60"). strict: only x or * between numbers. */
+function dimSeg(t,def,strict){let x=t.toLowerCase(),p=null;if(/^\d{1,2}[/.-]\d{1,2}[/.-](19|20)\d\d$/.test(x.trim()))return null;const u=dimUnit(x),f=UCM[u||def||'cm'];
+  const pw=x.match(new RegExp('(\\d+)\\s*(?:'+PCW+')\\b'));if(pw){p=+pw[1];x=x.replace(pw[0],' ')}
+  const N='(\\d+(?:[.,]\\d+)?)',lab=x.match(new RegExp('\\bl(?:ength|en)?\\s*[:=]?\\s*'+N+'[^\\d]*?\\bw(?:idth)?\\s*[:=]?\\s*'+N+'[^\\d]*?\\bh(?:eight)?\\s*[:=]?\\s*'+N));
+  let v;if(lab)v=[lab[1],lab[2],lab[3]];
+  else{const ns=[...x.matchAll(/\d+(?:[.,]\d+)?/g)];if(ns.length<3||ns.length>4)return null;
+    const sep=i=>x.slice(ns[i].index+ns[i][0].length,ns[i+1].index).replace(/mm|cms?|inches|inch|mtrs?|metres?|meters?|length|width|height|["″]/g,' ').replace(/\b(in|m|l|w|h)\b/g,' ').trim();
+    const ok=s=>strict?/^[x*]$/.test(s):/^(x|\*|\/|-|by|:|)$/.test(s);let a=0;
+    if(ns.length===4){if(p!=null)return null;const s0=sep(0),s1=sep(1),s2=sep(2);
+      if(/@/.test(s0)||(s0!==s1&&s1===s2))a=1;else if(s2!==s1&&s0===s1)a=0;else a=+ns[0][0]<=+ns[3][0]?1:0;
+      p=Math.round(num(a?ns[0][0]:ns[3][0]));if(!(ok(sep(a))&&ok(sep(a+1))))return null}
+    else if(!(ok(sep(0))&&ok(sep(1))))return null;
+    v=[ns[a][0],ns[a+1][0],ns[a+2][0]]}
+  const d=v.map(n=>Math.round(num(n)*f*10)/10);if(!d.every(n=>n>0))return null;return{p:p>0?p:null,l:d[0],w:d[1],h:d[2],u}}
+/* one cell may hold several sizes: "2/120x80x60, 1/60x40x40" or one per line */
+function parseDims(s,def,strict){s=String(s==null?'':s).replace(/[×✕✖]/g,'x').trim();if(!/\d/.test(s))return null;
+  const segs=s.split(new RegExp('[;\\n\\r|]+|,(?=\\s*\\d+\\s*(?:'+PCW+')?\\s*[/@=:])|,\\s+(?=\\d)|\\s+(?:and|&|\\+)\\s+','i')).map(x=>x.trim()).filter(Boolean);
+  let out=segs.map(x=>dimSeg(x,def,strict));if(out.some(x=>!x)){const one=dimSeg(s.replace(/\s*,\s*/g,' x '),def,strict);out=one&&segs.length<=3?[one]:out.filter(Boolean)}
+  return out.length?out:null}
+/* which row is the header: the first rows may be a title, flight or company lines */
+function findHeader(rows){let best=-1,bs=0;
+  for(let i=0;i<Math.min(rows.length,40);i++){const f=new Set();let nums=0;
+    (rows[i]||[]).forEach(c=>{const s=String(c).trim();if(!s)return;if(/\d/.test(s)&&!/[a-z]{2}/i.test(s))nums++;const k=headerField(s).k;if(k&&k!=='chg'&&k!=='vol')f.add(k)});
+    const core=['pcs','wt','wpp','dims','l','w','h','awb','nat'].filter(k=>f.has(k)).length,sc=core*2+f.size-nums;if(core>=2&&nums<=1&&sc>bs){bs=sc;best=i}}
+  return best}
+/* columns nobody named: an AWB column (ddd-dddddddd), sizes, kg/pcs text, numbers, the longest text = goods */
+function guessCols(rows,start,m,used,blank){const smp=rows.slice(start,start+300).filter(r=>r.some(c=>String(c).trim())),g=[];
+  const vals=i=>smp.map(r=>String(r[i]==null?'':r[i]).trim()).filter(Boolean),fr=(v,f)=>v.length?v.filter(f).length/v.length:0;
+  const n=Math.max(0,...smp.map(r=>r.length)),st=[];
+  for(let i=0;i<n;i++){if(used.has(i))continue;const v=vals(i);if(v.length<Math.max(1,smp.length*0.3))continue;const nv=v.map(num).filter(x=>x!=null).sort((a,b)=>a-b);
+    st.push({i,blank:blank(i),awb:fr(v,x=>/^\d{3}[-\s]?\d{8}$/.test(x)),dims:fr(v,x=>!!parseDims(x,'',true)),kg:fr(v,x=>/\d\s*(kg|kgs|lbs?)\b/i.test(x)),pc:fr(v,x=>new RegExp('\\d\\s*('+PCW+')\\b','i').test(x)),
+      num:fr(v,x=>/^[\d.,\s'’]+$/.test(x)),int:fr(v,x=>/^\d+$/.test(x)),txt:fr(v,x=>/[a-z]{3}/i.test(x)),len:v.reduce((a,x)=>a+x.length,0)/v.length,med:nv.length?nv[nv.length>>1]:0})}
+  const take=(k,f,sc)=>{if(m[k])return;let b=null;for(const c of st)if(!used.has(c.i)&&f(c)&&(!b||sc(c)>sc(b)))b=c;if(b){m[k]={i:b.i,label:'',guessed:true};used.add(b.i);g.push(k)}};
+  take('awb',c=>c.awb>=0.6,c=>c.awb);
+  if(!m.l||!m.w||!m.h)take('dims',c=>c.dims>=0.6,c=>c.dims);
+  take('wt',c=>c.kg>=0.6&&!m.wpp,c=>c.kg);take('pcs',c=>c.pc>=0.6,c=>c.pc);
+  const nums=st.filter(c=>c.blank&&!used.has(c.i)&&c.num>=0.8);
+  if(!m.dims&&!(m.l&&m.w&&m.h))for(let a=0;a+2<nums.length;a++)if(nums[a+1].i===nums[a].i+1&&nums[a+2].i===nums[a].i+2&&[0,1,2].every(d=>nums[a+d].med>0&&nums[a+d].med<=400)){['l','w','h'].forEach((k,d)=>{m[k]={i:nums[a+d].i,label:'',guessed:true};used.add(nums[a+d].i)});g.push('l','w','h');break}
+  const rest=nums.filter(c=>!used.has(c.i));
+  if(!m.pcs&&rest.length>=(m.wt||m.wpp?1:2)){const c=rest.filter(c=>c.int>=0.9).sort((a,b)=>a.med-b.med)[0];if(c){m.pcs={i:c.i,label:'',guessed:true};used.add(c.i);g.push('pcs')}}
+  if(!m.wt&&!m.wpp){const c=rest.filter(c=>!used.has(c.i)).sort((a,b)=>b.med-a.med)[0];if(c){m.wt={i:c.i,label:'',guessed:true};used.add(c.i);g.push('wt')}}
+  take('nat',c=>c.blank&&c.txt>=0.6,c=>c.len);
+  return g}
+const FNAME={awb:'AWB',pcs:'Pieces',wt:'Weight',wpp:'Weight per piece',dims:'Dimensions',l:'Length',w:'Width',h:'Height',nat:'Goods',shc:'SHC',dg:'DG class',un:'UN number',sub:'Sub risk',excl:'Exclusive',ohg:'Overhang'};
+const FERR={'enter the weight in kg':'no weight','enter length, width and height':'no dimensions'};
+function rowsToShips(rows){rows=(Array.isArray(rows)?rows:[]).map(r=>Array.isArray(r)?r.map(c=>c==null?'':String(c)):[]);
+  const list=[],errs=[],notes=[],info={hdr:-1,cols:[],ignored:[],guessed:[],skip:{},title:0,split:0,rule:IMP_RULE};
+  const blankRow=r=>r.every(c=>c.trim()==='');if(rows.every(blankRow))return{list,errs:['the file is empty'],notes,info};
+  const skip=w=>{info.skip[w]=(info.skip[w]||0)+1};
+  /* header row (sometimes two rows: "Dimensions (cm)" above "L | W | H") */
+  const hi=findHeader(rows);let hdr=[],start=0;
+  if(hi>=0){hdr=rows[hi].map(c=>c.trim());start=hi+1;const nx=(rows[hi+1]||[]).map(c=>c.trim());
+    if(nx.some(Boolean)&&nx.every(c=>!c||!/\d/.test(c)||headerField(c).k)&&nx.filter(c=>c&&headerField(c).k).length>=2){let top='';
+      hdr=hdr.map((c,i)=>{if(c)top=c;const b=nx[i];if(!b)return c;return/^[lwh]$/.test(headerField(b).k)?(c||top)+' '+b:(c?c+' '+b:b)});start=hi+2}}
+  const n=Math.max(0,...rows.map(r=>r.length)),best=[];for(let i=0;i<n;i++)best.push(hdr[i]?headerField(hdr[i]):{k:'',s:0});
+  const m={},used=new Set();
+  for(const k in FNAME){let b=-1;best.forEach((x,i)=>{if(x.k===k&&(b<0||x.s>best[b].s))b=i});if(b>=0){m[k]={i:b,label:hdr[b],unit:best[b].unit,wunit:best[b].wunit};used.add(b)}}
+  best.forEach((x,i)=>{if(x.k==='chg'||x.k==='vol'){used.add(i);info.ignored.push({col:colName(i),label:hdr[i],why:x.k==='chg'?'chargeable weight is not gross weight':'volume: the sizes are used instead'})}});
+  info.guessed=guessCols(rows,start,m,used,i=>hi<0||!hdr[i]);
+  if(hi<0){const first=rows.findIndex(r=>(m.awb&&/^\d{3}[-\s]?\d{8}$/.test(String(r[m.awb.i]||'').trim()))||(m.dims&&parseDims(r[m.dims.i],'',true))||r.filter(c=>num(c)!=null&&/^[\d.,\s'’]+/.test(c.trim())).length>=3);
+    start=Math.max(0,first);info.title=rows.slice(0,start).filter(r=>!blankRow(r)).length}
+  info.hdr=hi;if(!m.wt&&!m.wpp&&!m.dims&&!(m.l&&m.w&&m.h))return{list,errs:['no weight or size columns found. Name the columns like AWB, Pieces, Weight, Dims (or L, W, H)'],notes,info};
+  info.cols=Object.keys(FNAME).filter(k=>m[k]).map(k=>({k,name:FNAME[k],col:colName(m[k].i),label:m[k].label||'',guessed:!!m[k].guessed}));
+  const cell=(r,k)=>m[k]?String(r[m[k].i]==null?'':r[m[k].i]).replace(/\s+/g,' ').trim():'',raw=(r,k)=>m[k]?String(r[m[k].i]==null?'':r[m[k].i]):'';
+  /* sizes in plain numbers with no unit: millimetres or metres are spotted from the whole column */
+  let du=(m.dims&&m.dims.unit)||(m.l&&m.l.unit)||(m.w&&m.w.unit)||(m.h&&m.h.unit)||'';
+  if(!du){const all=[];for(const r of rows.slice(start)){if(m.dims)(parseDims(raw(r,'dims'),'cm')||[]).forEach(d=>{if(!d.u)all.push(d.l,d.w,d.h)});else if(m.l&&m.w&&m.h)['l','w','h'].forEach(k=>{const v=num(cell(r,k));if(v&&!dimUnit(cell(r,k).toLowerCase()))all.push(v)})}
+    all.sort((a,b)=>a-b);const md=all[all.length>>1]||0;
+    if(md>400){du='mm';notes.push('the sizes look like millimetres, read as mm')}else if(md>0&&md<=4&&all.some(v=>v%1)){du='m';notes.push('the sizes look like metres, read as m')}}
+  const lenOf=(r,k)=>{const s=cell(r,k),v=num(s);if(v==null)return 0;return Math.round(v*UCM[dimUnit(s.toLowerCase())||du||'cm']*10)/10};
+  /* rows -> groups: blank AWB and goods under an AWB (merged cells) belong to that AWB */
+  const groups=[];let prev=null;const hdrKey=hdr.join('|').toLowerCase();
+  for(let i=start;i<rows.length;i++){const r=rows[i];if(blankRow(r))continue;const at=i+1;
+    if(hi>=0&&r.map(c=>c.trim()).join('|').toLowerCase()===hdrKey){skip('repeated header row');continue}
+    const awb=cell(r,'awb');
+    if(!/^\d{3}[-\s]?\d{8}$/.test(awb)&&r.some(c=>/^(grand\s*|sub\s*)?totals?\b/i.test(c.trim()))){skip('total line');continue}
+    let lines=m.dims?parseDims(raw(r,'dims'),du):null,fromNat=false;
+    if(!lines&&m.l&&m.w&&m.h){const l=lenOf(r,'l'),w=lenOf(r,'w'),h=lenOf(r,'h');if(l||w||h)lines=[{p:null,l,w,h}]}
+    if(!lines&&cell(r,'nat')){lines=parseDims(raw(r,'nat'),du,true);fromNat=!!lines}
+    const o={at,awb,nat:cell(r,'nat'),pcs:parsePcs(cell(r,'pcs')),wt:parseWt(cell(r,'wt'),m.wt&&m.wt.wunit),wpp:parseWt(cell(r,'wpp'),m.wpp&&m.wpp.wunit),
+      shc:cell(r,'shc'),dg:cell(r,'dg'),sub:cell(r,'sub'),un:cell(r,'un'),excl:cell(r,'excl'),ohg:cell(r,'ohg'),lines:(lines||[]).map(d=>({...d,at}))};
+    if(fromNat)notes.push(`line ${at}: sizes read from the goods text`);
+    if(m.awb&&!awb&&!o.nat&&prev&&(o.lines.length||o.pcs||o.wt)){
+      if(!(o.wt>0)&&!(o.wpp>0)&&(prev.wt>0||prev.wpp>0)&&o.lines.length){if(o.lines.length===1&&o.lines[0].p==null&&o.pcs)o.lines[0].p=o.pcs;
+        /* pieces on every row = pieces per row, not the AWB total */
+        if(o.pcs!=null&&!prev.more&&prev.lines.length===1&&prev.lines[0].p==null&&prev.pcs)prev.lines[0].p=prev.pcs;prev.lines.push(...o.lines);prev.more=true;continue}
+      for(const k of ['awb','nat','shc','dg','sub','un','excl','ohg'])if(!o[k])o[k]=prev[k]}
+    groups.push(o);prev=o}
+  /* groups -> shipments: piece count per size, weight shared by volume */
+  for(const g of groups){const L=g.lines.length?g.lines:[{p:null,l:0,w:0,h:0,at:g.at}],un=L.filter(d=>d.p==null),known=L.reduce((a,d)=>a+(d.p||0),0);
+    if(L.length===1&&un.length)L[0].p=g.pcs||1;
+    else if(un.length===1)un[0].p=g.pcs>known?g.pcs-known:(g.pcs||1);
+    else if(un.length){un.forEach(d=>d.p=1);notes.push(`line ${g.at}: pieces per size missing, 1 each assumed`)}
+    const tot=L.reduce((a,d)=>a+d.p,0);if(L.length>1&&g.pcs&&!g.more&&g.pcs!==tot)notes.push(`line ${g.at}: ${g.pcs} pcs in the pieces column, ${tot} in the sizes, the sizes are used`);
+    const vol=L.map(d=>d.p*d.l*d.w*d.h),V=vol.reduce((a,b)=>a+b,0);let left=g.wt;
+    if(L.length>1){info.split++;notes.push(`${g.awb||'line '+g.at}: ${L.length} sizes${g.wt>0?`, ${g.wt} kg shared by volume`:''}`)}
+    const dgRaw=String(g.dg||'').trim();
+    L.forEach((d,j)=>{let wt;if(g.wt>0){wt=j===L.length-1?Math.round(left*10)/10:Math.round((V?g.wt*vol[j]/V:g.wt/L.length)*10)/10;left-=wt}else wt=g.wpp>0?g.wpp*d.p:0;
+      const s=mk({awb:g.awb,pcs:d.p,l:d.l,w:d.w,h:d.h,wt,nat:g.nat,shc:g.shc,dg:dgRaw,sub:g.sub,un:g.un,excl:/^(y|yes|true|1|x)$/i.test(g.excl),ohg:num(g.ohg)||0});
+      /* no DG class in the file = not dangerous goods */
+      if(j===0&&!s.dg&&dgRaw&&!/^(no|n|none|nil|non[\s-]?dg|gen|general|-|0|na|n\/a)$/i.test(dgRaw))notes.push(`line ${g.at}: DG "${dgRaw}" has no class, loaded as non-DG, check it`);
+      const e=validate(s,true);if(e){errs.push(`line ${d.at}: ${FERR[e]||e}`);skip(FERR[e]||'out of limits');return}
+      if(j===0&&s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))notes.push(`line ${g.at}: DG class ${s.dg} has no UN number`);
+      if(!s.awb)s.awb=nextNoAwb(list);list.push(s)})}
+  return{list,errs,notes,info}}
 /* shipments without an AWB get a running label, "No AWB 1", "No AWB 2" … */
 function nextNoAwb(extra){const used=new Set([...ships,...(extra||[])].map(s=>s.awb));let n=1;while(used.has('No AWB '+n))n++;return'No AWB '+n}
-function parseCSV(t){const f=t.split('\n')[0],sep=f.includes('\t')?'\t':(f.split(';').length>f.split(',').length?';':',');const out=[];let row=[],cur='',q=false;
+/* CSV / TSV / semicolon files; the separator is picked from the first lines, not only the first (it may be a title) */
+function parseCSV(t){t=String(t).replace(/^\uFEFF/,'');const head=t.split('\n').slice(0,20).join('\n').replace(/"[^"]*"/g,''),cnt=c=>head.split(c).length-1;
+  const sep=cnt('\t')>0&&cnt('\t')>=cnt(',')/2?'\t':(cnt(';')>cnt(',')?';':',');const out=[];let row=[],cur='',q=false;
   for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===sep){row.push(cur);cur=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cur);out.push(row);row=[];cur=''}else cur+=c}
   if(cur!==''||row.length){row.push(cur);out.push(row)}return out}
 function mk(o){let dg=String(o.dg||'').trim().replace(/^class\s*/i,'').toUpperCase();if(/^1\.[1-6][A-L]?$/.test(dg))dg=dg==='1.4S'?'1.4S':'1';const known=DG.map(d=>d[0]);dg=known.includes(dg)?dg:'';
@@ -1392,12 +1533,27 @@ function readXlsx(buf,done){let w;try{w=new Worker('/adeyiq/xlsx-worker.js')}cat
   w.onmessage=e=>{clearTimeout(tm);w.terminate();if(!e.data||e.data.error||!Array.isArray(e.data.rows)){toast('This Excel file could not be read. Save it again as .xlsx or CSV');return}done(e.data.rows)};
   w.onerror=()=>{clearTimeout(tm);w.terminate();toast('This Excel file could not be read. Save it again as .xlsx or CSV')};
   w.postMessage({buf,rows:LIM.rows+2},[buf])}
+/* after an import: which column was used for each field, what was guessed or ignored, what was skipped and why.
+   Everything from the file goes through esc(). */
+function showImport(name,n,errs,notes,info){const li=a=>a.length?`<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`:'',more=(a,k)=>a.length>k?[`… and ${a.length-k} more`]:[];
+  const col=c=>`${esc(c.name)} ← ${c.label?`“${esc(c.label)}”`:'no header'} (column ${esc(c.col)})${c.guessed?' <b>guessed</b>':''}`;
+  const sk=Object.entries(info.skip||{}).map(([w,k])=>`${k} × ${esc(w)}`);
+  const h=[`<p><b>${n}</b> shipment line${n===1?'':'s'} added. ${info.hdr>=0?`Header found on row ${info.hdr+1}.`:'No header row found: columns were guessed from what is in them.'}${info.title?` ${info.title} title row${info.title>1?'s':''} above the data ignored.`:''}</p>`];
+  if(info.cols&&info.cols.length)h.push(`<p class="note">Columns used:</p>${li(info.cols.map(col))}`);
+  if(info.guessed&&info.guessed.length)h.push(`<p class="note">Guessed columns are a best guess from the content: check them in the cargo list.</p>`);
+  if(info.ignored&&info.ignored.length)h.push(`<p class="note">Not used:</p>${li(info.ignored.map(x=>`“${esc(x.label)}” (column ${esc(x.col)}): ${esc(x.why)}`))}`);
+  if(errs.length)h.push(`<p class="note">Skipped ${errs.length} line${errs.length>1?'s':''}${sk.length?`: ${sk.join(', ')}`:''}</p>${li(errs.slice(0,5).map(esc).concat(more(errs,5)))}`);
+  else if(sk.length)h.push(`<p class="note">Left out: ${sk.join(', ')}</p>`);
+  if(notes.length)h.push(`<p class="note">Check:</p>${li(notes.slice(0,6).map(esc).concat(more(notes,6)))}`);
+  h.push(`<p class="note">${esc(info.rule||IMP_RULE)} Chargeable or volume weight is never used as gross weight.</p>`);
+  $('upSumT').textContent='Import: '+String(name).slice(0,80);$('upSumB').innerHTML=h.join('');$('upSum').hidden=false}
+$('upSumX').onclick=()=>{$('upSum').hidden=true};
 $('file').onchange=()=>{const f=$('file').files[0];$('file').value='';if(!f)return;const r=new FileReader();
   if(f.size>LIM.fileMB*1024*1024){toast(`The file is larger than ${LIM.fileMB} MB. Split it and upload again`);return}
   if(!/\.(csv|txt|tsv|xlsx|xls)$/i.test(f.name)){toast('Upload a CSV or Excel file (.csv, .xlsx, .xls)');return}
   const done=rows=>{if(rows.length-1>LIM.rows){toast(`The file has more than ${LIM.rows.toLocaleString('en-US')} lines. Split it and upload again`);return}
-    const{list,errs,notes}=rowsToShips(rows);if(ships.length+list.length>LIM.ships){toast(`More than ${LIM.ships.toLocaleString('en-US')} shipments in total. Clear some cargo first`);return}if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);
-    const nn=notes||[];$('upMsg').textContent=[errs.length?`Skipped: ${errs.slice(0,2).join('; ')}${errs.length>2?' …':''}`:'',nn.length?`Check: ${nn.slice(0,2).join('; ')}${nn.length>2?` … (+${nn.length-2})`:''}`:''].filter(Boolean).join(' · ')};
+    const{list,errs,notes,info}=rowsToShips(rows);if(ships.length+list.length>LIM.ships){toast(`More than ${LIM.ships.toLocaleString('en-US')} shipments in total. Clear some cargo first`);return}if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);
+    showImport(f.name,list.length,errs,notes||[],info)};
   if(/\.xlsx?$/i.test(f.name)){r.onload=()=>readXlsx(r.result,done);r.readAsArrayBuffer(f)}
   else{r.onload=()=>{const t=String(r.result);if(/\u0000/.test(t.slice(0,4096))){toast('This is not a text CSV file. Save it as CSV and upload again');return}done(parseCSV(t))};r.readAsText(f)}};
 /* ---------- engines: approximate public figures (fan diameter m, length m, dry weight kg) ---------- */

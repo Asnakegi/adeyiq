@@ -1,0 +1,7 @@
+[
+  ["Shipper: Sample Exports Inc.", "", "", "", ""],
+  ["Air Waybill No.", "Pkgs", "Weight (lbs)", "Dims (in)", "Nature & quantity of goods"],
+  ["071-60000011", "2", "1,100", "47x31x24", "2 CTNS AUTO PARTS"],
+  ["071-60000022", "1", "220", "L47 W31 H24", "1 CRATE TOOLS"],
+  ["071-60000033", "3", "330", "24 X 20 X 20", "3 BOXES BOOKS"]
+]

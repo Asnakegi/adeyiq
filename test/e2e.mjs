@@ -425,6 +425,40 @@ console.log("\nHostile manifests (synthetic)");
   check(html.length > 0 && !/<script|\son[a-z]+=|javascript:/i.test(d) && d.includes("&lt;b&gt;x&lt;/b&gt;"), "the HTML export contains no script, event handlers or javascript: links from cargo text");
 }
 
+console.log("\nMessy real-world manifests (synthetic samples in test/fixtures/manifests)");
+{
+  const FIX = new URL("./fixtures/manifests/", import.meta.url);
+  const shipsNow = () => js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').map(s=>[s.awb,s.pcs,s.wt,s.l+'x'+s.w+'x'+s.h])`);
+  const up = async (name, content, isB64) => {
+    await js(`localStorage.clear()`);
+    await go("/build");
+    return js(`(async()=>{const c=${JSON.stringify(content)};const data=${isB64 ? "Uint8Array.from(atob(c),x=>x.charCodeAt(0))" : "c"};
+    document.getElementById('toast').textContent='';const dt=new DataTransfer();dt.items.add(new File([data],${JSON.stringify(name)}));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
+    await new Promise(r=>{const t1=Date.now(),iv=setInterval(()=>{if(document.getElementById('toast').textContent||Date.now()-t1>20000){clearInterval(iv);r()}},50)});await new Promise(r=>setTimeout(r,300));
+    const s=document.getElementById('upSum');return {toast:document.getElementById('toast').textContent,sum:s.hidden?'':s.textContent}})()`);
+  };
+  const a = await up("title-rows-semicolon.csv", fs.readFileSync(new URL("title-rows-semicolon.csv", FIX), "utf8"));
+  const sa = await shipsNow();
+  check(sa.length === 6 && JSON.stringify(sa[0]) === JSON.stringify(["071-10000011", 4, 1234.5, "120x80x60"]) && /6 shipments added/.test(a.toast),
+    `a CSV with title rows above the header, ";" separators and "1.234,5" weights imports (${sa.length} lines, first ${JSON.stringify(sa[0])})`);
+  check(/Header found on row 4/.test(a.sum) && /Weight ← “Gross Wt \(kg\)”/.test(a.sum) && /Chargeable weight.*not gross weight/.test(a.sum) && /total line/.test(a.sum),
+    `the import summary names the columns used, the ignored chargeable weight and the skipped total line ("${a.sum.slice(0, 160)}…")`);
+  // the Excel sample with merged AWB cells and a two-row header, made here in Node (never in the page)
+  const merged = xlsxB64(JSON.parse(fs.readFileSync(new URL("merged-awb.json", FIX), "utf8")), (ws) => { ws["!merges"] = ["A6:A7", "D6:D7", "H6:H7", "E4:G4"].map((r) => SHEETJS.utils.decode_range(r)); });
+  const b = await up("merged-awb.xlsx", merged, true);
+  const sb = await shipsNow();
+  check(sb.length === 5 && sb.filter((s) => s[0] === "071-50000011").reduce((n, s) => n + s[2], 0) === 900 && /5 shipments added/.test(b.toast),
+    `an Excel load list with merged AWB cells and "Dimensions (cm)" over L / W / H imports, weight shared by volume (${JSON.stringify(sb.slice(0, 2))})`);
+  check(/shared by volume/.test(b.sum) && (await js(`typeof window.XLSX`)) === "undefined", "the summary states the weight-sharing rule, and the page still does not load SheetJS");
+  const c = await up("no-header.csv", fs.readFileSync(new URL("no-header.csv", FIX), "utf8"));
+  check((await shipsNow()).length === 3 && /No header row found/.test(c.sum) && /guessed/.test(c.sum), `a file without a header row is read by guessing the columns, and the summary says so`);
+  const d = await up("multi.csv", `AWB,Pcs,Weight,Dims,Goods\n071-70000011,3,600,"2/120x80x60, 1/60x40x40",Parts\n`);
+  const sd = await shipsNow();
+  check(sd.length === 2 && sd[0][1] === 2 && sd[1][1] === 1 && Math.round((sd[0][2] + sd[1][2]) * 10) === 6000 && /2 shipments added/.test(d.toast), `"2/120x80x60, 1/60x40x40" becomes two lines with 2 and 1 pieces (${JSON.stringify(sd)})`);
+  await up("hostile-header.csv", `AWB,"<img src=x onerror=window.__xss=9> Weight",Dims,"<b>Goods</b>"\n071-70000022,10,50x40x30,Box\n`);
+  check((await js(`window.__xss===undefined&&!document.querySelector('#upSum img')&&![...document.querySelectorAll('#upSum b')].some(b=>b.textContent==='Goods')&&document.getElementById('upSum').textContent.includes('<img src=x')`)), "header text from the file is shown as text in the import summary, never as HTML");
+}
+
 console.log("\nAPI: methods and error replies");
 for (const [p, m] of [["/api/track", "PUT"], ["/api/track", "DELETE"], ["/api/request", "GET"], ["/api/health", "POST"]]) {
   const r = await fetch(BASE + p, { method: m, headers: { origin: BASE } });

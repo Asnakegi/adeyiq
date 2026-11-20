@@ -1,0 +1,12 @@
+Sample Freight Forwarding Ltd;;;;;;
+Cargo manifest - Flight XX 1234 / 21 Nov 2026;;;;;;
+;;;;;;
+Air Waybill;No. of pcs;Gross Wt (kg);Chargeable weight;Dims (cm);Description of goods;SHC
+071-10000011;4;1.234,5;1.500;120x80x60;Spare parts;
+071-10000022;2 pcs;450KG;600;120*80*60;Textiles;
+071-10000033;1;86,0;100;"100 X 50 X 40";Documents;
+071-10000044;3;300;350;120×80×60;Machine parts;HEA
+071-10000055;2;95,5;120;L60 W40 H40;Perfume samples;
+071-10000066;1;40;40;80/60/50;Books;
+;;;;;;
+Total;13;2.206,0;2.710;;;
