@@ -11,8 +11,9 @@ things that only the owner can do are finished:
 1. ~~A real signed write reaches a real Google Sheet~~ **Done on 20 Nov 2026 (Stage A, steps 1–7):** against a real
    test deployment on a blank "AdeyIQ TEST" sheet, all 5 checks of `scripts/verify-sheet-endpoint.mjs` passed, and
    the Usage tab got exactly one `owner-verify` row. The first run failed because Google's consent screen had not
-   granted the spreadsheet permission (granular consent). See "Stage A findings" below. Still open: Stage A steps 8–9
-   (the PR preview writing through Vercel), and the production switch (Stage B).
+   granted the spreadsheet permission (granular consent). See "Stage A findings" below. Stage A steps 8–9 (the PR preview writing
+   through Vercel) were done the same day and found a duplicate-row bug, now fixed (see findings). Still open: the
+   production switch (Stage B).
 2. ~~GitHub Actions passes on the pull request~~ **Done:** PR 6 CI passed (section 5). PR 6 was opened as a normal PR,
    not a draft. Convert it to draft, or simply do not merge it until Stage B.
 3. **The High-risk claude.ai artifacts get a decision.** They are outside this release, but they are the largest
@@ -95,8 +96,9 @@ Do this only after Stage A passes and CI is green.
    - Write down the current `ADEYIQ_SHEET_URL` value in your password manager as "old /exec (rollback)".
    - Set `ADEYIQ_SHEET_URL` = the new URL and add `ADEYIQ_SHEET_KEY` = the production key.
    - Do not redeploy yet. The live deployment keeps its old values until the next deploy.
-7. Set Preview back to the test endpoint, or remove the Preview values, so that preview builds never write to
-   production.
+7. Keep the Preview values for branch `security-audit` on the test endpoint (set on 20 Nov), or remove them, so
+   preview builds never write to production. After the switch, remove the branch-specific Preview variables and the
+   test sheet, test script and test key when they are no longer needed.
 8. Mark the PR ready for review and merge it. Vercel builds `main` with the new code and the new values together.
 9. Within 5 minutes of the deploy turning Ready:
    - `https://adeyiq.vercel.app/api/health` → `ok: true, sheetConfigured: true`.
@@ -134,7 +136,17 @@ snapshot, which is why the table above has the extra step.
 | 1 | Signed write refused, other 4 checks passed | The deployment was authorised without the spreadsheet scope. The editor diagnostic showed the key matching on both sides (same length and HMAC fingerprint) and the failure at step "append usage". |
 | 2 (after granting all permissions) | **All 5 checks passed**, one `owner-verify` row in Usage | Signed protocol confirmed end to end on real Google infrastructure: HMAC compatibility between Node and Apps Script, nonce cache, timestamp window. |
 
-The temporary diagnostic functions were removed from the test script afterwards. The test key exists only in the test
+| Preview, usage | 3 Usage rows from `/build?owner=1` and `/` (incl. "9 ULDs built"), with Vercel geo data | Website → Vercel → signed write → Google works end to end. |
+| Preview, access request (before fix) | **4 identical rows**, no email | The send-email permission had not been granted. The row was saved, the email failed, the script answered ok:false and Vercel's retry loop wrote the row again 3 times. A lost or slow reply would have done the same with email working. |
+| Fix (commit `0edb34d`) | | All tries of one write share a request id (`rid`); the script remembers a saved rid for 10 minutes and answers ok without writing again. A failed notification email after the row is saved is logged and no longer fails the write. New unit tests reproduce both cases. |
+| Preview, access request (after fix, permission granted) | **Exactly 1 row** | Confirmed on real infrastructure. |
+
+Lesson for Stage B: on every Google consent screen tick **Select all** (spreadsheets *and* send email). Granular
+consent lets each permission be skipped, and a skipped permission only shows up when that feature is first used.
+
+The temporary diagnostic functions were removed from the test script afterwards. The 4 duplicate test rows were
+deleted from the test sheet. The Preview variables for branch `security-audit` point at the test endpoint; the
+shared `ADEYIQ_SHEET_URL` used by Production was not changed. The test key exists only in the test
 script and on the owner's PC, never in chat or the repo. The test sheet and deployment can be deleted after Stage B.
 
 ## 5. CI on GitHub vs local results
