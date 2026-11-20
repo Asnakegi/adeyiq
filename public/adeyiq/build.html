@@ -1398,7 +1398,7 @@ $('file').onchange=()=>{const f=$('file').files[0];$('file').value='';if(!f)retu
   const done=rows=>{if(rows.length-1>LIM.rows){toast(`The file has more than ${LIM.rows.toLocaleString('en-US')} lines. Split it and upload again`);return}
     const{list,errs,notes}=rowsToShips(rows);if(ships.length+list.length>LIM.ships){toast(`More than ${LIM.ships.toLocaleString('en-US')} shipments in total. Clear some cargo first`);return}if(list.length)addShips(list);toast(`${list.length} shipments added${errs.length?`, ${errs.length} skipped`:''}`);
     const nn=notes||[];$('upMsg').textContent=[errs.length?`Skipped: ${errs.slice(0,2).join('; ')}${errs.length>2?' …':''}`:'',nn.length?`Check: ${nn.slice(0,2).join('; ')}${nn.length>2?` … (+${nn.length-2})`:''}`:''].filter(Boolean).join(' · ')};
-  if(/\.xlsx?$/i.test(f.name)){if(!window.XLSX){toast('Save the file as CSV and upload again');return}r.onload=()=>readXlsx(r.result,done);r.readAsArrayBuffer(f)}
+  if(/\.xlsx?$/i.test(f.name)){r.onload=()=>readXlsx(r.result,done);r.readAsArrayBuffer(f)}
   else{r.onload=()=>{const t=String(r.result);if(/\u0000/.test(t.slice(0,4096))){toast('This is not a text CSV file. Save it as CSV and upload again');return}done(parseCSV(t))};r.readAsText(f)}};
 /* ---------- engines: approximate public figures (fan diameter m, length m, dry weight kg) ---------- */
 const ENG=[

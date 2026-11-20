@@ -129,6 +129,18 @@ Do **not** archive the old Apps Script deployment, or delete `ADEYIQ_KEY`, while
 Instant Rollback does not revert environment variables in the project settings. It reuses the old deployment's
 snapshot, which is why the table above has the extra step.
 
+### Pre-merge finding (20 Nov 2026): Excel upload was broken on this branch
+
+An unresolved review comment on PR 6 (left before the Codex reviewer was removed) was checked before merging and was
+correct. `build.html` still refused every `.xlsx`/`.xls` upload unless `window.XLSX` existed ("Save the file as CSV
+and upload again"), but this branch removed SheetJS from the page and reads Excel only in `xlsx-worker.js`. The
+earlier statement in this report that Excel upload worked under the new CSP was wrong: the end-to-end tests injected
+SheetJS into the page to create test files, which defined `window.XLSX` and hid the bug.
+
+- Fix (commit after `144ad41`): the stale `window.XLSX` check is removed; the worker reads the file and reports errors.
+- Tests: test .xlsx files are now made in Node, never in the page, and e2e checks that the page has no `window.XLSX`.
+  Run against the unfixed page the new tests fail (3 of 106); with the fix all 106 pass.
+
 ### Stage A findings (20 Nov 2026)
 
 | Run | Result | Cause |
@@ -210,7 +222,7 @@ and key are never logged.
 
 | Option | Verdict |
 |---|---|
-| **Hashes** (chosen) | Every inline `<script>` in `public/adeyiq/*.html` is hashed at build time in `next.config.ts` from the files that are served, so a change to a page can never leave a stale hash behind. Product paths get `script-src 'self' 'sha256-…'` (8 hashes) with no `'unsafe-inline'`. Checked first: the pages have no inline event handlers (`onclick=`), no `javascript:` links and no `eval`/`new Function`. The builder was tested fully under the new policy (sample → 9 ULDs, Balanced ✓, xlsx upload in the worker, print), and e2e checks all 5 pages. |
+| **Hashes** (chosen) | Every inline `<script>` in `public/adeyiq/*.html` is hashed at build time in `next.config.ts` from the files that are served, so a change to a page can never leave a stale hash behind. Product paths get `script-src 'self' 'sha256-…'` (8 hashes) with no `'unsafe-inline'`. Checked first: the pages have no inline event handlers (`onclick=`), no `javascript:` links and no `eval`/`new Function`. The builder was tested fully under the new policy (sample → 9 ULDs, Balanced ✓, print; **correction:** Excel upload was in fact broken, see "Pre-merge finding" below), and e2e checks all 5 pages. |
 | Nonces | Would need every static page rendered per request (middleware rewriting HTML) and makes caching harder. No gain over hashes for static files. |
 | External `.js` files | Also good, but it means moving about 1,500 lines of builder code and changing every page and test. Worth doing later as part of splitting `build.html`. |
 
