@@ -140,6 +140,7 @@ snapshot, which is why the table above has the extra step.
 | Preview, access request (before fix) | **4 identical rows**, no email | The send-email permission had not been granted. The row was saved, the email failed, the script answered ok:false and Vercel's retry loop wrote the row again 3 times. A lost or slow reply would have done the same with email working. |
 | Fix (commit `0edb34d`) | | All tries of one write share a request id (`rid`); the script remembers a saved rid for 10 minutes and answers ok without writing again. A failed notification email after the row is saved is logged and no longer fails the write. New unit tests reproduce both cases. |
 | Preview, access request (after fix, permission granted) | **Exactly 1 row** | Confirmed on real infrastructure. |
+| Notification email | Sent and received (owner confirmed) | Google's daily email quota dropped and the email step ran; the owner found the email outside the inbox view. Mail sent by the script to the owner's own address can land in Sent, a tab or Spam: search `in:anywhere AdeyIQ access request` and mark it "Not spam" so real requests reach the inbox. |
 
 Lesson for Stage B: on every Google consent screen tick **Select all** (spreadsheets *and* send email). Granular
 consent lets each permission be skipped, and a skipped permission only shows up when that feature is first used.
