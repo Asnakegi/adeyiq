@@ -98,8 +98,75 @@ test("big builds (over 160 pieces) use layer packing and keep the same rules", (
   assert.equal(r.notDrawn, 0);
 });
 
+// DG segregation rules (IATA DGR Table 9.3.A and 9.3.2.1.3), read from the same page
+const dgSrc =
+  slice("const DG=[", "\n") + "\n" +
+  slice("const FOOD=", "\n  return null}") + "\n  return null}\n" +
+  slice("function mk(o)", "}}\n") + "}}\n" +
+  "this.D={conflict,mk};";
+const dctx = { Math, String, Array, Number, Date, uid: () => "id" };
+vm.createContext(dctx);
+vm.runInContext(dgSrc, dctx);
+const { conflict, mk } = dctx.D;
+const dg = (cls, un = "", shc = "") => mk({ awb: "x", dg: cls, un, shc });
+
+test("Table 9.3.A pairs are segregated, others are not", () => {
+  for (const [a, b] of [["3", "5.1"], ["4.1", "5.1"], ["4.2", "5.1"], ["4.3", "8"], ["1", "2.2"]])
+    assert.ok(conflict(dg(a), dg(b)) && conflict(dg(b), dg(a)), `${a} and ${b} must be kept apart`);
+  for (const [a, b] of [["2.2", "5.1"], ["3", "8"], ["1.4S", "3"], ["6.1", "5.1"], ["9", "3"]])
+    assert.equal(conflict(dg(a), dg(b)), null, `${a} and ${b} may travel together`);
+});
+
+test("UN3480 / UN3090 / UN3551 batteries are kept apart from 1, 2.1, 3, 4.1 and 5.1 (DGR 9.3.2.1.3)", () => {
+  for (const un of ["UN3480", "UN 3090", "3551"])
+    for (const c of ["1", "2.1", "3", "4.1", "5.1"]) {
+      assert.ok(conflict(dg("9", un), dg(c)), `${un} with class ${c}`);
+      assert.ok(conflict(dg(c), dg("9", un)), `class ${c} with ${un}`);
+    }
+  for (const c of ["1.4S", "2.2", "4.2", "4.3", "5.2", "8", "9"])
+    assert.equal(conflict(dg("9", "UN3480"), dg(c)), null, `UN3480 with class ${c} needs no segregation`);
+  assert.equal(conflict(dg("9", "UN3481"), dg("3")), null, "batteries in or with equipment are not in 9.3.2.1.3");
+});
+
+test("explosive divisions are read as class 1, except 1.4S", () => {
+  assert.equal(dg("1.1D").dg, "1");
+  assert.equal(dg("Class 1.3G").dg, "1");
+  assert.equal(dg("1.4s").dg, "1.4S");
+  assert.ok(conflict(dg("1.1"), dg("3")));
+});
+
+test("DG acceptance list (public/adeyiq/un-list.json) has the entries cargo teams check most", () => {
+  const L = JSON.parse(fs.readFileSync(new URL("../public/adeyiq/un-list.json", import.meta.url), "utf8"));
+  assert.ok(L.n > 2000 && Object.keys(L.d).length === L.n, `${L.n} UN numbers`);
+  const first = (id) => L.d[id][0];
+  for (const id of ["UN3480", "UN3090", "UN3551"]) assert.equal(first(id)[4], "Forbidden", `${id} is cargo aircraft only`);
+  assert.equal(first("UN1845")[1], "9", "dry ice is class 9");
+  assert.equal(first("UN1266")[1], "3", "perfumery products are class 3");
+  assert.equal(first("UN0012")[1], "1.4S", "small-arms cartridges are 1.4S");
+  assert.equal(dg(first("UN0012")[1]).dg, "1.4S");
+  assert.equal(dg(first("UN0081")[1]).dg, "1", "blasting explosives map to class 1");
+  for (const rows of Object.values(L.d)) for (const r of rows) assert.equal(r.length, 6);
+});
+
 test("packing density of a full AKE does not get worse", () => {
   const r = checkBuild("AKE", [{ s: ship(50, 40, 40, 60), p: 60 }]);
   // Baseline, not an ideal: the slanted AKE floor allows roughly 45 of these boxes by hand; the engine places 36 today.
   assert.ok(r.boxes.length >= 36, `placed ${r.boxes.length} of 60 (baseline 36)`);
+});
+
+test("subsidiary hazards are segregated like a primary class (e.g. UN2031: 8 with subsidiary 5.1)", () => {
+  const nitric = mk({ awb: "x", dg: "8", sub: "5.1", un: "UN2031" });
+  assert.deepEqual([...nitric.sub], ["5.1"]);
+  assert.ok(conflict(nitric, dg("3")) && conflict(dg("3"), nitric), "8 (5.1) must be kept apart from class 3");
+  assert.ok(conflict(nitric, dg("9", "UN3480")), "subsidiary 5.1 also keeps it away from UN3480 batteries");
+  assert.equal(conflict(mk({ awb: "x", dg: "8", un: "UN2031" }), dg("3")), null, "without the subsidiary there is no 3/8 rule");
+  assert.ok(conflict(mk({ awb: "x", dg: "3", sub: "6.1" }), mk({ awb: "y", shc: "EAT" })), "subsidiary 6.1 keeps it away from food");
+});
+
+test("subsidiary hazards are read from text and cleaned", () => {
+  assert.deepEqual([...mk({ dg: "3", sub: "Class 6.1, 8" }).sub], ["6.1", "8"]);
+  assert.deepEqual([...mk({ dg: "3", sub: "3; 1.1D" }).sub], ["1"], "same as primary dropped, explosive division read as 1");
+  assert.deepEqual([...mk({ dg: "8", sub: "banana" }).sub], [], "unknown values dropped");
+  assert.deepEqual([...mk({ dg: "", sub: "5.1" }).sub], [], "no subsidiary without a primary class");
+  assert.deepEqual([...mk({ dg: "8", sub: ["5.1"] }).sub], ["5.1"], "kept when loaded back from saved cargo");
 });
