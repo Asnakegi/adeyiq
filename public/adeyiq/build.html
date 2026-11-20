@@ -291,6 +291,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
         <label class="span2">Dimensions per piece (cm)<div class="dims"><input id="sL" type="number" min="1" placeholder="L" aria-label="Length cm"><input id="sW" type="number" min="1" placeholder="W" aria-label="Width cm"><input id="sH" type="number" min="1" placeholder="H" aria-label="Height cm"></div></label>
         <label>DG class<select id="sDg"></select></label>
         <label>UN no.<input id="sUn" placeholder="UN1263" maxlength="6"></label>
+        <label title="Subsidiary hazard classes, e.g. 5.1 for UN2031">Sub. hazard<input id="sSub" placeholder="5.1" maxlength="16"></label>
         <div class="full" id="more" hidden style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
           <label class="span2">Handling codes<input id="sShc" placeholder="EAT, COL"></label>
           <label>Overhang %<input id="sOhg" type="number" min="0" max="100" value="0"></label>
@@ -499,9 +500,11 @@ function fitsDoor(s,wh){const d=[s.l,s.w,s.h].sort((a,b)=>a-b);return d[0]<=Math
 const volM3=s=>s.pcs*s.l*s.w*s.h/1e6,volKg=s=>volM3(s)*1e6/R('rDiv'),chg=s=>Math.max(s.wt,volKg(s));
 const isCAO=s=>CAO_UN.includes((s.un||'').toUpperCase().replace(/\s/g,''))||s.shc.includes('CAO');
 const FOOD=['EAT','PEM','PES','PER','PEF'];
+/* subsidiary hazards (e.g. UN2031: class 8, subsidiary 5.1) are segregated like a primary class */
+function conflict(a,b){const ha=[a.dg,...(a.sub||[])],hb=[b.dg,...(b.sub||[])];for(const x of ha)for(const y of hb){const r=conflict1(x===a.dg?a:{...a,dg:x},y===b.dg?b:{...b,dg:y});if(r)return r}return null}
 // IATA DGR 9.3.2.1.3: UN3480 / UN3090 / UN3551 batteries are kept apart from class 1 (not 1.4S), 2.1, 3, 4.1 and 5.1
 const SEG_BAT=['UN3480','UN3090','UN3551'],BAT_APART=['1','2.1','3','4.1','5.1'];
-function conflict(a,b){const x=a.dg,y=b.dg;
+function conflict1(a,b){const x=a.dg,y=b.dg;
   if(x&&y){if((x==='1'&&y!=='1.4S')||(y==='1'&&x!=='1.4S'))return'explosives are kept apart from other DG';const p=(m,n)=>(x===m&&y===n)||(x===n&&y===m);
     if(p('3','5.1'))return'class 3 and 5.1 must be segregated';if(p('4.1','5.1'))return'4.1 and 5.1 must be segregated';if(p('4.2','5.1'))return'4.2 and 5.1 must be segregated';if(p('4.3','8'))return'4.3 and class 8 must be segregated'}
   const bat=s=>SEG_BAT.includes((s.un||'').toUpperCase().replace(/\s/g,''));
@@ -516,7 +519,7 @@ function charge(s,u){const c=chg(s);const kind=u?(u.type==='PGA'?'PGA':ULD[u.typ
   const useOhg=s.ohg>0&&kind!=='PGA',ohg=useOhg?c*(s.ohg<T?R('rOhgLo'):R('rOhgHi'))/100:0;if(ohg)why+=` + OHG ${s.ohg<T?R('rOhgLo'):R('rOhgHi')}%`;return{kg:base+ohg,why}}
 
 /* ---------- reading files ---------- */
-const HDR={awb:['awb','awbno','awbnumber','airwaybill','mawb'],pcs:['pcs','pieces','piece','qty','quantity','nop'],l:['l','length','len','lengthcm'],w:['w','width','widthcm'],h:['h','height','heightcm'],dims:['dims','dim','dimensions','size','lxwxh'],wt:['weight','wt','gross','grossweight','grosskg','kg','weightkg','totalweight','totalkg'],wpp:['weightperpiece','weightperpc','weightpc','wtperpc','wtperpiece','kgperpiece','kgperpc','pieceweight','pcweight','unitweight'],nat:['nature','natureofgoods','goods','description','commodity','nog'],shc:['shc','handling','specialhandling','shcs'],dg:['dg','dgclass','class','hazardclass'],un:['un','unnumber','unno'],excl:['exclusive','ownuld','excl'],ohg:['ohg','overhang','overhangpct']};
+const HDR={awb:['awb','awbno','awbnumber','airwaybill','mawb'],pcs:['pcs','pieces','piece','qty','quantity','nop'],l:['l','length','len','lengthcm'],w:['w','width','widthcm'],h:['h','height','heightcm'],dims:['dims','dim','dimensions','size','lxwxh'],wt:['weight','wt','gross','grossweight','grosskg','kg','weightkg','totalweight','totalkg'],wpp:['weightperpiece','weightperpc','weightpc','wtperpc','wtperpiece','kgperpiece','kgperpc','pieceweight','pcweight','unitweight'],nat:['nature','natureofgoods','goods','description','commodity','nog'],shc:['shc','handling','specialhandling','shcs'],dg:['dg','dgclass','class','hazardclass'],un:['un','unnumber','unno'],sub:['sub','subrisk','subsidiary','subsidiaryrisk','subsidiaryhazard','subsidiaryclass','sublabel'],excl:['exclusive','ownuld','excl'],ohg:['ohg','overhang','overhangpct']};
 const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 function rowsToShips(rows){if(rows.length<2)return{list:[],errs:['the file needs a header row and at least one line']};
   const m={};rows[0].forEach((h,i)=>{const n=norm(h);for(const k in HDR)if(HDR[k].includes(n)&&m[k]==null)m[k]=i});const list=[],errs=[];
@@ -524,7 +527,7 @@ function rowsToShips(rows){if(rows.length<2)return{list:[],errs:['the file needs
   rows.slice(1).forEach((r,i)=>{if(!r||r.every(c=>String(c||'').trim()===''))return;const g=k=>m[k]!=null?r[m[k]]:'';
     let l=+g('l'),w=+g('w'),h=+g('h');if((!l||!w||!h)&&m.dims!=null){const d=String(g('dims')).toLowerCase().match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)/);if(d){l=+d[1];w=+d[2];h=+d[3]}}
     const dgRaw=String(g('dg')||'').trim();
-    const s=mk({awb:String(g('awb')).trim(),pcs:+g('pcs')||1,l,w,h,wt:(+String(g('wt')).replace(/[^0-9.]/g,''))||(+String(g('wpp')).replace(/[^0-9.]/g,''))*(+g('pcs')||1),nat:String(g('nat')||'').trim(),shc:String(g('shc')||''),dg:dgRaw,un:String(g('un')||'').trim(),excl:/^(y|yes|true|1|x)$/i.test(String(g('excl')).trim()),ohg:+g('ohg')||0});
+    const s=mk({awb:String(g('awb')).trim(),pcs:+g('pcs')||1,l,w,h,wt:(+String(g('wt')).replace(/[^0-9.]/g,''))||(+String(g('wpp')).replace(/[^0-9.]/g,''))*(+g('pcs')||1),nat:String(g('nat')||'').trim(),shc:String(g('shc')||''),dg:dgRaw,sub:String(g('sub')||''),un:String(g('un')||'').trim(),excl:/^(y|yes|true|1|x)$/i.test(String(g('excl')).trim()),ohg:+g('ohg')||0});
     /* no DG class in the file = not dangerous goods */
     if(!s.dg&&dgRaw&&!/^(no|n|none|nil|non[\s-]?dg|gen|general|-|0|na|n\/a)$/i.test(dgRaw))notes.push(`line ${i+2}: DG "${dgRaw}" has no class, loaded as non-DG, check it`);
     const e=validate(s,true);if(e){errs.push(`line ${i+2}: ${e}`);return}
@@ -535,8 +538,9 @@ function nextNoAwb(extra){const used=new Set([...ships,...(extra||[])].map(s=>s.
 function parseCSV(t){const f=t.split('\n')[0],sep=f.includes('\t')?'\t':(f.split(';').length>f.split(',').length?';':',');const out=[];let row=[],cur='',q=false;
   for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===sep){row.push(cur);cur=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cur);out.push(row);row=[];cur=''}else cur+=c}
   if(cur!==''||row.length){row.push(cur);out.push(row)}return out}
-function mk(o){let dg=String(o.dg||'').trim().replace(/^class\s*/i,'').toUpperCase();if(/^1\.[1-6][A-L]?$/.test(dg))dg=dg==='1.4S'?'1.4S':'1';const known=DG.map(d=>d[0]);
-  return{id:o.id||uid(),awb:o.awb||'',pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:o.nat||'',shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>x.trim().toUpperCase()).filter(Boolean),dg:known.includes(dg)?dg:'',un:String(o.un||'').toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,at:o.at||new Date().toISOString()}}
+function mk(o){let dg=String(o.dg||'').trim().replace(/^class\s*/i,'').toUpperCase();if(/^1\.[1-6][A-L]?$/.test(dg))dg=dg==='1.4S'?'1.4S':'1';const known=DG.map(d=>d[0]);dg=known.includes(dg)?dg:'';
+  const sub=dg?[...new Set((Array.isArray(o.sub)?o.sub:String(o.sub||'').split(/[,;/\s]+/)).map(v=>{v=String(v).trim().replace(/^class/i,'').toUpperCase();return/^1\.[1-6][A-L]?$/.test(v)&&v!=='1.4S'?'1':v}).filter(v=>v&&v!==dg&&known.includes(v)))]:[];
+  return{id:o.id||uid(),awb:o.awb||'',pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:o.nat||'',shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>x.trim().toUpperCase()).filter(Boolean),dg,sub,un:String(o.un||'').toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,at:o.at||new Date().toISOString()}}
 /* manual placement: "Load on" choices */
 function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boolean))].sort();const next=k=>k+':'+(1+Math.max(0,...used.filter(p=>p.startsWith(k)).map(p=>+p.split(':')[1])));
   const label=p=>{const[k,n]=p.split(':');return k==='PMC'?`Manual pallet ${n}`:`Manual container ${n}`};
@@ -906,7 +910,8 @@ const DGSHC=['RLI','RFL','ICE','RCL','RNG','ROX','RPB','RRY','RCM','RFG','RFS','
 const KIND={g:{fill:'#8CC152',ink:'#1f3a0a',name:'General'},d:{fill:'#F5A623',ink:'#3d2400',name:'Dangerous goods'},p:{fill:'#6FB1F0',ink:'#0b2b4d',name:'Perishable'}};
 const shcClass=c=>DGSHC.includes(c)?'dg':(COLD.includes(c)||c==='EAT'?'cold':'');
 const shcHtml=list=>list.map(c=>`<span class="shc ${shcClass(c)}">${esc(c)}</span>`).join(' ');
-const dgChip=s=>s.dg?`<span class="shc dg">DG ${esc(s.dg)}${s.un?' '+esc(s.un):''}</span>`:'';
+const dgSubTxt=s=>s.sub&&s.sub.length?` (${s.sub.map(esc).join(', ')})`:'';
+const dgChip=s=>s.dg?`<span class="shc dg">DG ${esc(s.dg)}${dgSubTxt(s)}${s.un?' '+esc(s.un):''}</span>`:'';
 /* one line per AWB in a bulk hold, even when its pieces came from two containers */
 const mergeAwb=list=>{const m=new Map();list.forEach(x=>{const k=x.awb,e=m.get(k);if(e){e.pcs+=x.pcs;e.wt+=x.wt}else m.set(k,Object.assign({},x))});return[...m.values()]};
 const awbN=h=>new Set(h.items.map(x=>x.awb)).size;
@@ -1357,7 +1362,7 @@ $('listToggle').onclick=()=>panel('listPanel',$('listPanel').hidden);
 $('engToggle').onclick=()=>panel('engPanel',$('engPanel').hidden);
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>panel(b.dataset.close,false));
 $('moreBtn').onclick=()=>{const m=$('more'),o=m.hidden;m.hidden=!o;$('moreBtn').setAttribute('aria-expanded',String(o));$('moreBtn').textContent=o?'− Less':'+ More'};
-$('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:wtFromForm(),nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
+$('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:wtFromForm(),nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,sub:$('sSub').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
   const er=validate(s);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';
   if(editId){const old=ships.find(x=>x.id===editId);if(old){if(!s.awb)s.awb=/^No AWB \d+$/.test(old.awb)?old.awb:nextNoAwb();const{id:_i,at:_a,...patch}=s;updateShip(old.id,patch);report('Shipments!A1',[shipRow(old,'edited')]);toast(`${s.awb} updated`)}endEdit();panel('addPanel',false);return}
   if(!s.awb)s.awb=nextNoAwb();const pin=$('sPin').value;addShips([s]);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);wtHint();$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
@@ -1371,7 +1376,7 @@ let editId=null;
 function startEdit(id){const s=ships.find(x=>x.id===id);if(!s)return;editId=id;panel('addPanel',true);
   $('addTitle').textContent='Edit cargo · '+s.awb;$('fSubmit').textContent='Save changes';$('editCancel').hidden=false;$('sErr').textContent='';
   $('sAwb').value=/^No AWB \d+$/.test(s.awb)?'':s.awb;$('sNat').value=s.nat;$('sPcs').value=s.pcs;$('sWtMode').value='t';$('sWt').value=s.wt;
-  $('sL').value=s.l;$('sW').value=s.w;$('sH').value=s.h;$('sDg').value=s.dg;$('sUn').value=s.un;$('sShc').value=s.shc.join(', ');$('sOhg').value=s.ohg;$('sExcl').checked=s.excl;
+  $('sL').value=s.l;$('sW').value=s.w;$('sH').value=s.h;$('sDg').value=s.dg;$('sSub').value=(s.sub||[]).join(', ');$('sUn').value=s.un;$('sShc').value=s.shc.join(', ');$('sOhg').value=s.ohg;$('sExcl').checked=s.excl;
   $('sPin').innerHTML=pinOptions(s.pin);$('sPin').value=s.pin;
   if(s.shc.length||s.ohg||s.excl){$('more').hidden=false;$('moreBtn').setAttribute('aria-expanded','true');$('moreBtn').textContent='− Less'}
   wtHint();setTimeout(()=>{$('sNat').focus();$('addPanel').scrollIntoView({block:'nearest',behavior:RM?'auto':'smooth'})},80)}
@@ -1469,7 +1474,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.tot td{font-weig
 .tag{display:inline-block;border:1px solid #697386;border-radius:3px;padding:0 4px;margin:0 2px 1px 0;font-size:9.5px}.tag.dg{border-color:#DF1B41;color:#DF1B41}`;
 const fmtWhen=d=>d.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const prtRootVars=()=>{const m=(document.querySelector('style')||{}).textContent;const r=m&&m.match(/:root\{([^}]*)\}/);return r?`:root{${r[1]}}`:''};
-const shcTags=s=>[...(s.dg?[`<span class="tag dg">DG ${esc(s.dg)}${s.un?' '+esc(s.un):''}</span>`]:[]),...s.shc.map(c=>`<span class="tag">${esc(c)}</span>`)].join('')||'–';
+const shcTags=s=>[...(s.dg?[`<span class="tag dg">DG ${esc(s.dg)}${s.sub&&s.sub.length?' ('+s.sub.map(esc).join(', ')+')':''}${s.un?' '+esc(s.un):''}</span>`]:[]),...s.shc.map(c=>`<span class="tag">${esc(c)}</span>`)].join('')||'–';
 const posLabel=u=>u.pos?`${u.blk&&u.blk.c==='main'?'Main deck ':''}${u.pos}`:'not yet loaded';
 function uldSvg(u){const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 640 420');s.setAttribute('xmlns','http://www.w3.org/2000/svg');try{drawUldTo(s,u,-.5,null,null,0,null)}catch(e){return''}return s.outerHTML}
 function uldSheet(u,ac,when){
@@ -1530,37 +1535,37 @@ function openFb(){$('fbNudge').hidden=true;$('fbErr').textContent='';const d=$('
 function closeFb(){const d=$('fbDlg');if(d.close)d.close();else d.removeAttribute('open')}
 $('rateBtn').onclick=openFb;$('fbX').onclick=closeFb;$('fbLater').onclick=closeFb;
 /* ---------- DG acceptance check ---------- */
-let UNL=null,dgHits=[];
+let UNL=null,dgHits=[],dgLast='';
 async function unList(){if(!UNL){const r=await fetch('/adeyiq/un-list.json');if(!r.ok)throw new Error('list '+r.status);UNL=await r.json()}return UNL}
 const dgSubs=(cls,labels)=>String(labels||'').split(/,\s*/).filter(l=>/^\d(\.\d)?$/.test(l)&&l!==cls&&!cls.startsWith(l+'.')&&l!==String(cls).split('.')[0]);
-function dgApart(cand,subs){const probes=[...DG.filter(d=>d[0]).map(([c,t])=>[mk({dg:c}),c==='1'?t+' (not 1.4S)':t]),[mk({dg:'9',un:'UN3480'}),'Lithium / sodium-ion batteries (UN3480, UN3090, UN3551)'],[mk({shc:'EAT'}),'Food (EAT, PER…)'],[mk({shc:'AVI'}),'Live animals (AVI)'],[mk({shc:'HEG'}),'Hatching eggs (HEG)'],[mk({shc:'FIL'}),'Undeveloped film (FIL)']];
-  const all=[cand,...subs.map(s=>mk({dg:s}))];return probes.filter(([p])=>all.some(c=>conflict(c,p))).map(([,t])=>t)}
+function dgApart(cand){const probes=[...DG.filter(d=>d[0]).map(([c,t])=>[mk({dg:c}),c==='1'?t+' (not 1.4S)':t]),[mk({dg:'9',un:'UN3480'}),'Lithium / sodium-ion batteries (UN3480, UN3090, UN3551)'],[mk({shc:'EAT'}),'Food (EAT, PER…)'],[mk({shc:'AVI'}),'Live animals (AVI)'],[mk({shc:'HEG'}),'Hatching eggs (HEG)'],[mk({shc:'FIL'}),'Undeveloped film (FIL)']];
+  return probes.filter(([p])=>conflict(cand,p)).map(([,t])=>t)}
 function dgVerdict(r,ac){const[,cls,,,pax,cao]=r,fr=ac.g==='freighter';
   if(!cls||(pax==='Forbidden'&&cao==='Forbidden'))return['bad','Not loadable: forbidden on passenger and cargo aircraft'];
   if(pax==='Forbidden')return fr?['warn',`Loadable on the ${ac.name} only as Cargo Aircraft Only (CAO label; keep it accessible where the DGR requires)`]:['bad',`Not loadable on the ${ac.name} (passenger aircraft): Cargo Aircraft Only. Book it on a freighter`];
   return['ok',`Loadable on the ${ac.name}, within the package limits below`]}
 const dgQty=v=>/^\d/.test(v)?`${v} per package`:v||'—';
-function dgShow(id){const ac=acNow(),rows=(UNL.d[id]||[]);dgHits=rows.map(r=>({id,r}));
+function dgShow(id){dgLast=id;const ac=acNow(),rows=(UNL.d[id]||[]);dgHits=rows.map(r=>({id,r}));
   if(!rows.length){$('dgOut').innerHTML=`<div class="dgv warn">${esc(id)} is not in the list. Check the number in the IATA DGR, or enter the class by hand in Add Cargo.</div>`;return}
-  $('dgOut').innerHTML=rows.map((r,i)=>{const[name,cls,pg,labels,pax,cao]=r,[k,v]=dgVerdict(r,ac),subs=dgSubs(cls,labels),cand=mk({awb:'check',dg:cls,un:id,shc:id==='UN1845'?'ICE':''});
-    const apart=cand.dg?dgApart(cand,subs):[],clash=ships.filter(s=>conflict(cand,s)||subs.some(x=>conflict(mk({dg:x}),s)));
+  $('dgOut').innerHTML=rows.map((r,i)=>{const[name,cls,pg,labels,pax,cao]=r,[k,v]=dgVerdict(r,ac),subs=dgSubs(cls,labels),cand=mk({awb:'check',dg:cls,sub:subs,un:id,shc:id==='UN1845'?'ICE':''});
+    const apart=cand.dg?dgApart(cand):[],clash=ships.filter(s=>conflict(cand,s));
     return`<div class="dgcard"><h3>${esc(id)} · ${esc(name)}</h3><div class="dgv ${k}">${esc(v)}</div>
     <div class="dgkv"><span>Class / division</span><span>${esc(cls||'—')}${subs.length?` · subsidiary ${esc(subs.join(', '))}`:''}</span><span>Packing group</span><span>${esc(pg||'—')}</span><span>Hazard labels</span><span>${esc(labels||'none listed')}</span><span>Passenger aircraft</span><span>${esc(dgQty(pax))}</span><span>Cargo aircraft only</span><span>${esc(dgQty(cao))}</span></div>
     ${apart.length?`<div class="dgkv"><span>Keep apart from</span><span>${apart.map(esc).join(' · ')}</span></div>`:'<div class="note">No class-to-class segregation needed (DGR Table 9.3.A).</div>'}
     ${clash.length?`<div class="dgv warn">In your cargo now: ${clash.map(s=>esc(s.awb)+(s.dg?` (class ${esc(s.dg)})`:s.shc.length?` (${esc(s.shc.join(', '))})`:'')).join(', ')}. The build puts these in a different ULD.</div>`:''}
     ${k==='bad'&&v.startsWith('Not loadable: forbidden')?'':`<div><button class="btn sm" type="button" data-dgadd="${i}">＋ Add to cargo</button></div>`}</div>`}).join('')}
-function dgPick(list){$('dgOut').innerHTML=list.length?`<div class="note">Choose an entry:</div><div class="dgpick">${list.map(([id,name])=>`<button class="btn sm" type="button" data-dgid="${esc(id)}">${esc(id)} · ${esc(name.slice(0,48))}</button>`).join('')}</div>`:'<div class="dgv warn">Nothing found. Try the UN number, or a shorter part of the name.</div>'}
+function dgPick(list){dgLast='';$('dgOut').innerHTML=list.length?`<div class="note">Choose an entry:</div><div class="dgpick">${list.map(([id,name])=>`<button class="btn sm" type="button" data-dgid="${esc(id)}">${esc(id)} · ${esc(name.slice(0,48))}</button>`).join('')}</div>`:'<div class="dgv warn">Nothing found. Try the UN number, or a shorter part of the name.</div>'}
 async function dgCheck(){const q=$('dgQ').value.trim();if(!q){$('dgQ').focus();return}
   try{await unList()}catch(e){$('dgOut').innerHTML='<div class="dgv bad">The DG list could not be loaded. Check your connection and try again.</div>';return}
   const m=q.match(/^(?:UN|ID)?\s*(\d{1,4})$/i);if(m)return dgShow('UN'+m[1].padStart(4,'0'));
   if(q.length<3){$('dgOut').innerHTML='<div class="dgv warn">Type at least 3 letters of the name.</div>';return}
   const t=q.toLowerCase(),seen=new Set(),hits=[];for(const[id,rows]of Object.entries(UNL.d))for(const r of rows)if(r[0].toLowerCase().includes(t)&&!seen.has(id)){seen.add(id);hits.push([id,r[0]])}
   hits.length===1?dgShow(hits[0][0]):dgPick(hits.slice(0,12))}
-function dgAdd(i){const h=dgHits[+i];if(!h)return;const[name,cls,,,pax]=h.r,cand=mk({dg:cls});const d=$('dgDlg');if(d.close)d.close();else d.removeAttribute('open');
-  if(editId)endEdit();panel('addPanel',true);$('sDg').value=cand.dg;$('sUn').value=h.id;$('sNat').value=name.replace(/\s*\(check in DGR\)/,'').slice(0,40);
+function dgAdd(i){const h=dgHits[+i];if(!h)return;const[name,cls,,labels,pax]=h.r,cand=mk({dg:cls,sub:dgSubs(cls,labels)});const d=$('dgDlg');if(d.close)d.close();else d.removeAttribute('open');
+  if(editId)endEdit();panel('addPanel',true);$('sDg').value=cand.dg;$('sSub').value=cand.sub.join(', ');$('sUn').value=h.id;$('sNat').value=name.replace(/\s*\(check in DGR\)/,'').slice(0,40);
   const shc=new Set($('sShc').value.split(/[,\s;/]+/).filter(Boolean));if(pax==='Forbidden')shc.add('CAO');if(h.id==='UN1845')shc.add('ICE');$('sShc').value=[...shc].join(', ');
   toast(`${h.id} filled in. Add pieces, weight and size, then press Add`)}
-$('dgBtn').onclick=()=>{$('dgAc').textContent=acNow().name+(acNow().g==='freighter'?' (freighter)':' (passenger aircraft)');const d=$('dgDlg');if(d.showModal)d.showModal();else d.setAttribute('open','');setTimeout(()=>$('dgQ').focus(),5);unList().catch(()=>{})};
+$('dgBtn').onclick=()=>{$('dgAc').textContent=acNow().name+(acNow().g==='freighter'?' (freighter)':' (passenger aircraft)');if(dgLast&&UNL)dgShow(dgLast);else{dgLast='';$('dgOut').innerHTML=''}const d=$('dgDlg');if(d.showModal)d.showModal();else d.setAttribute('open','');setTimeout(()=>$('dgQ').focus(),5);unList().catch(()=>{})};
 $('dgX').onclick=()=>{const d=$('dgDlg');if(d.close)d.close();else d.removeAttribute('open')};
 $('dgForm').addEventListener('submit',e=>{e.preventDefault();dgCheck()});
 $('dgOut').addEventListener('click',e=>{const a=e.target.closest('[data-dgadd]'),p=e.target.closest('[data-dgid]');if(a)dgAdd(a.dataset.dgadd);if(p){$('dgQ').value=p.dataset.dgid;dgShow(p.dataset.dgid)}});
