@@ -300,6 +300,19 @@ const pga14 = await load777("AWB,Goods,Pieces,Weight,L,W,H\n" + Array.from({ len
 check(pga14.st2 === "Balanced ✓ · 2 offloaded" && !pga14.rows.some((r) => / Main [MN][LRP] /.test(r) && /Steel/.test(r) && / Main N/.test(r)), `14 PGA: only 6 pairs fit (the last row takes one pallet), 2 offloaded (${pga14.st2})`);
 const dgf = await load777("AWB,Goods,Pieces,Weight,L,W,H,DG\n071-77100011,Flammable liquids,52,52000,200,120,180,3\n071-77100022,Oxidizers,4,4000,200,120,180,5.1\n");
 check(dgf.st2 === "Balanced ✓ · 2 offloaded" && !dgf.rows.some((r) => /Oxidizers/.test(r)), `oxidizers are not squeezed into the single position next to flammable liquids (${dgf.st2})`);
+// heavy charter of low pieces (300 pieces, ~200 t, no AWB, all under 150 cm): built as lower-deck PMC pallets, which
+// the main deck takes two abreast like main-deck pallets, so all 27 main-deck positions are used (not 14 rows of one)
+const low = (() => {
+  let s = 7;
+  const R = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648), ri = (a, b) => Math.round(a + R() * (b - a));
+  const rows = ["Goods,Pieces,Weight,L,W,H"];
+  for (let i = 0; i < 300; i++) { const wt = ri(517, 817); rows.push([`Charter goods ${i}`, 1, wt, ri(105, 204), ri(78, 122), ri(62, 150)].join(",")); }
+  return rows.join("\n") + "\n";
+})();
+const lc = await load777(low);
+const lcMain = lc.rows.filter((r) => / Main [A-N][LRP] /.test(r)), lcPairs = lc.rows.filter((r) => / Main [A-M][LR] /.test(r)).length;
+check(lcMain.length === 27 && lcPairs === 26 && lc.rows.filter((r) => / (1\d|3\d)P /.test(r)).length === 10 && /^Balanced ✓ · \d+ offloaded$/.test(lc.st2),
+  `low-piece charter: 26 main-deck positions two abreast + the single last row, 10 lower deck, in balance (main ${lcMain.length}, paired ${lcPairs}; ${lc.st2})`);
 
 console.log("\nLocal performance (production build, this machine)");
 for (const p of ["/", "/build"]) {

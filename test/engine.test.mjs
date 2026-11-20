@@ -361,3 +361,66 @@ test("the downloadable cargo template: every column is understood, examples impo
   assert.equal(empty.list.length, 0);
   assert.match(empty.errs[0], /no cargo lines under the header/);
 });
+
+// Load planning (buildUlds + planLoad), read from the same page. The page reads its settings from input fields,
+// so $() returns the default value of each settings input; the aircraft is chosen through acNow().
+const inputDefaults = {};
+for (const m of html.matchAll(/<input id="(\w+)" type="number" value="([^"]*)"/g)) inputDefaults[m[1]] = m[2];
+const planSrc =
+  "var SEL,ships;\n" +
+  slice("const DG=[", "\n") + "\n" + slice("const CAO_UN=", "\n") + "\n" +
+  slice("const ULD={", "\n};") + "\n};\n" + slice("const AC=[", "\n];") + "\n];\n" +
+  "const R=k=>Number($(k).value)||0;\nconst acNow=()=>AC.find(a=>a.id===SEL);\n" +
+  slice("function fitsBase", "/* ---------- reading files") +
+  slice("function mk(o)", "}}\n") + "}}\n" +
+  slice("/* ---------- build ULDs", "/* ---------- 3D ULD") +
+  slice("function bounds(prof,z)", "\nlet yaw=") +
+  "\nthis.P={run(ac,list){SEL=ac;ships=list.map(mk);const b=buildUlds();return{b,p:planLoad(b)}},R};";
+const pctx = { Math, Map, Set, Array, Number, String, JSON, Object, performance, uid: (() => { let n = 0; return () => "p" + ++n; })(),
+  $: (id) => ({ value: inputDefaults[id] ?? "" }), fmt: (n, d = 0) => Number(n || 0).toFixed(d), BULKN: null };
+vm.createContext(pctx);
+vm.runInContext(planSrc, pctx);
+const { run: planRun, R: setting } = pctx.P;
+
+// heavy charter of low pieces (all under 150 cm): built as lower-deck-contour PMC pallets (163 cm), which the
+// 777F main deck must take two abreast like main-deck pallets (27 positions), not one per row (14)
+function lowCharter(seed, n = 300, extra = () => ({})) {
+  const R = rng(seed), ri = (a, b) => Math.round(a + R() * (b - a));
+  return Array.from({ length: n }, (_, i) => ({ awb: "", nat: "Goods " + i, pcs: 1, wt: ri(517, 817), l: ri(105, 204), w: ri(78, 122), h: ri(62, 150), ...extra(i) }));
+}
+function mainRows(b) {
+  const rows = {};
+  for (const u of b.ulds.filter((u) => u.blk && u.blk.c === "main")) (rows[u.pos[0]] = rows[u.pos[0]] || []).push(u);
+  return rows;
+}
+
+test("777F heavy charter of low pieces: lower-deck pallets fill all 27 main-deck positions two abreast", () => {
+  const list = lowCharter(7);
+  assert.ok(Math.abs(list.reduce((s, x) => s + x.wt, 0) - 200000) < 5000, "about 200 t booked");
+  const { b, p } = planRun("B777F", list);
+  const placed = b.ulds.filter((u) => u.pos), main = placed.filter((u) => u.blk.c === "main"), lower = placed.filter((u) => u.blk.c !== "main");
+  assert.ok(main.every((u) => u.type === "PMCL"), "all built as lower-deck pallets");
+  assert.equal(main.length, 27, `main deck takes 27 pallets (got ${main.length})`);
+  assert.equal(lower.length, 10, `lower deck takes 10 pallets (got ${lower.length})`);
+  const rows = mainRows(b);
+  assert.equal(Object.keys(rows).length, 14, "14 main-deck rows");
+  for (const [r, us] of Object.entries(rows)) {
+    if (r === "N") assert.deepEqual(us.map((u) => u.pos), ["NP"], "the last 777F row is one centreline position");
+    else assert.deepEqual(us.map((u) => u.pos).sort(), [r + "L", r + "R"], `row ${r} holds two pallets side by side`);
+  }
+  for (const c of p.C) assert.ok(c.kg <= c.maxKg, `${c.name} within its ${c.maxKg} kg limit (${Math.round(c.kg)} kg)`);
+  assert.ok(p.index >= setting("rIdxF") && p.index <= setting("rIdxA"), `balance index ${p.index.toFixed(1)} inside the limits`);
+  assert.equal(p.issues.filter((i) => i.k === "bad").length, 0, "no limit exceeded");
+  assert.ok(b.ulds.filter((u) => !u.pos).every((u) => b.offload.some((o) => o.uld === u)), "every ULD without a position is reported as offloaded");
+});
+
+test("lower-deck pallets sharing a main-deck row keep DG segregation (class 3 never beside 5.1)", () => {
+  const list = lowCharter(11, 200, (i) => (i % 4 === 0 ? { dg: "3", un: "UN1263" } : i % 4 === 2 ? { dg: "5.1", un: "UN1942" } : {}));
+  const { b } = planRun("B777F", list);
+  const has = (u, cls) => u.items.some((i) => i.s.dg === cls), rows = mainRows(b);
+  assert.ok(Object.values(rows).filter((us) => us.length === 2).length >= 10, "pallets are paired two abreast");
+  for (const [r, us] of Object.entries(rows)) {
+    assert.ok(us.length <= (r === "N" ? 1 : 2), `row ${r}: at most two pallets`);
+    assert.ok(!(us.some((u) => has(u, "3")) && us.some((u) => has(u, "5.1"))), `row ${r}: flammable liquids and oxidizers are not side by side`);
+  }
+});
