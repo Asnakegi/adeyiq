@@ -8,10 +8,11 @@ SheetJS in a worker, and the fixes listed in `REMEDIATION_REPORT.md`.
 **Not production-ready yet.** The code and the automated tests are ready. The release stays blocked until three
 things that only the owner can do are finished:
 
-1. **A real signed write reaches a real Google Sheet.** Run `scripts/verify-sheet-endpoint.mjs` against a deployed
-   test endpoint (section 2). Until then, the signed protocol has only been run against a local stand-in. That
-   stand-in runs the real `.gs` file with simulated Google services. `sheetConfigured: true` proves nothing here: it
-   only means the two environment variables are set.
+1. ~~A real signed write reaches a real Google Sheet~~ **Done on 20 Nov 2026 (Stage A, steps 1–7):** against a real
+   test deployment on a blank "AdeyIQ TEST" sheet, all 5 checks of `scripts/verify-sheet-endpoint.mjs` passed, and
+   the Usage tab got exactly one `owner-verify` row. The first run failed because Google's consent screen had not
+   granted the spreadsheet permission (granular consent). See "Stage A findings" below. Still open: Stage A steps 8–9
+   (the PR preview writing through Vercel), and the production switch (Stage B).
 2. ~~GitHub Actions passes on the pull request~~ **Done:** PR 6 CI passed (section 5). PR 6 was opened as a normal PR,
    not a draft. Convert it to draft, or simply do not merge it until Stage B.
 3. **The High-risk claude.ai artifacts get a decision.** They are outside this release, but they are the largest
@@ -45,16 +46,20 @@ Use a **new blank spreadsheet**, not a copy. A copy would duplicate the visitor 
    (raw file). Save.
 3. Generate a **test key** of 40+ random characters in your password manager. Use a different key from production.
 4. Project Settings → Script properties → add `ADEYIQ_KEY` = the test key.
-5. Deploy → New deployment → Web app. Execute as **Me**, Who has access **Anyone**. Authorise, then copy the `/exec`
-   URL. Keep it out of chat, code and the repo.
+5. Deploy → New deployment → Web app. Execute as **Me**, Who has access **Anyone**. Authorise. On Google's consent
+   screen, **tick "Select all"** (spreadsheets *and* send email). If you leave a box unticked, signatures still verify
+   but every write fails at step "append usage". Then copy the `/exec` URL. Keep it out of chat, code and the repo.
 6. On your PC, in the repo folder (PowerShell), run:
    ```
    $env:SHEET_URL="<test /exec URL>"; $env:SHEET_KEY="<test key>"; node scripts/verify-sheet-endpoint.mjs
    ```
    Expected: five lines that say PASS, then "All checks passed". The `Usage` tab of `AdeyIQ TEST` must contain
    **exactly one** new row with visitor `owner-verify`. Look at the sheet itself, because that row is the real proof.
-   If the first check fails, check Apps Script → Executions. It logs a fixed reason such as `bad signature` or
-   `ADEYIQ_KEY is missing`, and never the key or the data.
+   If the first check fails: the Executions page does **not** show log lines for anonymous web requests. Instead,
+   run any function from the editor that calls `doPost` with a signed envelope; the editor's Execution log then
+   shows the fixed reason or the failing step (for example `write failed at step "append usage"`), never the key or
+   the data. A missing permission shows up as "You do not have permission to call SpreadsheetApp.getActive" when the
+   function is run from the editor; fix it with Review permissions → Select all.
 7. Close the PowerShell window afterwards, so the key does not stay in its environment.
 8. Test through the site. In Vercel → Settings → Environment Variables, set **for Preview only**:
    `ADEYIQ_SHEET_URL` = the test URL and `ADEYIQ_SHEET_KEY` = the test key. Then redeploy the PR preview (Deployments
@@ -77,7 +82,8 @@ Do this only after Stage A passes and CI is green.
      production keeps working.
 3. Project Settings → Script properties → add `ADEYIQ_KEY` = the production key. The old deployed code ignores this
    property.
-4. Deploy → **New deployment** (not "Manage deployments → edit") → Web app, Execute as Me, access Anyone. Copy the new
+4. Deploy → **New deployment** (not "Manage deployments → edit") → Web app, Execute as Me, access Anyone. If Google
+   asks to authorise, tick every permission box (see Stage A step 5). Copy the new
    `/exec` URL. In Manage deployments you now see two active deployments. Leave the old one alone.
 5. Verify the new deployment directly:
    ```
@@ -121,6 +127,16 @@ Do **not** archive the old Apps Script deployment, or delete `ADEYIQ_KEY`, while
 Instant Rollback does not revert environment variables in the project settings. It reuses the old deployment's
 snapshot, which is why the table above has the extra step.
 
+### Stage A findings (20 Nov 2026)
+
+| Run | Result | Cause |
+|---|---|---|
+| 1 | Signed write refused, other 4 checks passed | The deployment was authorised without the spreadsheet scope. The editor diagnostic showed the key matching on both sides (same length and HMAC fingerprint) and the failure at step "append usage". |
+| 2 (after granting all permissions) | **All 5 checks passed**, one `owner-verify` row in Usage | Signed protocol confirmed end to end on real Google infrastructure: HMAC compatibility between Node and Apps Script, nonce cache, timestamp window. |
+
+The temporary diagnostic functions were removed from the test script afterwards. The test key exists only in the test
+script and on the owner's PC, never in chat or the repo. The test sheet and deployment can be deleted after Stage B.
+
 ## 5. CI on GitHub vs local results
 
 - **Pull request:** <https://github.com/Asnakegi/adeyiq/pull/6>, created by the owner, open and not merged.
@@ -135,7 +151,7 @@ snapshot, which is why the table above has the extra step.
 | `npm test` (API, Apps Script behaviour, engine, oversize) | 42/42, oversize pass |
 | `npm run build` | pass |
 | `npm run test:e2e` (next start + mock sheet running the real `.gs` + headless Chrome) | 105/105 |
-| `npm audit` | 0 vulnerabilities |
+| `npm audit` | 0 at the time; since 20 Nov one **moderate** advisory (minimatch, GHSA-g3hv-75wg-m249) in dev-only tools (shadcn, typescript-eslint). Not shipped to the site; CI's production audit passes. Fix in a separate dependency update. |
 
 Differences to watch for on CI (Ubuntu):
 
