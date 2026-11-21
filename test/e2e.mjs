@@ -565,9 +565,9 @@ console.log("\nMeasurement requests: planner → phone → review → apply (loc
     const blob=await new Promise(z=>c.toBlob(z,'image/png'));const dt=new DataTransfer();dt.items.add(new File([blob],'e2e.png',{type:'image/png'}));const f=document.getElementById('photo');f.files=dt.files;f.dispatchEvent(new Event('change'));
     await new Promise(z=>setTimeout(z,600));const cv=document.getElementById('cv'),b=cv.getBoundingClientRect();const tap=(px,py)=>cv.dispatchEvent(new PointerEvent('pointerdown',{clientX:b.left+px*b.width/cv.width,clientY:b.top+py*b.height/cv.height,bubbles:true}));
     tap(100,600);tap(600,600);tap(100,100);await new Promise(z=>setTimeout(z,50));const partial=document.getElementById('estBox').hidden;tap(100,488);await new Promise(z=>setTimeout(z,50));
-    const e=document.getElementById('est').textContent;document.getElementById('undo').click();tap(100,488);const again=document.getElementById('est').textContent;document.getElementById('useEst').click();
-    return {partial,e,again,h:document.getElementById('vH').value,how:document.getElementById('hH').textContent,file:f.files.length}})()`);
-  check(est.partial && est.e === "≈ 78 cm" && est.again === est.e && est.h === "78" && est.how === "Photo estimate", `camera mode: reference length + four taps give an estimate, labelled as such, with undo/retake (${JSON.stringify(est)})`);
+    const e=document.getElementById('est').textContent;document.getElementById('undo').click();tap(100,488);const again=document.getElementById('est').textContent,dir=document.getElementById('estWarn').textContent;document.getElementById('useEst').click();
+    return {partial,e,again,dir:/different directions/.test(dir),h:document.getElementById('vH').value,how:document.getElementById('hH').textContent,file:f.files.length}})()`);
+  check(est.partial && est.dir && est.e === "≈ 78 cm" && est.again === est.e && est.h === "78" && est.how === "Photo estimate", `camera mode: reference length + four taps give an estimate, labelled as such, with undo/retake, warning when reference and edge point different ways (${JSON.stringify(est)})`);
   await js(`(()=>{document.getElementById('camClose').click();const e=document.getElementById('vW');e.value='80';e.dispatchEvent(new Event('input'));document.getElementById('note').value='E2E skid included';document.getElementById('send').click()})()`);
   check(await until(`!document.getElementById('done').hidden`), "valid sizes are sent");
   const done = await js(`document.getElementById('done').innerText`);

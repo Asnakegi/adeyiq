@@ -105,7 +105,6 @@ td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
 
     <div class="cam" id="cam" hidden style="margin-top:8px;border-top:1px solid var(--line);padding-top:12px">
       <h2 id="camT">Photo for length</h2>
-      <label class="row" style="margin-bottom:8px"><span>Reference length</span><input class="txt" id="refLen" type="number" inputmode="decimal" min="1" step="0.1" placeholder="cm" style="width:110px"><span class="mut">cm</span></label>
       <div class="row" style="margin-bottom:8px">
         <label class="btn pri sm" for="photo" id="takeLbl">📷 Take photo</label><input type="file" id="photo" accept="image/*" capture="environment" hidden>
         <button class="btn sm" type="button" id="undo" hidden>Undo tap</button>
@@ -115,6 +114,7 @@ td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
       <p class="mut" id="tapHint" style="margin:6px 0"></p>
       <canvas id="cv" width="10" height="10" hidden aria-label="Your photo. Tap the ends of the reference and of the cargo edge."></canvas>
       <div id="estBox" hidden style="margin-top:10px">
+        <label class="row" style="margin-bottom:8px"><span>Length of the reference (blue line)</span><input class="txt" id="refLen" type="number" inputmode="decimal" min="1" step="0.1" placeholder="cm" style="width:110px"><span class="mut">cm</span></label>
         <div><span class="mut">Estimate:</span> <span class="est" id="est"></span></div>
         <div class="note warn" id="estWarn" hidden style="margin-top:6px"></div>
         <div class="row" style="margin-top:8px"><button class="btn pri" type="button" id="useEst">Use this estimate</button><label class="btn" for="photo">Retake</label></div>
@@ -202,17 +202,21 @@ function draw(){if(!img)return;cx.drawImage(img,0,0,cv.width,cv.height);const r=
   [[0,1,cRef],[2,3,cEdge]].forEach(([a,b,c])=>{if(pts[b]){cx.strokeStyle=c;cx.lineWidth=lw*1.5;cx.beginPath();cx.moveTo(pts[a].x,pts[a].y);cx.lineTo(pts[b].x,pts[b].y);cx.stroke()}});
   [...$('steps').children].forEach((b,i)=>b.className=i<pts.length?'done':i===pts.length?'on':'');
   $('undo').hidden=!pts.length;$('tapHint').textContent=pts.length<4?STEP[pts.length]:'Check the marks, then use the estimate or retake.';estimate()}
-cv.addEventListener('pointerdown',e=>{if(!img||pts.length>=4)return;const b=cv.getBoundingClientRect();pts.push({x:(e.clientX-b.left)*cv.width/b.width,y:(e.clientY-b.top)*cv.height/b.height});draw()});
+cv.addEventListener('pointerdown',e=>{if(!img||pts.length>=4)return;const b=cv.getBoundingClientRect();pts.push({x:(e.clientX-b.left)*cv.width/b.width,y:(e.clientY-b.top)*cv.height/b.height});draw();
+  if(pts.length===4&&!$('refLen').value)setTimeout(()=>$('refLen').focus(),50)});
 $('undo').onclick=()=>{pts.pop();draw()};
 $('refLen').addEventListener('input',estimate);
 let lastEst=null;
 function estimate(){lastEst=null;const box=$('estBox');if(pts.length<4){box.hidden=true;return}box.hidden=false;
   const ref=parseFloat($('refLen').value),w=$('estWarn');w.hidden=true;$('useEst').disabled=true;
-  if(!(ref>0)){$('est').textContent='—';w.hidden=false;w.textContent='Enter the reference length in cm above.';return}
+  if(!(ref>0)){$('est').textContent='—';w.hidden=false;w.textContent='Enter how long the reference (blue line) really is, in cm.';return}
   const dr=dist(pts[0],pts[1]),de=dist(pts[2],pts[3]),minPx=cv.width/40;
   if(dr<minPx||de<minPx){$('est').textContent='—';w.hidden=false;w.textContent='The marks are too close together. Move closer, or use a longer reference, and retake.';return}
   const v=Math.ceil(ref*de/dr),ratio=de/dr;lastEst=v;$('est').textContent='≈ '+v+' cm';$('useEst').disabled=!(v>0&&v<=MAXCM);
-  const warn=[];if(ratio>4)warn.push(`The reference is much shorter than the edge, so a small tapping error grows ${Math.round(ratio)}×. A longer reference or a tape is more reliable.`);
+  // a photo has perspective: a reference only scales an edge that runs the same way, in the same plane
+  const cos=Math.abs((pts[1].x-pts[0].x)*(pts[3].x-pts[2].x)+(pts[1].y-pts[0].y)*(pts[3].y-pts[2].y))/(dr*de);
+  const warn=[];if(cos<0.9)warn.push('The reference (blue) and the edge (red) point in different directions, so this estimate can be far off. Lay the reference along the edge you measure, or use a tape.');
+  if(ratio>4)warn.push(`The reference is much shorter than the edge, so a small tapping error grows ${Math.round(ratio)}×. A longer reference or a tape is more reliable.`);
   if(v>MAXCM)warn.push(`That is more than ${MAXCM} cm. Check the reference length and the taps.`);
   if(warn.length){w.hidden=false;w.textContent=warn.join(' ')}}
 $('useEst').onclick=()=>{if(lastEst==null)return;val[axis]=lastEst;how[axis]='photo';const inp=$('v'+axis.toUpperCase());inp.value=lastEst;inp.removeAttribute('aria-invalid');setHow(axis);
