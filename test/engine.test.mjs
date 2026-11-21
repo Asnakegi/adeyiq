@@ -382,8 +382,8 @@ const pctx = { Math, Map, Set, Array, Number, String, JSON, Object, performance,
   $: (id) => ({ value: inputDefaults[id] ?? "" }), fmt: (n, d = 0) => Number(n || 0).toFixed(d), BULKN: null,
   localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) } };
 vm.createContext(pctx);
-vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;", pctx);
-const { run: planRun, R: setting, setPayOwn, payMax, AC } = pctx.P;
+vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;this.P.recommend=list=>recommend(list.map(mk));", pctx);
+const { run: planRun, R: setting, setPayOwn, payMax, AC, recommend } = pctx.P;
 const withPayload = (id, kg, fn) => { setPayOwn(id, kg); try { return fn(); } finally { setPayOwn(id, 0); } };
 const onBoardKg = (b) => b.ulds.reduce((s, u) => s + (u.pos ? u.kg : 0), 0);
 
@@ -460,4 +460,23 @@ test("lower-deck pallets sharing a main-deck row keep DG segregation (class 3 ne
     assert.ok(us.length <= (r === "N" ? 1 : 2), `row ${r}: at most two pallets`);
     assert.ok(!(us.some((u) => has(u, "3")) && us.some((u) => has(u, "5.1"))), `row ${r}: flammable liquids and oxidizers are not side by side`);
   }
+});
+
+test("freighters are built on pallets only: no AKE containers on a 777F, AKE still used on a passenger aircraft", () => {
+  const small = Array.from({ length: 40 }, (_, i) => ({ awb: "", nat: "Box " + i, pcs: 4, wt: 120, l: 60, w: 40, h: 40 }));
+  assert.ok(planRun("B777F", small).b.ulds.every((u) => u.type !== "AKE"), "777F: no AKE");
+  assert.ok(planRun("B787-9", small).b.ulds.some((u) => u.type === "AKE"), "787-9: AKE containers for small boxes");
+});
+
+test("aircraft recommendation: fewest flights, then the smallest aircraft that carries every piece", () => {
+  const r = recommend(lowCharter(7));
+  assert.equal(r.best.ac.id, "B777F", `200 t charter: ${r.best.ac.id}`);
+  assert.equal(r.best.flights, 2, "200 t needs two 777F flights at 102 t");
+  const tall = [{ awb: "", nat: "Machine", pcs: 1, wt: 3000, l: 200, w: 150, h: 220 }];
+  assert.equal(recommend(tall).best.ac.g, "freighter", "a 220 cm piece needs a freighter main deck");
+  const boxes = [{ awb: "", nat: "Boxes", pcs: 20, wt: 2000, l: 60, w: 40, h: 40 }];
+  assert.notEqual(recommend(boxes).best.ac.g, "freighter", "2 t of small boxes fits a passenger aircraft");
+  const cao = [{ awb: "", nat: "Batteries", pcs: 2, wt: 200, l: 60, w: 40, h: 40, dg: "9", un: "UN3480" }];
+  assert.equal(recommend(cao).best.ac.g, "freighter", "cargo aircraft only goes on a freighter");
+  assert.equal(withPayload("B777F", 50000, () => recommend(lowCharter(7)).best.ac.id), "B747-8F", "uses the user payload figure (777F at 50 t needs 4 flights, 747-8F 2)");
 });

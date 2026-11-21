@@ -328,6 +328,15 @@ await js(`(async()=>{document.getElementById('payReset').click();await new Promi
 const p2 = await payState();
 check(p2.pay === "102000" && !p2.reset && !/B777F/.test(p2.saved || "") && kgOf(p2.tr) <= 102000, `"Use default" goes back to the 102,000 kg placeholder (${p2.pay}, ${p2.tr.replace(/\s+/g, " ")})`);
 
+// step 1 after an import: the not-loaded list stays closed behind one clear line (ULDs and tonnes), the recommended
+// aircraft is shown and one click switches to it; the less frequent tools sit behind "More tools"
+const rc = await js(`(async()=>{document.getElementById('st1').click();const s=document.getElementById('acSel');s.value='B787-9';s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,1500));
+  const o={rec:document.getElementById('rec').innerText,flag:document.getElementById('flagBtn').textContent,open:!document.getElementById('flags').hidden,tools:document.getElementById('moreTools').hidden};
+  document.getElementById('flagBtn').click();o.grp=document.getElementById('flags').innerText.replace(/\\s+/g,' ').slice(0,160);
+  document.getElementById('recUse').click();await new Promise(r=>setTimeout(r,1500));o.after=document.getElementById('acSel').value;return o})()`);
+check(/Recommended aircraft:\s*Boeing 777 Freighter/.test(rc.rec) && /2 flights/.test(rc.rec) && /^⚠ \d+ ULDs not loaded · [\d.]+ t left behind ▾$/.test(rc.flag) && !rc.open && rc.tools && /^\d+ ULDs · [\d.]+ t not loaded: max payload 20,000 kg of the Boeing 787-9 reached/.test(rc.grp) && rc.after === "B777F",
+  `200 t on a 787-9: "${rc.flag}" (list closed until clicked: ${rc.grp.slice(0, 90)}…), recommends the 777F (2 flights), "Use" switches (${rc.after})`);
+
 console.log("\nLocal performance (production build, this machine)");
 for (const p of ["/", "/build"]) {
   await go(p);

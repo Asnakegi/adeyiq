@@ -61,6 +61,9 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#i
 .step[aria-selected="true"] .num{background:var(--accent);color:var(--accent-ink)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;box-shadow:0 2px 5px -1px rgba(50,50,93,.08),0 1px 3px -1px rgba(0,0,0,.06)}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolrow:not([hidden]){display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-basis:100%;padding:8px 10px;border-radius:12px;background:var(--panel2)}
+.fgrp details{margin-top:6px}.fgrp summary{cursor:pointer;color:var(--link);font-weight:600}.fgrp ul{margin:6px 0 0;padding-left:18px}
+.rec{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--panel2);font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.rec b{font-weight:700}.rec .note{flex-basis:100%}
 .upsum{font-size:13px}.upsum p{margin:6px 0}.upsum ul{margin:2px 0 6px;padding-left:18px}.upsum li{margin:1px 0;overflow-wrap:anywhere}
 .drawers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;align-items:start}
 .ship select{font-size:12px;padding:4px 6px;border-radius:7px;width:200px;max-width:100%}
@@ -275,12 +278,16 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 <div class="toolbar">
   <button class="btn outline" id="addToggle" type="button" aria-expanded="false" aria-controls="addPanel">＋ Add Cargo</button>
   <button class="btn ghost" id="upBtn" type="button">↑ Import Manifest / CSV</button><input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden>
-  <a class="btn link" id="tplBtn" href="/adeyiq/adeyiq-cargo-template.xlsx" download="adeyiq-cargo-template.xlsx" title="Excel template: required fields marked *, a How to fill sheet and examples. Fill it and import it here">⬇ Cargo template</a><a class="btn link" id="tplCsv" href="/adeyiq/adeyiq-cargo-template.csv" download="adeyiq-cargo-template.csv" title="The same template as CSV (header row only)" style="padding-left:0">CSV</a>
-  <a class="btn ghost" id="specBtn" href="/aircraft-data" title="Doors, holds, contours and ULDs for this aircraft">⚙ Aircraft Spec: <span id="specAc">B787-9</span></a>
   <button class="btn ghost" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
-  <button class="btn ghost" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">✈ Engines &amp; gear</button>
-  <button class="btn ghost" id="dgBtn" type="button" title="Look up a UN number: can it fly on this aircraft, and what must it be kept apart from">⚠ DG acceptance</button>
+  <button class="btn ghost" id="toolsBtn" type="button" aria-expanded="false" aria-controls="moreTools">More tools ▾</button>
   <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
+  <!-- less frequent tools, one click away: cargo template, aircraft data, engines, DG lookup -->
+  <span class="toolrow" id="moreTools" hidden>
+    <a class="btn link" id="tplBtn" href="/adeyiq/adeyiq-cargo-template.xlsx" download="adeyiq-cargo-template.xlsx" title="Excel template: required fields marked *, a How to fill sheet and examples. Fill it and import it here">⬇ Cargo template (Excel)</a><a class="btn link" id="tplCsv" href="/adeyiq/adeyiq-cargo-template.csv" download="adeyiq-cargo-template.csv" title="The same template as CSV (header row only)" style="padding-left:0">CSV</a>
+    <a class="btn ghost" id="specBtn" href="/aircraft-data" title="Doors, holds, contours and ULDs for this aircraft">⚙ Aircraft spec: <span id="specAc">B787-9</span></a>
+    <button class="btn ghost" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">✈ Engines &amp; gear</button>
+    <button class="btn ghost" id="dgBtn" type="button" title="Look up a UN number: can it fly on this aircraft, and what must it be kept apart from">⚠ DG acceptance</button>
+  </span>
 </div>
 <div class="card upsum" id="upSum" hidden><div class="addhd"><b id="upSumT">Import</b><button class="x" type="button" id="upSumX" aria-label="Close">×</button></div><div id="upSumB"></div></div>
 <div class="drawers" id="drawers" hidden>
@@ -327,6 +334,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <div class="card">
     <div class="mainhd"><h2>ULD build-up</h2><div class="summary" id="sum"></div><button class="flag" id="flagBtn" type="button" hidden aria-expanded="false"></button></div>
     <div class="flags" id="flags" hidden></div>
+    <div class="rec" id="rec" hidden aria-live="polite"></div>
     <div class="strip" id="strip" role="group" aria-label="ULDs"></div>
     <div class="stage">
       <div>
@@ -504,6 +512,18 @@ const PAYK='adeyiq-payload';
 function payOwn(){try{const o=JSON.parse(localStorage.getItem(PAYK)||'{}');return o&&typeof o==='object'?o:{}}catch(e){return{}}}
 function setPayOwn(id,kg){try{const o=payOwn();if(kg>0)o[id]=Math.round(kg);else delete o[id];localStorage.setItem(PAYK,JSON.stringify(o))}catch(e){}}
 const payMax=ac=>{const v=Number(payOwn()[ac.id]);return v>0?v:ac.pay};
+/* aircraft recommendation for the cargo on the list: which aircraft can carry every piece (size, height, length, CAO),
+   and how many flights its max payload and usable ULD volume need. Fewest flights first, then the smallest such aircraft. */
+function canCarry(ac,s){const c=category(s);if(c==='X')return true;
+  if(ac.g!=='freighter'&&isCAO(s))return false;
+  if(ac.g==='narrow')return fitsDoor(s,ac.doorWH);
+  if(ac.g==='belly')return c!=='C'&&(!longPiece(s)||s.ohg>0);
+  if(longPiece(s)&&!s.ohg)return!ac.noPGA;return s.h<=Math.max(...mainTypes(ac).map(t=>ULD[t].H))}
+function capM3(ac){const eff=(R('rEff')||85)/100,lo=ac.low?(ac.low.fwd.rows+ac.low.aft.rows)*2*ULD.AKE.vol:0,ak=ac.akh?(ac.akh.fwd.rows+ac.akh.aft.rows)*2*ULD.AKH.vol:0,
+  bk=ac.bulkHolds?Object.values(ac.bulkHolds).reduce((s,h)=>s+h.m3,0):0,mn=ac.main?mainPos(ac)*ULD[mainTypes(ac)[mainTypes(ac).length-1]].vol:0;return(lo+ak+mn)*eff+bk}
+function recommend(list){const kg=list.reduce((s,x)=>s+x.wt,0),m3=list.reduce((s,x)=>s+volM3(x),0);
+  const all=AC.map(ac=>{const pay=payMax(ac),cap=capM3(ac),bad=list.filter(s=>!canCarry(ac,s));return{ac,pay,cap,all:!bad.length,bad:bad.length,flights:Math.max(1,Math.ceil(kg/pay-1e-9),Math.ceil(m3/cap-1e-9))}});
+  const ok=all.filter(r=>r.all).sort((a,b)=>a.flights-b.flights||a.pay-b.pay);return{kg,m3,best:ok[0]||null,all}}
 const mainPos=ac=>ac.main?ac.main.rows*(ac.main.single?1:2)-(ac.main.lastSingle?1:0):0;
 const pitchOf=(ac,key)=>key==='main'?MP(ac):156;
 function fitsDoor(s,wh){const d=[s.l,s.w,s.h].sort((a,b)=>a-b);return d[0]<=Math.min(...wh)&&d[1]<=Math.max(...wh)}
@@ -811,7 +831,8 @@ function buildUlds(){
       if(ac.akh&&s.h<=110&&fitsBase(s.l,s.w,150,150)&&!s.excl)place(s,['AKH']);else bulkLoads.push(s);return}
     if(g==='freighter'&&longPiece(s)){if(ac.noPGA)return offload.push({s,why:`too long for the ${ac.name}: book a wide-body freighter with 20 ft pallets`});const u=newUld('PGA');u.excl=true;add(u,s,s.pcs);return}
     let types;if(g==='belly')types=cat==='A'?['AKE','PMCL']:['PMCL'];
-    else{const MT=mainTypes(ac).filter(t=>ULD[t].h>=s.h),low=ac.low?(cat==='A'?['AKE','PMCL']:cat==='B'?['PMCL']:[]):[];types=[...low,...MT];
+    /* freighters are built on pallets only (lower-deck PMC and main-deck PMC); AKE containers are for passenger aircraft */
+    else{const MT=mainTypes(ac).filter(t=>ULD[t].h>=s.h),low=ac.low&&(cat==='A'||cat==='B')?['PMCL']:[];types=[...low,...MT];
       if(!types.length)return offload.push({s,why:`${s.h} cm high: above the ${Math.max(...mainTypes(ac).map(t=>ULD[t].H))} cm main-deck contour of the ${ac.name}`})}
     if(s.excl||s.ohg>0){const ok=types.filter(t=>!(ULD[t].half&&s.ohg>0)),fit=ok.find(t=>packFast(t,[{s,p:s.pcs}],s.ohg).notShown===0);
       if(!fit)return offload.push({s,why:`${s.l}×${s.w}×${s.h} cm does not fit inside the ${ac.name} ULD contours${g==='freighter'?' (needs a centreline main-deck position)':''}`});const u=newUld(fit);u.excl=true;u.ohg=s.ohg;add(u,s,s.pcs);return}
@@ -1026,8 +1047,25 @@ function render(){
   const bt=build;$('st1s').textContent=bt?`${bt.ulds.length} ULDs built`:'Add cargo and build ULDs';
   $('sum').innerHTML=bt?`<div><b>${bt.ulds.length}</b><span>ULDs</span></div><div><b>${fmt(bt.ulds.reduce((s,u)=>s+u.kg,0))}</b><span>kg built</span></div>${bt.bulk?`<div><b>${fmt(bt.bulk.reduce((s,h)=>s+h.usedKg,0))}</b><span>kg loose (bulk)</span></div>`:''}`:'';
   const off=bt?bt.offload:[],mw=bt?bt.manualWarn:[];const fb=$('flagBtn'),nf=off.length+mw.length;fb.hidden=!nf;
-  fb.textContent=`⚠ ${[off.length?`${off.length} not loaded`:'',mw.length?`${mw.length} to check`:''].filter(Boolean).join(' · ')}`;
-  $('flags').innerHTML=off.map(o=>o.uld?`<div><b>${esc(o.uld.id)}</b> (${esc([...new Set(o.uld.items.map(i=>i.s.awb))].join(', '))}) not loaded: ${esc(o.why)}.</div>`:`<div><b>${esc(o.s.awb)}</b> ${esc(o.s.nat)} not loaded: ${esc(o.why)}.</div>`).join('')+mw.map(w=>`<div>✋ ${esc(w)}</div>`).join('');if(!nf)$('flags').hidden=true;else if(nf>(render.nf||0))$('flags').hidden=false;render.nf=nf;$('flagBtn').setAttribute('aria-expanded',String(!$('flags').hidden));
+  /* not loaded: one short line on the button (how many ULDs / shipments and how many tonnes); the list stays closed until clicked,
+     ULDs left off for the same reason (max payload, no free position) are one group with their ULDs behind "Show" */
+  const offU=off.filter(o=>o.uld),offS=off.filter(o=>!o.uld),offKg=offU.reduce((s,o)=>s+o.uld.kg,0)+offS.reduce((s,o)=>s+o.s.wt,0),pl=(n,w)=>`${n} ${w}${n>1?'s':''}`;
+  fb.textContent=`⚠ ${[offU.length?pl(offU.length,'ULD')+' not loaded':'',offS.length?pl(offS.length,'shipment')+' not loaded':'',off.length?`${kgF(offKg)} left behind`:'',mw.length?`${mw.length} to check`:''].filter(Boolean).join(' · ')} ▾`;
+  const awbs=u=>esc([...new Set(u.items.map(i=>i.s.awb))].join(', ')),one=o=>o.uld?`<li><b>${esc(o.uld.id)}</b> · ${fmt(o.uld.kg)} kg · ${awbs(o.uld)}</li>`:'';
+  const grp=(list,title)=>{if(!list.length)return'';const kg=list.reduce((s,o)=>s+o.uld.kg,0);return`<div class="fgrp"><b>${pl(list.length,'ULD')} · ${kgF(kg)}</b> not loaded: ${title}<details><summary>Show the ${pl(list.length,'ULD')}</summary><ul>${list.map(one).join('')}</ul></details></div>`};
+  const gPay=offU.filter(o=>o.pay),gPos=offU.filter(o=>!o.pay&&/^no free /.test(o.why)),gOther=offU.filter(o=>!gPay.includes(o)&&!gPos.includes(o));
+  $('flags').innerHTML=grp(gPay,`max payload ${fmt(plan?plan.pay:0)} kg of the ${esc(bt?bt.ac.name:'')} reached. Choose a bigger aircraft or plan a second flight.`)+
+    grp(gPos,`no free position left on the ${esc(bt?bt.ac.name:'')}.`)+
+    gOther.map(o=>`<div><b>${esc(o.uld.id)}</b> (${awbs(o.uld)}) not loaded: ${esc(o.why)}.</div>`).join('')+
+    offS.map(o=>`<div><b>${esc(o.s.awb)}</b> ${esc(o.s.nat)} not loaded: ${esc(o.why)}.</div>`).join('')+mw.map(w=>`<div>✋ ${esc(w)}</div>`).join('');
+  if(!nf)$('flags').hidden=true;$('flagBtn').setAttribute('aria-expanded',String(!$('flags').hidden));
+  /* recommended aircraft: always shown once there is cargo (after an import too), with a one-click switch */
+  const rc=$('rec');rc.hidden=!ships.length;
+  if(ships.length){const r=recommend(ships),b=r.best,cur=r.all.find(x=>x.ac.id===ac.id),fl=x=>x.flights>1?`${x.flights} flights`:'one flight';
+    rc.innerHTML=`<span>✈ Recommended aircraft:</span>`+(b?`<b id="recAc">${esc(b.ac.name)}</b><span class="mut">${kgF(r.kg)} · ${fmt(r.m3,1)} m³ → ${fl(b)} (max payload ${kgF(b.pay)})</span>`+
+      (b.ac.id!==ac.id?`<button class="btn outline" type="button" id="recUse">Use the ${esc(b.ac.name)}</button>`:'<span>✓ selected</span>'):'<b>no single aircraft type carries every piece</b>')+
+      `<span class="note">On the ${esc(ac.name)}: ${cur.all?fl(cur):`${cur.bad} shipment${cur.bad>1?'s':''} cannot fly on it`} · max payload ${kgF(cur.pay)}${Number(payOwn()[ac.id])>0?' (your figure)':' (placeholder)'}. Planning aid; freighters use pallets, AKE containers are for passenger aircraft.</span>`;
+    if($('recUse'))$('recUse').onclick=()=>{$('acSel').value=b.ac.id;$('acSel').dispatchEvent(new Event('change'))}}
   $('strip').innerHTML=bt?bt.ulds.map(u=>{const pv=Math.round(Math.max(u.kg/u.max,u.m3/u.cap)*100);return `<button class="uchip ${u.flags.has('DG')?'dg':''}" type="button" data-u="${u.id}" aria-pressed="${u.id===selU}"><span style="display:flex;gap:2px">${[...new Set(u.items.map(i=>i.s.awb))].slice(0,4).map(a=>`<i style="width:8px;height:14px;border-radius:2px;background:${colorOf(a)}"></i>`).join('')}</span>${u.id}<span class="pct">${pv}%</span></button>`}).join('')+(bt.bulk?bt.bulk.map(h=>`<span class="uchip" style="cursor:default">Bulk ${h.k}<span class="pct">${fmt(h.usedKg)} kg</span></span>`).join(''):''):'';
   document.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{selU=b.dataset.u;hoverI=null;render()});
   renderInfo();drawIso();renderPick();$('toLoad').disabled=!bt;renderLoad();
@@ -1525,6 +1563,7 @@ function renderPick(){const bar=$('selBar'),u=build&&build.ulds.find(x=>x.id===s
 iso.addEventListener('pointerleave',()=>{tip.hidden=true;if(hoverI!==null){hoverI=null;drawIso()}});
 iso.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();yaw+=e.key==='ArrowLeft'?-.2:.2;drawIso()}});
 $('spin').onclick=()=>{spinOn=!spinOn;$('spin').setAttribute('aria-pressed',String(spinOn))};
+$('toolsBtn').onclick=()=>{const t=$('moreTools');t.hidden=!t.hidden;$('toolsBtn').setAttribute('aria-expanded',String(!t.hidden));$('toolsBtn').textContent=t.hidden?'More tools ▾':'More tools ▴'};
 $('flagBtn').onclick=()=>{const f=$('flags');f.hidden=!f.hidden;$('flagBtn').setAttribute('aria-expanded',String(!f.hidden))};
 function go(n){$('st1').setAttribute('aria-selected',String(n===1));$('st2').setAttribute('aria-selected',String(n===2));$('p1').hidden=n!==1;$('p2').hidden=n!==2;window.scrollTo({top:0,behavior:'smooth'})}
 $('st1').onclick=()=>go(1);$('st2').onclick=()=>{if(!build){toast('Add cargo first');return}go(2);savePlan();reportPlan()};
