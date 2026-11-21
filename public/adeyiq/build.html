@@ -62,6 +62,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#i
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;box-shadow:0 2px 5px -1px rgba(50,50,93,.08),0 1px 3px -1px rgba(0,0,0,.06)}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .toolrow:not([hidden]){display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-basis:100%;padding:8px 10px;border-radius:12px;background:var(--panel2)}
+.hbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}.uchip.off{border-style:dashed;opacity:.8}
+.lnk{font:inherit;border:0;background:none;padding:0;color:var(--link);font-weight:700;cursor:pointer;text-decoration:underline}
 .fgrp details{margin-top:6px}.fgrp summary{cursor:pointer;color:var(--link);font-weight:600}.fgrp ul{margin:6px 0 0;padding-left:18px}
 .rec{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--panel2);font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.rec b{font-weight:700}.rec .note{flex-basis:100%}
 .upsum{font-size:13px}.upsum p{margin:6px 0}.upsum ul{margin:2px 0 6px;padding-left:18px}.upsum li{margin:1px 0;overflow-wrap:anywhere}
@@ -512,6 +514,13 @@ const PAYK='adeyiq-payload';
 function payOwn(){try{const o=JSON.parse(localStorage.getItem(PAYK)||'{}');return o&&typeof o==='object'?o:{}}catch(e){return{}}}
 function setPayOwn(id,kg){try{const o=payOwn();if(kg>0)o[id]=Math.round(kg);else delete o[id];localStorage.setItem(PAYK,JSON.stringify(o))}catch(e){}}
 const payMax=ac=>{const v=Number(payOwn()[ac.id]);return v>0?v:ac.pay};
+/* changes made by hand on the load, per aircraft, kept in this browser only: ULDs offloaded (off) or loaded first (on) by hand,
+   and ULDs maximized to their contour (max: target ULD + the ULDs that were not loaded at that moment). A ULD is found by its
+   contents (type + pieces of each shipment), so the changes are replayed after every rebuild and simply stop matching when the cargo changes. */
+const HANDK='adeyiq-hand',uSig=u=>u.type+'|'+u.items.map(i=>i.s.id+'x'+i.p).sort().join(',');
+function handAll(){try{const o=JSON.parse(localStorage.getItem(HANDK)||'{}');return o&&typeof o==='object'?o:{}}catch(e){return{}}}
+function hand(id){const h=handAll()[id]||{};return{off:h.off||[],on:h.on||[],max:h.max||[]}}
+function setHand(id,h){try{const o=handAll();if(h.off.length||h.on.length||h.max.length)o[id]=h;else delete o[id];localStorage.setItem(HANDK,JSON.stringify(o))}catch(e){}}
 /* aircraft recommendation for the cargo on the list: which aircraft can carry every piece (size, height, length, CAO),
    and how many flights its max payload and usable ULD volume need. Fewest flights first, then the smallest such aircraft. */
 function canCarry(ac,s){const c=category(s);if(c==='X')return true;
@@ -771,7 +780,7 @@ function buildUlds(){
   /* how many more pieces of s physically fit in u: weight, volume, then a real 3D stacking check inside the contour */
   /* speed: packing results are remembered, the piece count is found by binary search (about 7 packs instead of 20+),
      and after 2.5 s of building the remaining checks use weight, volume and one-piece fit so the page never freezes */
-  const buildT0=performance.now(),overBudget=()=>performance.now()-buildT0>2500;
+  let exact=false;const buildT0=performance.now(),overBudget=()=>!exact&&performance.now()-buildT0>2500;
   function fitCount(u,s,left){const kp=s.wt/s.pcs,mp=s.l*s.w*s.h/1e6;let hi=Math.min(left,Math.floor((u.max-u.kg)/kp+1e-9),Math.floor((u.cap-u.m3)/mp+1e-9));
     if(hi<=0)return 0;
     if(overBudget())return packFast(u.type,[{s,p:1}]).notShown===0?hi:0;
@@ -851,6 +860,16 @@ function buildUlds(){
       if(ok){ulds.splice(ulds.indexOf(src),1);merged.push(src.id);changed=true}
       else snap.forEach(x=>{x.t.items=x.items;x.t.kg=x.kg;x.t.m3=x.m3;x.t.flags=x.flags})}
     if(!changed)break}
+  /* maximize by hand: fill the chosen ULD with pieces from the ULDs that were not loaded when the user asked, then from the emptiest
+     automatic ULDs, while weight, volume, the real 3D contour and DG segregation allow (always the full 3D check, no time shortcut) */
+  const sub=(u,s,p)=>{const it=u.items.find(i=>i.s===s);it.p-=p;if(!it.p)u.items.splice(u.items.indexOf(it),1);u.kg-=s.wt/s.pcs*p;u.m3-=s.l*s.w*s.h/1e6*p;
+    u.flags=new Set();u.items.forEach(i=>{if(i.s.dg)u.flags.add('DG');i.s.shc.forEach(c=>u.flags.add(c))})};
+  exact=true;
+  for(const op of hand(ac.id).max){const t=ulds.find(u=>uSig(u)===op.t);if(!t||t.excl||t.type==='PGA')continue;const from=new Set(op.from||[]),k0=t.kg;
+    const src=ulds.filter(u=>u!==t&&!u.excl&&!u.manual&&u.type!=='PGA').sort((a,b)=>(from.has(uSig(b))-from.has(uSig(a)))||a.m3-b.m3);
+    for(const s of src)for(const it of [...s.items]){if(t.h<it.s.h||!t.items.every(i=>i.s===it.s||!conflict(i.s,it.s)))continue;const k=fitCount(t,it.s,it.p);if(k>0){add(t,it.s,k);sub(s,it.s,k)}}
+    t.maxed=(t.maxed||0)+t.kg-k0;src.filter(s=>!s.items.length).forEach(s=>{ulds.splice(ulds.indexOf(s),1);merged.push(s.id)})}
+  exact=false;
   ships.forEach((a,i)=>ships.slice(i+1).forEach(b=>{const c=conflict(a,b);if(c)apart.push({a,b,c})}));
   let bulk=null;if(g==='narrow'){bulk=Object.entries(ac.bulkHolds).map(([k,v])=>({k,m3:v.m3*eff,kg:v.kg,used:0,usedKg:0,items:[]}));
     bulkLoads.forEach(s=>{const v=volM3(s);const h=bulk.filter(h=>h.items.every(i=>!conflict(i,s))).sort((a,b)=>a.usedKg/a.kg-b.usedKg/b.kg).find(h=>h.used+v<=h.m3&&h.usedKg+s.wt<=h.kg);if(h){h.items.push(s);h.used+=v;h.usedKg+=s.wt}else offload.push({s,why:`no room left in the bulk holds: ${bulk.map(h=>`${BULKN?BULKN[h.k]||h.k:h.k} ${fmt(h.usedKg)}/${fmt(h.kg)} kg, ${fmt(h.used,1)}/${fmt(h.m3,1)} m³`).join('; ')}`})})}
@@ -861,13 +880,14 @@ function planLoad(b){
   const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-18,18]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
   const lower=ac.low||ac.akh;if(lower)for(const k of['fwd','aft']){const r=lower[k].rows;C.push({key:k,name:k==='fwd'?'Forward hold':'Aft hold',len:r*156,used:0,blocks:[],a:arm[k],maxKg:r*2*R(ac.akh?'rAkh':'rAke')*(ac.akh?1:.9)})}
   if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:(()=>{const n=ac.main.rows;let s=0,k=0;for(let r=0;r<n;r++){const p=ac.main.single||(ac.main.lastSingle&&r===n-1)?1:2;s+=p*(arm.main[0]+(arm.main[1]-arm.main[0])*(r+.5)/n);k+=p}return[arm.main[0]-s/k,arm.main[1]-s/k]})(),maxKg:mainPos(ac)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
+  const H=hand(ac.id),hOff=new Set(H.off),hOn=new Set(H.on),hOnU=x=>x.ulds.some(u=>hOn.has(uSig(u)))?1:0;
   const pay=payMax(ac),bulkKg=()=>(b.bulk||[]).reduce((s,h)=>s+h.usedKg,0),onBoard=()=>bulkKg()+b.ulds.reduce((s,u)=>s+(u.pos?u.kg:0),0);
   const issues=[];let mom=0;if(!C.length){if(bulkKg()>pay)issues.push({k:'bad',t:`Over the ${fmt(pay)} kg max payload of the ${ac.name} (${fmt(bulkKg())} kg loaded)`});return{C,index:0,total:0,issues,pay,onBoard:bulkKg()}}
   const clash=(a,c)=>a.items.some(i=>c.items.some(j=>conflict(i.s,j.s)));
   const pairs=[];b.ulds.filter(u=>ULD[u.type].half).sort((x,y)=>y.kg-x.kg).forEach(u=>{const p=pairs.find(p=>p.length===1&&!clash(p[0],u));if(p)p.push(u);else pairs.push([u])});
   /* main-deck pallets go two abreast (left and right), a PGA pairs with another PGA over two rows */
   const mains=[];b.ulds.filter(u=>ULD[u.type].main).sort((x,y)=>y.kg-x.kg).forEach(u=>{const pga=u.type==='PGA',p=!ac.main.single&&mains.find(p=>p.length===1&&(p[0].type==='PGA')===pga&&!clash(p[0],u));if(p)p.push(u);else mains.push([u])});
-  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>((y.kind==='main'&&y.len>MP(ac))-(x.kind==='main'&&x.len>MP(ac)))||y.w-x.w);
+  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>((y.kind==='main'&&y.len>MP(ac))-(x.kind==='main'&&x.len>MP(ac)))||(hOnU(y)-hOnU(x))||y.w-x.w);
   const posArm=(c,st,len)=>{const f=(st+len/2)/c.len;return c.key==='fwd'?c.a[1]-(c.a[1]-c.a[0])*f:c.a[0]+(c.a[1]-c.a[0])*f};
   const noPos=[];
   const lowC=C.filter(c=>c.key!=='main'),mainC=C.filter(c=>c.key==='main');
@@ -875,6 +895,8 @@ function planLoad(b){
   const payWhy=u=>`max payload ${fmt(pay)} kg of the ${ac.name} reached (${fmt(onBoard())} kg loaded, ${u.id} weighs ${fmt(u.kg)} kg)`;
   for(const un of units){
     /* a pair (two abreast, or two containers in one row) that would go over is split: the one that fits is still tried */
+    /* offloaded by hand: stays off (its pair partner is still placed) */
+    {const off=un.ulds.filter(u=>hOff.has(uSig(u)));if(off.length){off.forEach(u=>noPos.push({s:u.items[0].s,why:'offloaded by hand',uld:u,hand:true}));un.ulds=un.ulds.filter(u=>!off.includes(u));if(!un.ulds.length)continue;un.w=un.ulds.reduce((s,u)=>s+u.kg,0)}}
     const room=pay-onBoard()+1e-6;let payDrop=[];
     if(un.w>room){const keep=un.ulds.length>1?un.ulds.filter(u=>u.kg<=room).slice(0,1):[];payDrop=un.ulds.filter(u=>!keep.includes(u)).map(u=>({s:u.items[0].s,why:payWhy(u),uld:u,pay:true}));
       if(!keep.length){noPos.push(...payDrop);continue}un.ulds=keep;un.w=keep[0].kg}
@@ -1051,12 +1073,13 @@ function render(){
      ULDs left off for the same reason (max payload, no free position) are one group with their ULDs behind "Show" */
   const offU=off.filter(o=>o.uld),offS=off.filter(o=>!o.uld),offKg=offU.reduce((s,o)=>s+o.uld.kg,0)+offS.reduce((s,o)=>s+o.s.wt,0),pl=(n,w)=>`${n} ${w}${n>1?'s':''}`;
   fb.textContent=`⚠ ${[offU.length?pl(offU.length,'ULD')+' not loaded':'',offS.length?pl(offS.length,'shipment')+' not loaded':'',off.length?`${kgF(offKg)} left behind`:'',mw.length?`${mw.length} to check`:''].filter(Boolean).join(' · ')} ▾`;
-  const awbs=u=>esc([...new Set(u.items.map(i=>i.s.awb))].join(', ')),one=o=>o.uld?`<li><b>${esc(o.uld.id)}</b> · ${fmt(o.uld.kg)} kg · ${awbs(o.uld)}</li>`:'';
+  const awbs=u=>esc([...new Set(u.items.map(i=>i.s.awb))].join(', ')),one=o=>o.uld?`<li><button type="button" class="lnk" data-open="${esc(o.uld.id)}" title="Open the 3D build of ${esc(o.uld.id)}">${esc(o.uld.id)}</button> · ${fmt(o.uld.kg)} kg · ${awbs(o.uld)}</li>`:'';
   const grp=(list,title)=>{if(!list.length)return'';const kg=list.reduce((s,o)=>s+o.uld.kg,0);return`<div class="fgrp"><b>${pl(list.length,'ULD')} · ${kgF(kg)}</b> not loaded: ${title}<details><summary>Show the ${pl(list.length,'ULD')}</summary><ul>${list.map(one).join('')}</ul></details></div>`};
-  const gPay=offU.filter(o=>o.pay),gPos=offU.filter(o=>!o.pay&&/^no free /.test(o.why)),gOther=offU.filter(o=>!gPay.includes(o)&&!gPos.includes(o));
+  const gPay=offU.filter(o=>o.pay),gHand=offU.filter(o=>o.hand),gPos=offU.filter(o=>!o.pay&&!o.hand&&/^no free /.test(o.why)),gOther=offU.filter(o=>!gPay.includes(o)&&!gPos.includes(o)&&!gHand.includes(o));
   $('flags').innerHTML=grp(gPay,`max payload ${fmt(plan?plan.pay:0)} kg of the ${esc(bt?bt.ac.name:'')} reached. Choose a bigger aircraft or plan a second flight.`)+
-    grp(gPos,`no free position left on the ${esc(bt?bt.ac.name:'')}.`)+
-    gOther.map(o=>`<div><b>${esc(o.uld.id)}</b> (${awbs(o.uld)}) not loaded: ${esc(o.why)}.</div>`).join('')+
+    grp(gPos,`no free position left on the ${esc(bt?bt.ac.name:'')}.`)+grp(gHand,'offloaded by hand.')+
+    (off.length?'<div class="note" style="background:none;padding:2px 0">Click a ULD to see how it is built; there you can load it, offload it or maximize it to its contour.</div>':'')+
+    gOther.map(o=>`<div><button type="button" class="lnk" data-open="${esc(o.uld.id)}">${esc(o.uld.id)}</button> (${awbs(o.uld)}) not loaded: ${esc(o.why)}.</div>`).join('')+
     offS.map(o=>`<div><b>${esc(o.s.awb)}</b> ${esc(o.s.nat)} not loaded: ${esc(o.why)}.</div>`).join('')+mw.map(w=>`<div>✋ ${esc(w)}</div>`).join('');
   if(!nf)$('flags').hidden=true;$('flagBtn').setAttribute('aria-expanded',String(!$('flags').hidden));
   /* recommended aircraft: always shown once there is cargo (after an import too), with a one-click switch */
@@ -1066,7 +1089,7 @@ function render(){
       (b.ac.id!==ac.id?`<button class="btn outline" type="button" id="recUse">Use the ${esc(b.ac.name)}</button>`:'<span>✓ selected</span>'):'<b>no single aircraft type carries every piece</b>')+
       `<span class="note">On the ${esc(ac.name)}: ${cur.all?fl(cur):`${cur.bad} shipment${cur.bad>1?'s':''} cannot fly on it`} · max payload ${kgF(cur.pay)}${Number(payOwn()[ac.id])>0?' (your figure)':' (placeholder)'}. Planning aid; freighters use pallets, AKE containers are for passenger aircraft.</span>`;
     if($('recUse'))$('recUse').onclick=()=>{$('acSel').value=b.ac.id;$('acSel').dispatchEvent(new Event('change'))}}
-  $('strip').innerHTML=bt?bt.ulds.map(u=>{const pv=Math.round(Math.max(u.kg/u.max,u.m3/u.cap)*100);return `<button class="uchip ${u.flags.has('DG')?'dg':''}" type="button" data-u="${u.id}" aria-pressed="${u.id===selU}"><span style="display:flex;gap:2px">${[...new Set(u.items.map(i=>i.s.awb))].slice(0,4).map(a=>`<i style="width:8px;height:14px;border-radius:2px;background:${colorOf(a)}"></i>`).join('')}</span>${u.id}<span class="pct">${pv}%</span></button>`}).join('')+(bt.bulk?bt.bulk.map(h=>`<span class="uchip" style="cursor:default">Bulk ${h.k}<span class="pct">${fmt(h.usedKg)} kg</span></span>`).join(''):''):'';
+  $('strip').innerHTML=bt?bt.ulds.map(u=>{const pv=Math.round(Math.max(u.kg/u.max,u.m3/u.cap)*100);return `<button class="uchip ${u.flags.has('DG')?'dg':''}${plan&&plan.C.length&&!u.pos?' off':''}" type="button" data-u="${u.id}"${plan&&plan.C.length&&!u.pos?' title="Not loaded"':''} aria-pressed="${u.id===selU}"><span style="display:flex;gap:2px">${[...new Set(u.items.map(i=>i.s.awb))].slice(0,4).map(a=>`<i style="width:8px;height:14px;border-radius:2px;background:${colorOf(a)}"></i>`).join('')}</span>${u.id}<span class="pct">${pv}%</span></button>`}).join('')+(bt.bulk?bt.bulk.map(h=>`<span class="uchip" style="cursor:default">Bulk ${h.k}<span class="pct">${fmt(h.usedKg)} kg</span></span>`).join(''):''):'';
   document.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{selU=b.dataset.u;hoverI=null;render()});
   renderInfo();drawIso();renderPick();$('toLoad').disabled=!bt;renderLoad();
 }
@@ -1077,6 +1100,26 @@ function mergeLine(u){if(u.excl)return'<div class="mergeline">Own ULD: not share
   const free=others.map(o=>({o,m3:Math.max(0,o.cap-o.m3),kg:Math.max(0,o.max-o.kg)})),fm3=free.reduce((t,f)=>t+f.m3,0);
   const why=u.m3>fm3?`needs ${fmt(u.m3,1)} m³ but the other ULDs have only ${fmt(fm3,1)} m³ free`:`the spare space in the other ULDs does not take every piece inside the contour`;
   return`<div class="mergeline">Merge check: ${u.id}'s cargo (${fmt(u.m3,1)} m³, ${fmt(u.kg)} kg) cannot move into the other ULDs: ${why} (${free.map(f=>`${f.o.id} ${fmt(f.m3,1)} m³ free`).join(', ')}).${build.merged&&build.merged.length?' '+build.merged.length+' small ULD'+(build.merged.length>1?'s were':' was')+' already merged into spare space.':''}</div>`}
+/* hand changes on one ULD: offload it, load it first (a lighter ULD makes room), maximize it to its contour, undo */
+function handBar(u){if(!build||!plan||!plan.C.length)return'';const H=hand(build.ac.id),sg=uSig(u),o=build.offload.find(x=>x.uld===u),n=H.off.length+H.on.length+H.max.length;
+  return `<div class="hbar">${o?`<div class="warnline" style="flex-basis:100%">Not loaded: ${esc(o.why)}.</div>`:''}`+
+    (u.pos?`<button class="btn sm" type="button" data-hact="off" data-hu="${u.id}" title="Take this ULD off the aircraft; the plan fills its place">⬇ Offload this ULD</button>`
+      :`<button class="btn sm" type="button" data-hact="on" data-hu="${u.id}" title="Load this ULD first; a lighter ULD is offloaded if there is no room or payload left">⬆ Load this ULD</button>`)+
+    (!u.excl&&u.type!=='PGA'?`<button class="btn sm" type="button" data-hact="max" data-hu="${u.id}" title="Add pieces from the ULDs that are not loaded (then the emptiest ones) while weight, volume, the 3D contour and DG rules allow">⤢ Maximize to contour</button>`:'')+
+    (n?`<button class="btn sm ghost" type="button" data-hact="reset" title="Remove all hand changes for this aircraft">↺ Undo hand changes (${n})</button>`:'')+
+    `${u.maxed>0?`<span class="note">Maximized by hand: +${fmt(u.maxed)} kg</span>`:''}${H.on.includes(sg)?'<span class="note">Loaded first by hand</span>':''}</div>`}
+function handAct(id,a){if(!build)return;const ac=build.ac,H=hand(ac.id),u=build.ulds.find(x=>x.id===id);
+  if(a==='reset'){setHand(ac.id,{off:[],on:[],max:[]});refresh();toast('Hand changes undone');return}
+  if(!u)return;const sg=uSig(u),k0=u.kg;
+  if(a==='off'){H.on=H.on.filter(x=>x!==sg);if(!H.off.includes(sg))H.off.push(sg)}
+  if(a==='on'){H.off=H.off.filter(x=>x!==sg);if(!H.on.includes(sg))H.on.push(sg)}
+  if(a==='max')H.max.push({t:sg,from:build.ulds.filter(x=>x!==u&&!x.pos).map(uSig)});
+  setHand(ac.id,H);refresh();const nu=build&&build.ulds.find(x=>x.id===id);
+  if(a==='max'){if(!nu||nu.kg<=k0+1e-6){H.max.pop();setHand(ac.id,H);refresh();toast(`Nothing more fits in ${id} (weight, volume, contour or DG)`)}else toast(`${id} maximized: ${fmt(k0)} → ${fmt(nu.kg)} kg`)}
+  else if(a==='on')toast(nu&&nu.pos?`${id} loaded at ${nu.pos}`:`${id} still not loaded: ${(build.offload.find(o=>o.uld===nu)||{}).why||'no room'}`);
+  else toast(`${id} offloaded by hand`)}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-hact]');if(b){handAct(b.dataset.hu,b.dataset.hact);return}
+  const o=e.target.closest&&e.target.closest('[data-open]');if(o&&build){selU=o.dataset.open;hoverI=null;go(1);render();$('info').scrollIntoView({behavior:'smooth',block:'start'})}});
 function renderInfo(){
   const u=build&&build.ulds.find(x=>x.id===selU),el=$('info');
   if(!u){el.innerHTML=build&&build.bulk?'<h2>Bulk loading</h2><p class="note">This aircraft carries loose cargo in its holds. Weights per hold are shown in the strip above and checked in step 2.</p>':'<p class="note">The ULDs appear here as soon as you add cargo.</p>';return}
@@ -1084,7 +1127,8 @@ function renderInfo(){
   const awbs=[...new Set(u.items.map(i=>i.s))];
   const apart=build.apart.filter(x=>u.items.some(i=>i.s===x.a||i.s===x.b));
   const ov=Math.round(Math.max(0,...pk.boxes.map(b=>Math.max(-b.y0,b.y1-T.Dp,-b.x0,b.x1-T.W))));
-  el.innerHTML=`<div class="id">${u.id}</div><div class="ty">${T.name}${u.pos?` · position ${u.pos}`:''}${u.manual?' · <b>built by hand</b>'+(u.cont?' · continues '+u.cont:''):''}</div>
+  el.innerHTML=`<div class="id">${u.id}</div><div class="ty">${T.name}${u.pos?` · position ${u.pos}`:''}${u.manual?' · <b>built by hand</b>'+(u.cont?' · continues '+u.cont:''):''}${u.pos?'':' · <b>not loaded</b>'}</div>
+   ${handBar(u)}
    ${ov>0?`<div class="warnline" style="background:var(--warn-bg)">Overhang: cargo sticks out ${ov} cm beyond the pallet edge${u.ohg?` · OHG ${u.ohg}% of the next position`:''}.</div>`:''}
    ${u.warn&&u.warn.length?`<div class="warnline">✋ Check: ${u.warn.map(esc).join('; ')}.</div>`:''}
    <div class="kv" style="margin-top:12px"><span>Volume fill</span><span><b>${pv<1&&pv>0?pv.toFixed(1):fmt(pv)}%</b> (${fmt(u.m3,1)} / ${fmt(u.cap,1)} m³)</span></div><div class="bar" role="img" aria-label="Volume fill ${fmt(pv)}%"><i class="${pv>100?'over':pv>90?'hi':''}" style="width:${Math.min(100,pv)}%"></i></div>
@@ -1251,7 +1295,7 @@ function buildXs(){
 }
 function awbLines(u){return consign(u).map(c=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><i class="sw" style="background:${c.col}"></i><span class="mono">${esc(c.awb)}</span><span class="mut">${esc(c.s.nat||'Cargo')} · ${c.p} pcs · ${kgF(c.kg)}</span>${shcHtml(c.s.shc)}${dgChip(c.s)}</div>`).join('')}
 function sideHtml(u){const k=KIND[kindOf(u)];
-  return `<div class="pside"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="mono" style="font-weight:600">${u.pos} · ${u.id}</span><span class="tag" style="background:${k.fill};color:${k.ink}">${k.name}</span><span class="mono mut">${kgF(u.kg)}</span></div><span class="mut" style="font-size:12px">${ULD[u.type].name}${u.manual?' · built by hand':''}</span>${awbLines(u)}</div>`}
+  return `<div class="pside"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="mono" style="font-weight:600">${u.pos} · ${u.id}</span><span class="tag" style="background:${k.fill};color:${k.ink}">${k.name}</span><span class="mono mut">${kgF(u.kg)}</span></div><span class="mut" style="font-size:12px">${ULD[u.type].name}${u.manual?' · built by hand':''}</span>${awbLines(u)}<span><button class="btn sm" type="button" data-hact="off" data-hu="${u.id}">⬇ Offload this ULD</button> <button class="btn sm ghost" type="button" data-open="${u.id}">See the build-up</button></span></div>`}
 function buildDet(){
   const el=$('det'),sl=curSlot();
   if(!sl){el.innerHTML='<span class="mut">Select a position on the aircraft.</span>';return}
@@ -1494,8 +1538,10 @@ function renderLoad(){
   const lowRows=(ac.low?ac.low.fwd.rows+ac.low.aft.rows:ac.akh?ac.akh.fwd.rows+ac.akh.aft.rows:0);
   $('facts').textContent=`${ac.name} · length ${a.len} m · fuselage ${a.dia} m`+(ac.main?` · main deck ${mainPos(ac)} pallet positions`:'')+(lowRows?` · lower deck ${lowRows*2} ${ac.akh?'AKH':'LD3'}${ac.low&&ac.low.fwd.pal?` or ${ac.low.fwd.pal+ac.low.aft.pal} pallet`:''} positions`:'')+(build.bulk?` · bulk ${fmt(Object.values(ac.bulkHolds).reduce((s,h)=>s+h.m3,0),1)} m³`:'');
   setModeBtns();refresh2();
-  const al=[...build.offload.filter(o=>o.uld).map(o=>({k:'bad',t:`${o.uld.id}: ${o.why}`})),...plan.issues];
-  $('loadAlerts').innerHTML=al.length?al.map(x=>`<div class="alert ${x.k}">${x.k==='bad'?'⛔':'ℹ'}<span>${esc(x.t)}</span></div>`).join(''):'<div class="alert ok">✓<span>All ULDs placed, within limits, dangerous goods kept apart.</span></div>';
+  const al=[...build.offload.filter(o=>o.uld).map(o=>({k:'bad',t:`${o.uld.id}: ${o.why}`,u:o.uld})),...plan.issues];
+  const offL=al.filter(x=>x.u),offKgL=offL.reduce((s,x)=>s+x.u.kg,0);
+  $('loadAlerts').innerHTML=al.length?(offL.length?`<div class="alert bad">⛔<div style="min-width:0;flex:1"><span>${offL.length} ULD${offL.length>1?'s':''} offloaded · ${kgF(offKgL)}</span><details class="fgrp"><summary>Show them · load one by hand</summary><ul>${offL.map(x=>`<li><b>${esc(x.u.id)}</b> · ${fmt(x.u.kg)} kg · ${esc(x.t.slice(x.u.id.length+2).replace(/ of the .*$/,' reached').replace(/ for \S+ \(.*$/,''))} <button class="btn sm" type="button" data-hact="on" data-hu="${esc(x.u.id)}">⬆ Load</button> <button class="btn sm ghost" type="button" data-open="${esc(x.u.id)}">See</button></li>`).join('')}</ul></details></div></div>`:'')+
+    al.filter(x=>!x.u).map(x=>`<div class="alert ${x.k}">${x.k==='bad'?'⛔':'ℹ'}<span>${esc(x.t)}</span></div>`).join(''):'<div class="alert ok">✓<span>All ULDs placed, within limits, dangerous goods kept apart.</span></div>';
   $('comp').innerHTML=plan.C.length?`<div class="tbl"><table><thead><tr><th>Hold</th><th class="num">Used</th><th class="num">kg</th><th class="num">Limit</th></tr></thead><tbody>${plan.C.map(c=>`<tr><td>${c.name}</td><td class="num">${Math.round((c.fill??(c.used-(c.lead||0)))/c.len*100)}%</td><td class="num">${fmt(c.kg)}</td><td class="num">${fmt(c.maxKg)}</td></tr>`).join('')}<tr id="payTr"><td><b>Aircraft payload</b></td><td class="num">${Math.round(plan.onBoard/plan.pay*100)}%</td><td class="num">${fmt(plan.onBoard)}</td><td class="num">${fmt(plan.pay)}</td></tr></tbody></table></div><p class="note">Planning aid with placeholder limits; the load sheet comes from the airline's approved weight-and-balance system.</p>`:'';
 }
 

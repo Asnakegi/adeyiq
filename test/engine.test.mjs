@@ -382,8 +382,8 @@ const pctx = { Math, Map, Set, Array, Number, String, JSON, Object, performance,
   $: (id) => ({ value: inputDefaults[id] ?? "" }), fmt: (n, d = 0) => Number(n || 0).toFixed(d), BULKN: null,
   localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) } };
 vm.createContext(pctx);
-vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;this.P.recommend=list=>recommend(list.map(mk));", pctx);
-const { run: planRun, R: setting, setPayOwn, payMax, AC, recommend } = pctx.P;
+vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;this.P.recommend=list=>recommend(list.map(mk));this.P.uSig=uSig;this.P.setHand=setHand;", pctx);
+const { run: planRun, R: setting, setPayOwn, payMax, AC, recommend, uSig, setHand } = pctx.P;
 const withPayload = (id, kg, fn) => { setPayOwn(id, kg); try { return fn(); } finally { setPayOwn(id, 0); } };
 const onBoardKg = (b) => b.ulds.reduce((s, u) => s + (u.pos ? u.kg : 0), 0);
 
@@ -391,7 +391,7 @@ const onBoardKg = (b) => b.ulds.reduce((s, u) => s + (u.pos ? u.kg : 0), 0);
 // 777F main deck must take two abreast like main-deck pallets (27 positions), not one per row (14)
 function lowCharter(seed, n = 300, extra = () => ({})) {
   const R = rng(seed), ri = (a, b) => Math.round(a + R() * (b - a));
-  return Array.from({ length: n }, (_, i) => ({ awb: "", nat: "Goods " + i, pcs: 1, wt: ri(517, 817), l: ri(105, 204), w: ri(78, 122), h: ri(62, 150), ...extra(i) }));
+  return Array.from({ length: n }, (_, i) => ({ id: `c${seed}-${i}`, awb: "", nat: "Goods " + i, pcs: 1, wt: ri(517, 817), l: ri(105, 204), w: ri(78, 122), h: ri(62, 150), ...extra(i) }));
 }
 function mainRows(b) {
   const rows = {};
@@ -479,4 +479,38 @@ test("aircraft recommendation: fewest flights, then the smallest aircraft that c
   const cao = [{ awb: "", nat: "Batteries", pcs: 2, wt: 200, l: 60, w: 40, h: 40, dg: "9", un: "UN3480" }];
   assert.equal(recommend(cao).best.ac.g, "freighter", "cargo aircraft only goes on a freighter");
   assert.equal(withPayload("B777F", 50000, () => recommend(lowCharter(7)).best.ac.id), "B747-8F", "uses the user payload figure (777F at 50 t needs 4 flights, 747-8F 2)");
+});
+
+// changes by hand on the load (offload, load first, maximize to the contour), replayed after every rebuild
+const withHand = (id, h, fn) => { setHand(id, { off: [], on: [], max: [], ...h }); try { return fn(); } finally { setHand(id, { off: [], on: [], max: [] }); } };
+const pieces = (b) => b.ulds.reduce((s, u) => s + u.items.reduce((a, i) => a + i.p, 0), 0) + b.offload.filter((o) => !o.uld).reduce((s, o) => s + o.s.pcs, 0);
+
+test("by hand: an offloaded ULD can be loaded (a lighter one makes room) and a loaded one offloaded, within payload and balance", () => {
+  const list = lowCharter(7), base = planRun("B777F", list);
+  const out = base.b.ulds.find((u) => !u.pos), inn = base.b.ulds.filter((u) => u.pos).sort((a, b) => a.kg - b.kg)[0];
+  const on = withHand("B777F", { on: [uSig(out)] }, () => planRun("B777F", list));
+  const got = on.b.ulds.find((u) => uSig(u) === uSig(out));
+  assert.ok(got && got.pos, `${out.id} loaded by hand at ${got && got.pos}`);
+  assert.ok(onBoardKg(on.b) <= 102000, "still within the max payload");
+  assert.ok(on.p.index >= setting("rIdxF") && on.p.index <= setting("rIdxA"), "still in balance");
+  const off = withHand("B777F", { off: [uSig(inn)] }, () => planRun("B777F", list));
+  const gone = off.b.ulds.find((u) => uSig(u) === uSig(inn));
+  assert.ok(gone && !gone.pos && off.b.offload.some((o) => o.uld === gone && o.why === "offloaded by hand"), `${inn.id} offloaded by hand`);
+});
+
+test("by hand: maximize fills a ULD from the not-loaded ULDs inside its contour, keeps every piece and DG rules", () => {
+  const list = lowCharter(7), base = planRun("B777F", list);
+  const t = base.b.ulds.filter((u) => u.pos).sort((a, b) => a.m3 / a.cap - b.m3 / b.cap)[0];
+  const from = base.b.ulds.filter((u) => !u.pos).map(uSig);
+  const mx = withHand("B777F", { max: [{ t: uSig(t), from }] }, () => planRun("B777F", list));
+  const nt = mx.b.ulds.find((u) => u.id === t.id);
+  assert.ok(nt.kg > t.kg && nt.maxed > 0, `${t.id}: ${Math.round(t.kg)} -> ${Math.round(nt.kg)} kg`);
+  assert.ok(nt.kg <= nt.max + 1e-6 && nt.m3 <= nt.cap + 1e-6, "within ULD weight and usable volume");
+  assert.equal(packItems(nt.type, nt.items, false).notShown, 0, "every piece fits the 3D contour");
+  assert.equal(pieces(mx.b), pieces(base.b), "no piece lost or doubled");
+  assert.ok(onBoardKg(mx.b) <= 102000, "still within the max payload");
+  const dg = lowCharter(11, 120, (i) => (i % 2 ? { dg: "3", un: "UN1263" } : { dg: "5.1", un: "UN1942" })), bd = planRun("B777F", dg);
+  const td = bd.b.ulds.find((u) => u.pos), md = withHand("B777F", { max: [{ t: uSig(td), from: bd.b.ulds.filter((u) => !u.pos).map(uSig) }] }, () => planRun("B777F", dg));
+  const ntd = md.b.ulds.find((u) => u.id === td.id), cls = new Set(ntd.items.map((i) => i.s.dg));
+  assert.ok(!(cls.has("3") && cls.has("5.1")), "maximize never mixes class 3 with 5.1");
 });

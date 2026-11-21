@@ -316,7 +316,7 @@ const payState = () => js(`(()=>({st2:document.getElementById('st2s').textConten
   saved:localStorage.getItem('adeyiq-payload')}))()`);
 const kgOf = (tr) => Number((tr.match(/([\d,]+)\s+([\d,]+)\s*$/) || [])[1]?.replace(/,/g, "") || NaN);
 const p0 = await payState();
-check(p0.pay === "102000" && !p0.reset && kgOf(p0.tr) <= 102000 && kgOf(p0.tr) > 95000 && /max payload 102,000 kg of the Boeing 777 Freighter reached/.test(p0.alerts) && /^Balanced ✓ · \d+ offloaded$/.test(lc.st2),
+check(p0.pay === "102000" && !p0.reset && kgOf(p0.tr) <= 102000 && kgOf(p0.tr) > 95000 && /max payload 102,000 kg of the Boeing 777 Freighter reached/i.test(p0.alerts) && /^Balanced ✓ · \d+ offloaded$/.test(lc.st2),
   `200 t charter on the 777F stops at the 102,000 kg default max payload (${p0.tr.replace(/\s+/g, " ")}; ${lc.st2})`);
 // the user types a higher figure for tonight's flight: the slot model then fills all 27 main-deck positions two abreast
 await js(`(async()=>{const i=document.getElementById('payMax');i.value='250000';i.dispatchEvent(new Event('change'));await new Promise(r=>setTimeout(r,800))})()`);
@@ -336,6 +336,17 @@ const rc = await js(`(async()=>{document.getElementById('st1').click();const s=d
   document.getElementById('recUse').click();await new Promise(r=>setTimeout(r,1500));o.after=document.getElementById('acSel').value;return o})()`);
 check(/Recommended aircraft:\s*Boeing 777 Freighter/.test(rc.rec) && /2 flights/.test(rc.rec) && /^⚠ \d+ ULDs not loaded · [\d.]+ t left behind ▾$/.test(rc.flag) && !rc.open && rc.tools && /^\d+ ULDs · [\d.]+ t not loaded: max payload 20,000 kg of the Boeing 787-9 reached/.test(rc.grp) && rc.after === "B777F",
   `200 t on a 787-9: "${rc.flag}" (list closed until clicked: ${rc.grp.slice(0, 90)}…), recommends the 777F (2 flights), "Use" switches (${rc.after})`);
+
+// by hand: open a not-loaded ULD from the list (its 3D build shows), load it, maximize a loaded one to its contour, undo
+const hd = await js(`(async()=>{const w=t=>new Promise(r=>setTimeout(r,t)),$=id=>document.getElementById(id);await w(800);
+  $('flags').hidden=false;const o=document.querySelector('#flags [data-open]');const id=o.dataset.open;o.click();await w(400);
+  const r={id,info:$('info').innerText.replace(/\\s+/g,' ').slice(0,200),iso:$('iso').childElementCount};
+  document.querySelector('#info [data-hact="on"]').click();await w(2500);r.after=$('info').innerText.replace(/\\s+/g,' ').slice(0,120);
+  r.chipOff=!!document.querySelector('#strip [data-u="'+id+'"].off');r.hand=localStorage.getItem('adeyiq-hand');
+  const m=document.querySelector('#info [data-hact="max"]');m.click();await w(2500);r.toast=$('toast').textContent;
+  document.querySelector('#info [data-hact="reset"]').click();await w(2500);r.reset=localStorage.getItem('adeyiq-hand');return r})()`);
+check(/not loaded/.test(hd.info) && /Load this ULD/.test(hd.info) && hd.iso > 0 && !hd.chipOff && /position [A-N]?\d*[LRP]/.test(hd.after) && /"B777F"/.test(hd.hand || "") && /(maximized|Nothing more fits)/.test(hd.toast) && (hd.reset === "{}" || hd.reset === null),
+  `by hand: ${hd.id} opened from the not-loaded list (3D shown), loaded (${hd.after.slice(0, 60)}), maximize: "${hd.toast}", undo clears the hand changes`);
 
 console.log("\nLocal performance (production build, this machine)");
 for (const p of ["/", "/build"]) {
