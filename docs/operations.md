@@ -10,8 +10,9 @@ How AdeyIQ runs in production, how to change it safely and what to do when somet
 | Data store | Google Sheet "AdeyIQ Cargo Data" | Tabs: Usage, Access requests, Clean usage, Filters, Traffic summary, Feedback |
 | Sheet writer | Google Apps Script web app bound to the sheet | Source: `scripts/access-requests.gs` |
 | Visitor analytics | Vercel Web Analytics | `/_vercel/insights/script.js`, only exists on Vercel |
+| Measurement requests | Upstash Redis (Vercel Marketplace) | `lib/measure.ts`. Short-lived: keys expire on their own; nothing to back up |
 
-Cargo that users enter in the builder stays in their browser (local storage); there is no server copy to back up or lose.
+Cargo that users enter in the builder stays in their browser (local storage); there is no server copy to back up or lose. The exception is a measurement request: its AWB, piece reference and planned/measured sizes are kept in Redis until the link expires (unanswered), or up to 72 hours after a result, and deleted when the planner applies or removes it.
 
 ## Environment variables (Vercel → Settings → Environment Variables)
 
@@ -19,6 +20,8 @@ Cargo that users enter in the builder stays in their browser (local storage); th
 |---|---|---|---|
 | `ADEYIQ_SHEET_URL` | Yes | Production and Preview | Apps Script web app URL ending in `/exec`. Without it, usage is not recorded and the access form shows its copy-and-send fallback (the API answers 503). |
 | `ADEYIQ_SHEET_KEY` | Yes | Production and Preview | Signing key, at least 32 characters, identical to the Apps Script property `ADEYIQ_KEY`. Without it nothing is written (fail closed): `/api/health` shows `sheetConfigured:false`. Never commit or log it; rotate in both places together. |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | For measurement requests | Production and Preview | Set automatically when the Upstash for Redis integration is connected to the project (Vercel → Storage → Create → Upstash for Redis, free plan, region near the Vercel functions). `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` from an Upstash account work too. Without them, production answers 503 to measurement requests and the builder says they are not set up (fail closed); `/api/health` shows `measureStore:"none"`. Use a separate database for Preview so test requests never mix with real ones. |
+| `ADEYIQ_MEASURE_STORE` | No | Never set on Vercel | Test only. `memory` keeps measurement requests in server memory under `next start` (the end-to-end run). In memory they are not shared between serverless instances and are lost on restart. |
 | `ADEYIQ_TRACK_PER_MIN` | No | Never set on Vercel | Test only. Raises the per-visitor usage-event limit (default 60 a minute) for the local end-to-end run, where all test browsers share one address. |
 
 Never commit the value: anyone holding the URL can write rows to the sheet. After changing a variable, redeploy for it to take effect.
@@ -65,7 +68,7 @@ Restoring from version history has **not** been rehearsed for this sheet yet. Do
 ## Monitoring
 
 - **Uptime:** point a free uptime monitor at `https://adeyiq.vercel.app/api/health` (every 5 minutes). Alert if it is not 200 or `sheetConfigured` is false. Monitors whose user agent contains "monitor", "bot" or "pingdom" are ignored by `/api/track`, so they do not count as visitors.
-- **Errors:** Vercel → project → Logs. Filter for `[track]` (usage rows lost after 4 retries) and `[request]` (access request not saved, or sheet not configured).
+- **Errors:** Vercel → project → Logs. Filter for `[track]` (usage rows lost after 4 retries), `[request]` (access request not saved, or sheet not configured) and `[measure]` (no store configured, or Redis unreachable).
 - **Apps Script:** script editor → Executions shows failed runs and quota errors.
 - **Quotas:** Apps Script consumer accounts allow about 100 emails a day (one per access request) and limited simultaneous runs. The API rate limits keep normal use well inside these.
 
@@ -83,5 +86,6 @@ Restoring from version history has **not** been rehearsed for this sheet yet. Do
 ## Data handling
 
 - What is collected is described for users at `/privacy` (`public/adeyiq/privacy.html`). Update that page whenever `track.js`, `lib/api.ts` or the forms change what they send.
+- Measurement requests need no clean-up: every key is written with an expiry. To delete everything at once (for example after a test), delete the keys starting `adeyiq:` in the Upstash data browser.
 - Deletion requests arrive through the access form. Delete the matching rows in Access requests, Usage and Feedback.
 - Test rows (visitor ids starting `owner-` or `setup-test`, and the e2e/load-test rows) are filtered out of Clean usage, but should be deleted from the raw Usage tab once no longer needed.

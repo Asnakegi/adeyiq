@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>AdeyIQ · Measure a piece</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+/* Phone and tablet page for warehouse staff: measure one piece and send L/W/H to the planner.
+   Photos stay on this device: only the three numbers, how each was measured and an optional note are sent. */
+:root{--bg:#F6F9FC;--panel:#FFFFFF;--panel2:#F0F4F8;--line:#E3E8EE;--fg:#0A2540;--muted:#425466;--accent:#FFD21F;--link:#635BFF;
+  --ok:#0E8A5F;--ok-bg:rgba(14,138,95,.10);--warn:#B26B00;--warn-bg:rgba(245,165,36,.16);--bad:#DF1B41;--bad-bg:rgba(223,27,65,.10);--ref:#0570DE;--edge:#DF1B41;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0A2540;--panel:#0F2F50;--panel2:#16395E;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;--link:#A29BFF;
+  --ok:#3ECF8E;--ok-bg:rgba(62,207,142,.14);--warn:#FFB547;--warn-bg:rgba(255,181,71,.16);--bad:#FF6B81;--bad-bg:rgba(255,107,129,.14);--ref:#4DB8FF;--edge:#FF6B81;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0A2540;--panel:#0F2F50;--panel2:#16395E;--line:#25496F;--fg:#F6F9FC;--muted:#ADBDCC;--link:#A29BFF;
+  --ok:#3ECF8E;--ok-bg:rgba(62,207,142,.14);--warn:#FFB547;--warn-bg:rgba(255,181,71,.16);--bad:#FF6B81;--bad-bg:rgba(255,107,129,.14);--ref:#4DB8FF;--edge:#FF6B81;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.5;
+  padding:16px max(16px,env(safe-area-inset-right)) 40px max(16px,env(safe-area-inset-left))}
+main{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;gap:10px}
+.logo{width:32px;height:32px;border-radius:8px;background:var(--accent);color:#0A2540;display:grid;place-items:center;font-weight:700;flex:none}
+h1{font-size:22px;margin:0;line-height:1.2}
+h2{font-size:17px;margin:0 0 6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.mut{color:var(--muted);font-size:14px}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.awb{font-size:24px;font-weight:700;letter-spacing:.02em}
+.btn{font:inherit;font-weight:600;font-size:16px;min-height:48px;padding:10px 16px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.pri{background:var(--accent);border-color:transparent;color:#0A2540}
+.btn.sm{min-height:40px;font-size:14px;padding:6px 12px}
+.btn[aria-pressed="true"]{outline:3px solid var(--link);outline-offset:-1px}
+.btn:disabled{opacity:.45}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modes .btn{flex-direction:column;min-height:84px;font-size:15px}
+.modes .btn span{font-size:26px;line-height:1}
+.note{border-radius:10px;padding:10px 12px;font-size:14px}
+.note.info{background:var(--panel2)}
+.note.warn{background:var(--warn-bg);color:var(--fg)}
+.note.bad{background:var(--bad-bg);color:var(--fg)}
+.note.ok{background:var(--ok-bg);color:var(--fg)}
+.dim{display:grid;grid-template-columns:90px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.dim:first-of-type{border-top:0}
+.dim label{font-weight:700}
+.dim input{font:inherit;font-size:20px;width:100%;min-height:48px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.dim input[aria-invalid="true"]{border-color:var(--bad);outline:2px solid var(--bad)}
+.how{grid-column:2/4;font-size:13px;color:var(--muted);margin-top:-6px}
+.how.photo{color:var(--warn)}
+.err{color:var(--bad);font-size:14px;min-height:0}
+input[type=number]{appearance:textfield}
+textarea,input.txt{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.cam canvas{width:100%;height:auto;border-radius:10px;background:#000;touch-action:manipulation;display:block}
+.steps{display:flex;gap:6px;flex-wrap:wrap;font-size:13px}
+.steps b{padding:3px 8px;border-radius:999px;background:var(--panel2);font-weight:600;color:var(--muted)}
+.steps b.on{background:var(--accent);color:#0A2540}
+.steps b.done{background:var(--ok-bg);color:var(--fg)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.est{font-size:22px;font-weight:700}
+.big{font-size:28px;font-weight:700}
+table{border-collapse:collapse;width:100%}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+</style>
+</head>
+<body>
+<main>
+<header><span class="logo" aria-hidden="true">A</span><h1>Measure a piece</h1></header>
+
+<div class="card" id="loading" role="status">Opening the request…</div>
+<div class="card" id="gone" hidden><h2 id="goneT">This link has expired</h2><p class="mut" id="goneB">Ask the planner for a new measurement link.</p></div>
+
+<section id="open" hidden>
+  <div class="card" style="margin-bottom:14px">
+    <div class="mut">Piece to measure</div>
+    <div class="awb mono" id="pAwb"></div>
+    <div><b id="pPiece"></b></div>
+    <div class="mut" id="pPlanned"></div>
+    <div class="mut" id="pExp"></div>
+  </div>
+
+  <div class="note info" style="margin-bottom:14px"><b>Measure the maximum outside size, as the piece will be handled.</b> Include anything that sticks out, wrapping and straps, and the pallet or skid if it travels with the piece. Round up to the next whole cm.</div>
+  <div class="note warn" id="httpWarn" hidden style="margin-bottom:14px">This page is not on a secure (https) address. Check that the link came from your planner.</div>
+
+  <div class="modes" role="group" aria-label="How do you want to measure?">
+    <button class="btn" type="button" id="mTape" aria-pressed="false"><span aria-hidden="true">📏</span>Enter tape measurements</button>
+    <button class="btn" type="button" id="mCam" aria-pressed="false"><span aria-hidden="true">📷</span>Measure with camera</button>
+  </div>
+
+  <div class="card" id="camIntro" hidden style="margin-top:14px">
+    <h2>Camera estimate</h2>
+    <ol class="mut" style="margin:0;padding-left:20px">
+      <li>Put a ruler, tape or object of known length flat against the cargo, <b>along the edge</b> you measure and in the same plane.</li>
+      <li>Stand back and take the photo <b>straight on</b>, square to that face, with the whole edge in the picture.</li>
+      <li>Tap both ends of the reference, then both ends of the cargo edge.</li>
+    </ol>
+    <p class="mut" style="margin:8px 0 0">The result is an <b>estimate</b> from the photo, not an exact or 3D measurement. Use a tape instead when the reference can't lie along the edge, the piece is irregular, or the fit is tight.</p>
+  </div>
+
+  <form class="card" id="form" novalidate style="margin-top:14px" hidden>
+    <div class="dim"><label for="vL">Length</label><input id="vL" inputmode="decimal" type="number" min="1" step="0.1" placeholder="cm" autocomplete="off"><button class="btn sm" type="button" data-cam="l" hidden>📷 Photo</button><div class="how" id="hL"></div></div>
+    <div class="dim"><label for="vW">Width</label><input id="vW" inputmode="decimal" type="number" min="1" step="0.1" placeholder="cm" autocomplete="off"><button class="btn sm" type="button" data-cam="w" hidden>📷 Photo</button><div class="how" id="hW"></div></div>
+    <div class="dim"><label for="vH">Height</label><input id="vH" inputmode="decimal" type="number" min="1" step="0.1" placeholder="cm" autocomplete="off"><button class="btn sm" type="button" data-cam="h" hidden>📷 Photo</button><div class="how" id="hH"></div></div>
+
+    <div class="cam" id="cam" hidden style="margin-top:8px;border-top:1px solid var(--line);padding-top:12px">
+      <h2 id="camT">Photo for length</h2>
+      <label class="row" style="margin-bottom:8px"><span>Reference length</span><input class="txt" id="refLen" type="number" inputmode="decimal" min="1" step="0.1" placeholder="cm" style="width:110px"><span class="mut">cm</span></label>
+      <div class="row" style="margin-bottom:8px">
+        <label class="btn pri sm" for="photo" id="takeLbl">📷 Take photo</label><input type="file" id="photo" accept="image/*" capture="environment" hidden>
+        <button class="btn sm" type="button" id="undo" hidden>Undo tap</button>
+        <button class="btn sm" type="button" id="camClose">Close</button>
+      </div>
+      <div class="steps" id="steps" hidden><b>1 Reference start</b><b>2 Reference end</b><b>3 Cargo edge start</b><b>4 Cargo edge end</b></div>
+      <p class="mut" id="tapHint" style="margin:6px 0"></p>
+      <canvas id="cv" width="10" height="10" hidden aria-label="Your photo. Tap the ends of the reference and of the cargo edge."></canvas>
+      <div id="estBox" hidden style="margin-top:10px">
+        <div><span class="mut">Estimate:</span> <span class="est" id="est"></span></div>
+        <div class="note warn" id="estWarn" hidden style="margin-top:6px"></div>
+        <div class="row" style="margin-top:8px"><button class="btn pri" type="button" id="useEst">Use this estimate</button><label class="btn" for="photo">Retake</label></div>
+      </div>
+    </div>
+
+    <label style="display:block;margin-top:12px"><span class="mut">Note for the planner (optional)</span><textarea id="note" rows="2" maxlength="200" placeholder="For example: skid included, strap sticks out 3 cm"></textarea></label>
+    <p class="mut" style="margin:10px 0 0">Photos stay on this phone. Only the three sizes, how each was measured and your note are sent.</p>
+    <div class="err" id="err" role="alert"></div>
+    <button class="btn pri" type="submit" id="send" style="width:100%;margin-top:10px">Send dimensions</button>
+  </form>
+</section>
+
+<div class="card" id="done" hidden>
+  <h2>Sent to the planner</h2>
+  <table id="doneT"></table>
+  <p class="mut" id="doneAt" style="margin:8px 0 0"></p>
+  <p class="mut" style="margin:8px 0 0">The planner reviews these sizes before they change the load plan. To measure again, ask for a new link.</p>
+</div>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const AX={l:'Length',w:'Width',h:'Height'},K=['l','w','h'],MAXCM=2000;
+const q=new URLSearchParams(location.hash.slice(1)),token=q.get('t')||'',expHint=parseInt(q.get('e')||'',36)*1000||0;
+const val={l:null,w:null,h:null},how={l:'tape',w:'tape',h:'tape'};
+let mode='';
+const fmtT=ms=>new Date(ms).toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'});
+const cm=v=>v==null?'—':(Math.round(v*10)/10)+' cm';
+if(location.protocol!=='https:'&&!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))$('httpWarn').hidden=false;
+
+async function api(body){const r=await fetch('/api/measure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});let d={};try{d=await r.json()}catch(e){}return{status:r.status,d}}
+function show(id){['loading','gone','open','done'].forEach(x=>$(x).hidden=x!==id)}
+function gone(status){show('gone');
+  if(status===503){$('goneT').textContent='Measurement requests are not set up';$('goneB').textContent='Tell the planner: this AdeyIQ server has no request storage configured.';return}
+  if(status===0){$('goneT').textContent='No connection';$('goneB').textContent='Check the network and open the link again.';return}
+  const expired=expHint&&Date.now()>=expHint;
+  $('goneT').textContent=expired?'This link has expired':'This link is not valid';
+  $('goneB').textContent=expired?'Ask the planner for a new measurement link.':'It may have been removed by the planner, or copied incompletely. Ask the planner for a new link.'}
+
+function showDone(d){show('done');const r=d.result;
+  $('doneT').innerHTML='';K.forEach(k=>{const tr=document.createElement('tr');tr.innerHTML='<th></th><td class="big"></td><td class="mut"></td>';tr.children[0].textContent=AX[k];tr.children[1].textContent=cm(r[k]);tr.children[2].textContent=r.method[k]==='photo'?'Photo estimate':'Tape';$('doneT').appendChild(tr)});
+  $('doneAt').textContent=`${d.awb} · ${d.piece} · sent ${new Date(r.at).toLocaleString()}`}
+
+async function load(){
+  if(!/^[A-Za-z0-9_-]{22}$/.test(token)){gone(404);return}
+  let r;try{r=await api({op:'view',token})}catch(e){gone(0);return}
+  if(r.status!==200||!r.d.ok){gone(r.status);return}
+  const d=r.d;if(d.status==='submitted'){showDone(d);return}
+  show('open');$('pAwb').textContent=d.awb;$('pPiece').textContent=d.piece;
+  const p=d.planned||{},have=K.filter(k=>p[k]>0);
+  $('pPlanned').textContent=have.length?'Booked size: '+K.map(k=>p[k]>0?p[k]:'?').join(' × ')+' cm'+(have.length<3?' (some sizes missing)':''):'No booked size: please measure all three.';
+  $('pExp').textContent='Link valid until '+fmtT(d.expires);
+}
+
+/* ---------- modes ---------- */
+function setMode(m){mode=m;$('mTape').setAttribute('aria-pressed',String(m==='tape'));$('mCam').setAttribute('aria-pressed',String(m==='cam'));
+  $('form').hidden=false;$('camIntro').hidden=m!=='cam';document.querySelectorAll('[data-cam]').forEach(b=>b.hidden=m!=='cam');if(m!=='cam')closeCam();
+  setTimeout(()=>{const f=K.find(k=>val[k]==null);if(f&&m==='tape')$('v'+f.toUpperCase()).focus()},50)}
+$('mTape').onclick=()=>setMode('tape');$('mCam').onclick=()=>setMode('cam');
+
+function setHow(k){const h=$('h'+k.toUpperCase());h.textContent=val[k]==null?'':how[k]==='photo'?'Photo estimate':'Tape measurement';h.className='how'+(how[k]==='photo'?' photo':'')}
+K.forEach(k=>{const inp=$('v'+k.toUpperCase());inp.addEventListener('input',()=>{const n=parseFloat(inp.value);val[k]=Number.isFinite(n)?n:null;how[k]='tape';inp.removeAttribute('aria-invalid');$('err').textContent='';setHow(k)})});
+
+/* ---------- camera estimate ---------- */
+// all tap points are kept in the photo's own pixels, so the canvas size on screen does not matter
+let axis='l',img=null,pts=[],url='';
+const cv=$('cv'),cx=cv.getContext('2d');
+function openCam(k){axis=k;$('cam').hidden=false;$('camT').textContent='Photo for '+AX[k].toLowerCase();resetPhoto();$('cam').scrollIntoView({block:'start',behavior:'smooth'})}
+function closeCam(){$('cam').hidden=true;resetPhoto()}
+function resetPhoto(){if(url)URL.revokeObjectURL(url);url='';img=null;pts=[];cv.hidden=true;$('steps').hidden=true;$('undo').hidden=true;$('estBox').hidden=true;$('tapHint').textContent='';$('photo').value='';$('takeLbl').hidden=false}
+document.querySelectorAll('[data-cam]').forEach(b=>b.onclick=()=>openCam(b.dataset.cam));
+$('camClose').onclick=closeCam;
+$('photo').addEventListener('change',()=>{const f=$('photo').files&&$('photo').files[0];if(!f)return;
+  if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(f);const im=new Image();
+  im.onload=()=>{img=im;pts=[];const s=Math.min(1,2000/Math.max(im.naturalWidth,im.naturalHeight));cv.width=Math.round(im.naturalWidth*s);cv.height=Math.round(im.naturalHeight*s);
+    cv.hidden=false;$('steps').hidden=false;$('takeLbl').hidden=true;draw();cv.scrollIntoView({block:'nearest',behavior:'smooth'})};
+  im.onerror=()=>{$('tapHint').textContent='That photo could not be opened. Try again, or use a tape.'};im.src=url});
+const STEP=['Tap one end of the reference.','Tap the other end of the reference.','Tap one end of the cargo edge.','Tap the other end of the cargo edge.'];
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function draw(){if(!img)return;cx.drawImage(img,0,0,cv.width,cv.height);const r=Math.max(6,cv.width/120),lw=Math.max(2,cv.width/400);
+  const css=getComputedStyle(document.documentElement),cRef=css.getPropertyValue('--ref').trim()||'#0570DE',cEdge=css.getPropertyValue('--edge').trim()||'#DF1B41';
+  pts.forEach((p,i)=>{const c=i<2?cRef:cEdge;cx.strokeStyle=c;cx.lineWidth=lw;cx.beginPath();cx.arc(p.x,p.y,r,0,Math.PI*2);cx.stroke();cx.beginPath();cx.moveTo(p.x-r*2,p.y);cx.lineTo(p.x+r*2,p.y);cx.moveTo(p.x,p.y-r*2);cx.lineTo(p.x,p.y+r*2);cx.stroke()});
+  [[0,1,cRef],[2,3,cEdge]].forEach(([a,b,c])=>{if(pts[b]){cx.strokeStyle=c;cx.lineWidth=lw*1.5;cx.beginPath();cx.moveTo(pts[a].x,pts[a].y);cx.lineTo(pts[b].x,pts[b].y);cx.stroke()}});
+  [...$('steps').children].forEach((b,i)=>b.className=i<pts.length?'done':i===pts.length?'on':'');
+  $('undo').hidden=!pts.length;$('tapHint').textContent=pts.length<4?STEP[pts.length]:'Check the marks, then use the estimate or retake.';estimate()}
+cv.addEventListener('pointerdown',e=>{if(!img||pts.length>=4)return;const b=cv.getBoundingClientRect();pts.push({x:(e.clientX-b.left)*cv.width/b.width,y:(e.clientY-b.top)*cv.height/b.height});draw()});
+$('undo').onclick=()=>{pts.pop();draw()};
+$('refLen').addEventListener('input',estimate);
+let lastEst=null;
+function estimate(){lastEst=null;const box=$('estBox');if(pts.length<4){box.hidden=true;return}box.hidden=false;
+  const ref=parseFloat($('refLen').value),w=$('estWarn');w.hidden=true;$('useEst').disabled=true;
+  if(!(ref>0)){$('est').textContent='—';w.hidden=false;w.textContent='Enter the reference length in cm above.';return}
+  const dr=dist(pts[0],pts[1]),de=dist(pts[2],pts[3]),minPx=cv.width/40;
+  if(dr<minPx||de<minPx){$('est').textContent='—';w.hidden=false;w.textContent='The marks are too close together. Move closer, or use a longer reference, and retake.';return}
+  const v=Math.ceil(ref*de/dr),ratio=de/dr;lastEst=v;$('est').textContent='≈ '+v+' cm';$('useEst').disabled=!(v>0&&v<=MAXCM);
+  const warn=[];if(ratio>4)warn.push(`The reference is much shorter than the edge, so a small tapping error grows ${Math.round(ratio)}×. A longer reference or a tape is more reliable.`);
+  if(v>MAXCM)warn.push(`That is more than ${MAXCM} cm. Check the reference length and the taps.`);
+  if(warn.length){w.hidden=false;w.textContent=warn.join(' ')}}
+$('useEst').onclick=()=>{if(lastEst==null)return;val[axis]=lastEst;how[axis]='photo';const inp=$('v'+axis.toUpperCase());inp.value=lastEst;inp.removeAttribute('aria-invalid');setHow(axis);
+  const next=K.find(k=>val[k]==null);if(next)openCam(next);else{closeCam();$('send').focus()}};
+
+/* ---------- send ---------- */
+$('form').addEventListener('submit',async e=>{e.preventDefault();const bad=[];
+  K.forEach(k=>{const inp=$('v'+k.toUpperCase()),v=val[k];const ok=v!=null&&v>0&&v<=MAXCM;inp.setAttribute('aria-invalid',String(!ok));if(!ok)bad.push(AX[k].toLowerCase())});
+  if(bad.length){$('err').textContent=`Enter the ${bad.join(', ')} as a positive number of cm (up to ${MAXCM}).`;return}
+  $('send').disabled=true;$('err').textContent='';
+  let r;try{r=await api({op:'submit',token,l:val.l,w:val.w,h:val.h,method:{...how},note:$('note').value.trim()})}catch(err){r={status:0,d:{}}}
+  $('send').disabled=false;
+  if(r.status===200&&r.d.ok){resetPhoto();showDone(r.d);return}
+  if(r.status===404){gone(404);return}
+  $('err').textContent=r.d.error||(r.status===0?'No connection. Your sizes are still here: try again.':'Could not send. Try again.')});
+
+// another link pasted into the same tab changes only the fragment: start again with the new request
+window.addEventListener('hashchange',()=>location.reload());
+load();
+})();
+</script>
+</body>
+</html>

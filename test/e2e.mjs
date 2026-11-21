@@ -40,8 +40,8 @@ const waitRow = async (pred, ms = 8000) => { const t = Date.now(); while (Date.n
 
 /* ---------- app ---------- */
 const next = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(APP)], {
-  // all test browsers share one address, so allow more usage events per minute than a real visitor gets (60)
-  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_SHEET_KEY: SHEET_KEY, ADEYIQ_TRACK_PER_MIN: "600" }, stdio: ["ignore", "pipe", "pipe"],
+  // measurement requests use an in-memory store here, never a real one; all test browsers share one address, so allow more usage events per minute than a real visitor gets (60)
+  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_SHEET_KEY: SHEET_KEY, ADEYIQ_TRACK_PER_MIN: "600", ADEYIQ_MEASURE_STORE: "memory" }, stdio: ["ignore", "pipe", "pipe"],
 });
 let serverLog = "";
 next.stdout.on("data", (d) => (serverLog += d));
@@ -62,13 +62,13 @@ check(!JSON.stringify(health).includes("127.0.0.1"), "/api/health does not leak 
 const home = await fetch(BASE + "/");
 const csp = home.headers.get("content-security-policy") || "";
 check(home.status === 200 && csp.includes("frame-ancestors 'self'") && home.headers.get("x-content-type-options") === "nosniff", "home page served with CSP and nosniff headers");
-for (const p of ["/build", "/hold-view", "/aircraft-data", "/privacy", "/dashboard"]) check((await fetch(BASE + p)).status === 200, `${p} returns 200`);
+for (const p of ["/build", "/hold-view", "/aircraft-data", "/privacy", "/measure", "/dashboard"]) check((await fetch(BASE + p)).status === 200, `${p} returns 200`);
 for (const p of ["/", "/build", "/adeyiq/xlsx-worker.js", "/vendor/sheetjs/0.20.3/xlsx.full.min.js"]) {
   const h = (await fetch(BASE + p)).headers.get("content-security-policy") || "";
   check(h && !/cdnjs|jsdelivr|unpkg/.test(h) && /worker-src 'self'/.test(h), `${p}: security policy allows no script CDN`);
 }
 check(/cdnjs.cloudflare.com/.test((await fetch(BASE + "/adeyiq_cargo_optimizer_v4.html")).headers.get("content-security-policy") || ""), "only the legacy optimizer demo may load from cdnjs");
-for (const p of ["/", "/build", "/hold-view", "/aircraft-data", "/privacy"]) {
+for (const p of ["/", "/build", "/hold-view", "/aircraft-data", "/privacy", "/measure"]) {
   const s = ((await fetch(BASE + p)).headers.get("content-security-policy") || "").match(/script-src ([^;]*)/)?.[1] || "";
   check(!s.includes("unsafe-inline") && /'sha256-[A-Za-z0-9+/=]{44}'/.test(s), `${p}: inline scripts are allowed by hash, not by 'unsafe-inline'`);
 }
@@ -231,7 +231,7 @@ check(!!fb && /q1=\d.*\|q5=10\|role=.*\|c=e2e comment\s+\/\s+with pipe$/.test(fb
 
 console.log("\nMobile layout (375 px) and basic accessibility");
 await send("Emulation.setDeviceMetricsOverride", { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
-for (const p of ["/", "/build", "/hold-view", "/aircraft-data", "/privacy"]) {
+for (const p of ["/", "/build", "/hold-view", "/aircraft-data", "/privacy", "/measure"]) {
   await go(p);
   const sw = await js(`document.documentElement.scrollWidth`);
   check(sw <= 376, `${p}: no horizontal scroll at 375 px (page width ${sw})`);
@@ -513,6 +513,144 @@ console.log("\nMessy real-world manifests (synthetic samples in test/fixtures/ma
   check(st.length === 5 && /5 shipments added/.test(t.toast) && JSON.stringify(st[1]) === JSON.stringify(["071-12345686", 10, 180, "40x30x30"]), `a filled-in cargo template imports every line (${st.length} lines, "${t.toast}")`);
   await up("hostile-header.csv",`AWB,"<img src=x onerror=window.__xss=9> Weight",Dims,"<b>Goods</b>"\n071-70000022,10,50x40x30,Box\n`);
   check((await js(`window.__xss===undefined&&!document.querySelector('#upSum img')&&![...document.querySelectorAll('#upSum b')].some(b=>b.textContent==='Goods')&&document.getElementById('upSum').textContent.includes('<img src=x')`)), "header text from the file is shown as text in the import summary, never as HTML");
+}
+
+console.log("\nMeasurement requests: planner → phone → review → apply (local in-memory store, synthetic data)");
+{
+  const err0 = pageErrors.length, net0 = netLog.length;
+  const health2 = await (await fetch(BASE + "/api/health")).json();
+  check(health2.measureStore === "memory", `the local run uses the in-memory request store, never a real one (${health2.measureStore})`);
+  const mapi = (body, h = {}) => fetch(BASE + "/api/measure", { method: "POST", body: JSON.stringify(body), headers: { origin: BASE, "x-forwarded-for": "10.77.0.2", ...h } });
+  check((await mapi({ op: "create", awb: "A", piece: "P" }, { origin: "https://evil.example" })).status === 403, "cross-site POST to /api/measure is refused (403)");
+  const mp = await fetch(BASE + "/measure");
+  const mcsp = mp.headers.get("content-security-policy") || "";
+  check(mp.status === 200 && /'sha256-/.test(mcsp) && !/script-src[^;]*unsafe-inline/.test(mcsp) && /noindex/.test(await mp.text()), "/measure is served with hashed inline scripts and is not indexed");
+
+  // planner: a three-piece line, 120×80×75 cm
+  await go("/build");
+  await js(`localStorage.clear()`);
+  await go("/build");
+  const setF = (pairs) => js(`(()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'));e.dispatchEvent(new Event('change'))};if(document.getElementById('addPanel').hidden)document.getElementById('addToggle').click();${pairs.map(([k, v]) => `s('${k}',${JSON.stringify(v)});`).join("")}})()`);
+  await setF([["sAwb", "071-55500011"], ["sNat", "E2E measured crate"], ["sPcs", "3"], ["sWt", "300"], ["sL", "120"], ["sW", "80"], ["sH", "75"]]);
+  await js(`document.getElementById('fSubmit').click()`);
+  await until(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length===1`);
+  const lineId = await js(`JSON.parse(localStorage.getItem('adeyiq-ships'))[0].id`);
+  await js(`(()=>{if(document.getElementById('listPanel').hidden)document.getElementById('listToggle').click();document.querySelector('[data-msr="${lineId}"]').click()})()`);
+  const dlg = await js(`({open:document.getElementById('msrDlg').open,awb:document.getElementById('mAwb').value,piece:document.getElementById('mPiece').value,p:['mpL','mpW','mpH'].map(i=>document.getElementById(i).value).join('x')})`);
+  check(dlg.open && dlg.awb === "071-55500011" && dlg.piece === "Piece 1 of 3" && dlg.p === "120x80x75", `"📏" on a cargo line opens a request for one piece with AWB, piece reference and planned size (${JSON.stringify(dlg)})`);
+  await js(`document.getElementById('mPiece').value='Piece 2 of 3';document.getElementById('mGo').click()`);
+  check(await until(`!document.getElementById('msrShare').hidden&&document.getElementById('shUrl').value.includes('/measure#t=')`), "creating the request shows the link to share");
+  const link = await js(`document.getElementById('shUrl').value`);
+  const share = await js(`(async()=>{document.getElementById('shQr').click();await new Promise(r=>setTimeout(r,200));const m=document.getElementById('shMail').getAttribute('href');
+    return {qr:!!document.querySelector('#shQrBox svg path'),mailto:m.startsWith('mailto:?subject='),mailHasLink:decodeURIComponent(m).includes(${JSON.stringify(link)})}})()`);
+  check(share.qr && share.mailto && share.mailHasLink, "Show QR code draws the code in the page; Open email draft is a mailto: link (nothing is sent) with the same link");
+  const tok = new URL(link).hash.match(/t=([^&]+)/)[1];
+  check(/^[A-Za-z0-9_-]{22}$/.test(tok) && !netLog.slice(net0).some((r) => r.url.includes(tok)), "the link token is 128 random bits in the URL fragment and never appears in a request URL");
+  check(netLog.slice(net0).every((r) => r.url.startsWith(BASE) || r.url.startsWith("data:") || r.url.startsWith("blob:") || /fonts\.(googleapis|gstatic)\.com|_vercel/.test(r.url)), "making the request and its QR code talks only to AdeyIQ (no outside QR service)");
+  await js(`document.getElementById('shDone').click()`);
+
+  // phone: a fresh visit to the link on a 375 px screen (the phone page keeps nothing in browser storage)
+  await send("Emulation.setDeviceMetricsOverride", { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
+  await go(link.replace(/^https?:\/\/[^/]+/, ""));
+  check(await until(`!document.getElementById('open').hidden`), "the phone page opens the request");
+  const ph = await js(`({t:document.getElementById('open').innerText,sw:document.documentElement.scrollWidth})`);
+  check(ph.t.includes("071-55500011") && ph.t.includes("Piece 2 of 3") && ph.t.includes("120 × 80 × 75") && /maximum outside size/.test(ph.t) && /pallet or skid/.test(ph.t) && ph.sw <= 376, "phone page identifies the piece and says to measure the maximum outside size incl. protrusions, wrapping and skid; fits 375 px");
+  await js(`document.getElementById('mTape').click();document.getElementById('send').click()`);
+  check(await js(`/length, width, height/.test(document.getElementById('err').textContent)&&document.getElementById('vL').getAttribute('aria-invalid')==='true'`), "sending without three sizes is refused on the phone");
+  await js(`(()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'))};s('vL','132');s('vW','-80');document.getElementById('send').click()})()`);
+  check(await js(`document.getElementById('vW').getAttribute('aria-invalid')==='true'&&!document.getElementById('open').hidden`), "a negative size is refused");
+  // camera estimate for the height: a synthetic photo with a 100 cm reference of 500 px and an edge of 388 px → 77.6 → 78 cm
+  const est = await js(`(async()=>{document.getElementById('mCam').click();document.querySelector('[data-cam="h"]').click();const r=document.getElementById('refLen');r.value='100';r.dispatchEvent(new Event('input'));
+    const c=document.createElement('canvas');c.width=1000;c.height=700;const x=c.getContext('2d');x.fillStyle='#888';x.fillRect(0,0,1000,700);x.fillStyle='#a63';x.fillRect(100,100,388,388);x.fillStyle='#ff0';x.fillRect(100,595,500,10);
+    const blob=await new Promise(z=>c.toBlob(z,'image/png'));const dt=new DataTransfer();dt.items.add(new File([blob],'e2e.png',{type:'image/png'}));const f=document.getElementById('photo');f.files=dt.files;f.dispatchEvent(new Event('change'));
+    await new Promise(z=>setTimeout(z,600));const cv=document.getElementById('cv'),b=cv.getBoundingClientRect();const tap=(px,py)=>cv.dispatchEvent(new PointerEvent('pointerdown',{clientX:b.left+px*b.width/cv.width,clientY:b.top+py*b.height/cv.height,bubbles:true}));
+    tap(100,600);tap(600,600);tap(100,100);await new Promise(z=>setTimeout(z,50));const partial=document.getElementById('estBox').hidden;tap(100,488);await new Promise(z=>setTimeout(z,50));
+    const e=document.getElementById('est').textContent;document.getElementById('undo').click();tap(100,488);const again=document.getElementById('est').textContent;document.getElementById('useEst').click();
+    return {partial,e,again,h:document.getElementById('vH').value,how:document.getElementById('hH').textContent,file:f.files.length}})()`);
+  check(est.partial && est.e === "≈ 78 cm" && est.again === est.e && est.h === "78" && est.how === "Photo estimate", `camera mode: reference length + four taps give an estimate, labelled as such, with undo/retake (${JSON.stringify(est)})`);
+  await js(`(()=>{document.getElementById('camClose').click();const e=document.getElementById('vW');e.value='80';e.dispatchEvent(new Event('input'));document.getElementById('note').value='E2E skid included';document.getElementById('send').click()})()`);
+  check(await until(`!document.getElementById('done').hidden`), "valid sizes are sent");
+  const done = await js(`document.getElementById('done').innerText`);
+  check(/Length\s+132 cm\s+Tape/.test(done) && /Height\s+78 cm\s+Photo estimate/.test(done), "the phone confirms the sizes and how each was measured");
+  const sub = netLog.slice(net0).filter((r) => r.url === BASE + "/api/measure" && r.body.includes('"submit"'));
+  check(sub.length === 1 && !/image|base64|blob/.test(sub[0].body) && sub[0].body.length < 400, `only numbers, methods and the note are sent, never the photo (${sub[0] && sub[0].body.length} bytes)`);
+  const resend = await mapi({ op: "submit", token: tok, l: 1, w: 1, h: 1, method: { l: "tape", w: "tape", h: "tape" } });
+  check(resend.status === 409, "the link can submit only once");
+  await send("Emulation.clearDeviceMetricsOverride");
+
+  // planner again: the result arrives from the server (another device), the plan is unchanged until applied
+  await go("/build");
+  await js(`(()=>{if(document.getElementById('msrPanel').hidden)document.getElementById('msrToggle').click();document.getElementById('msrCheck').click()})()`);
+  check(await until(`/Measured/.test(document.querySelector('.msr')?.innerText||'')`), "the planner sees the measurement sent from the phone");
+  const rev = await js(`(()=>{const c=document.querySelector('.msr');const row=a=>c.querySelector('tr[data-ax="'+a+'"]');return {d:['l','w','h'].map(a=>row(a).querySelector('td.d').textContent.replace(/\\s*larger/,'')),big:['l','w','h'].map(a=>row(a).classList.contains('big')),flag:c.classList.contains('mflag'),
+    st:c.querySelector('.st').textContent,how:row('h').innerText,note:c.innerText.includes('E2E skid included'),ships:JSON.parse(localStorage.getItem('adeyiq-ships')).map(s=>[s.pcs,s.wt,s.l,s.w,s.h])}})()`);
+  check(JSON.stringify(rev.d) === '["+12","0","+3"]' && JSON.stringify(rev.big) === "[true,false,true]" && rev.flag && /larger than planned/.test(rev.st), `planned 120×80×75 vs measured 132×80×78 shows +12, 0, +3 and flags the piece (${JSON.stringify(rev.d)})`);
+  check(/photo estimate/.test(rev.how) && rev.note, "the review shows how each size was measured and the note");
+  check(JSON.stringify(rev.ships) === "[[3,300,120,80,75]]", "receiving a result does not change the plan");
+  await js(`document.querySelector('[data-mapply]').click()`);
+  check(await until(`JSON.parse(localStorage.getItem('adeyiq-ships')).length===2`), "Apply changes the plan");
+  const ap = await js(`({ships:JSON.parse(localStorage.getItem('adeyiq-ships')).map(s=>[s.awb,s.pcs,s.wt,s.l+'x'+s.w+'x'+s.h,s.mref]),card:document.querySelector('.msr').innerText,uld:document.getElementById('st1s').textContent})`);
+  check(JSON.stringify(ap.ships) === JSON.stringify([["071-55500011", 2, 200, "120x80x75", ""], ["071-55500011", 1, 100, "132x80x78", "Piece 2 of 3"]]), `only the measured piece changes: split into its own line, pieces and weight totals kept (${JSON.stringify(ap.ships)})`);
+  check(/Applied/.test(ap.card) && /Build-up rerun/.test(ap.card) && /ULD/.test(ap.uld), "the build-up is rerun and the result says where the piece went");
+  let gone404 = false;
+  for (let i = 0; i < 30 && !gone404; i++) { gone404 = (await mapi({ op: "view", token: tok })).status === 404; if (!gone404) await sleep(100); }
+  check(gone404, "once applied, the server copy is deleted");
+  await go(link.replace(/^https?:\/\/[^/]+/, ""));
+  check(await until(`!document.getElementById('gone').hidden&&/not valid/.test(document.getElementById('goneT').textContent)`), "the used link no longer opens the request");
+
+  // expired links: on the phone, and in the planner list
+  const exp36 = Math.floor((Date.now() - 60000) / 1000).toString(36);
+  await go(`/measure#t=${"Q".repeat(22)}&e=${exp36}`);
+  check(await until(`!document.getElementById('gone').hidden&&document.getElementById('goneT').textContent==='This link has expired'`), "an expired link says so on the phone and asks for a new one");
+  await go("/build");
+  await js(`(()=>{const a=JSON.parse(localStorage.getItem('adeyiq-measure'));a.push({token:'${"Z".repeat(22)}',key:'k',awb:'071-55500099',piece:'Piece 1 of 1',planned:{l:50,w:50,h:50},shipId:null,draft:null,created:Date.now()-7200000,expires:Date.now()-3600000,status:'open',result:null});localStorage.setItem('adeyiq-measure',JSON.stringify(a))})()`);
+  await go("/build");
+  await js(`(()=>{if(document.getElementById('msrPanel').hidden)document.getElementById('msrToggle').click();document.getElementById('msrCheck').click()})()`);
+  check(await until(`[...document.querySelectorAll('.msr')].some(c=>c.innerText.includes('071-55500099')&&/Link expired, nothing received/.test(c.innerText)&&!c.querySelector('[data-mshare]'))`), "an expired request shows as expired in the planner, with no link to share");
+
+  // missing dimensions: the add form offers a request; the result is added as cargo only when the planner adds it
+  await js(`document.getElementById('msrPanel').querySelector('[data-close]').click()`);
+  await setF([["sAwb", "071-55500022"], ["sNat", "E2E no dims"], ["sPcs", "1"], ["sWt", "40"], ["sL", ""], ["sW", ""], ["sH", ""]]);
+  await js(`document.getElementById('fSubmit').click()`);
+  check(await js(`!document.getElementById('sMsr').hidden&&/length, width and height/i.test(document.getElementById('sErr').textContent)`), "missing dimensions stop the cargo and offer “Request measurement”");
+  await js(`document.getElementById('sMsrBtn').click()`);
+  const md = await js(`({awb:document.getElementById('mAwb').value,piece:document.getElementById('mPiece').value,p:['mpL','mpW','mpH'].map(i=>document.getElementById(i).value).join('|')})`);
+  check(md.awb === "071-55500022" && md.piece === "Piece 1 of 1" && md.p === "||", `the request takes the AWB and piece reference and keeps missing sizes missing (${JSON.stringify(md)})`);
+  await js(`document.getElementById('mGo').click()`);
+  await until(`!document.getElementById('msrShare').hidden`);
+  const link2 = await js(`document.getElementById('shUrl').value`);
+  await js(`document.getElementById('shDone').click()`);
+  const tok2 = new URL(link2).hash.match(/t=([^&]+)/)[1];
+  // a different device, straight to the API: the planner's browser has no part in the submission
+  const other = await mapi({ op: "submit", token: tok2, l: 60, w: 40, h: 35, method: { l: "tape", w: "tape", h: "tape" } }, { "x-forwarded-for": "10.88.0.9", "user-agent": "Mozilla/5.0 (Linux; Android 14) Mobile" });
+  check(other.status === 200, "a submission from another device is accepted");
+  check((await js(`JSON.parse(localStorage.getItem('adeyiq-ships')).length`)) === 2, "the piece without dimensions was not added");
+  await js(`(()=>{if(document.getElementById('msrPanel').hidden)document.getElementById('msrToggle').click();document.getElementById('msrCheck').click()})()`);
+  check(await until(`(document.querySelector('[data-mtok="${tok2}"]')?.innerText||'').split('No planned dimension').length===4`), "with no planned size the review shows “No planned dimension” and no difference");
+  await js(`document.querySelector('[data-madd="${tok2}"]').click()`);
+  const form = await js(`['sAwb','sL','sW','sH','sWt'].map(i=>document.getElementById(i).value).join('|')`);
+  check(form === "071-55500022|60|40|35|40", `“Add as cargo” fills the form with the measured size (${form})`);
+  await js(`document.getElementById('fSubmit').click()`);
+  check(await until(`JSON.parse(localStorage.getItem('adeyiq-ships')).some(s=>s.awb==='071-55500022'&&s.l===60&&s.mref==='Piece 1 of 1')`), "the planner adds it, marked as measured");
+  check(await until(`/Applied/.test(document.querySelector('[data-mtok="${tok2}"]')?.innerText||'')`), "and the request shows as applied");
+
+  // a line edited after the request: the measured piece can't be matched, so nothing is changed
+  const ln3 = await js(`JSON.parse(localStorage.getItem('adeyiq-ships')).find(s=>s.pcs===2).id`);
+  await js(`document.querySelector('[data-msr="${ln3}"]').click()`);
+  await js(`document.getElementById('mGo').click()`);
+  await until(`!document.getElementById('msrShare').hidden`);
+  const tok3 = new URL(await js(`document.getElementById('shUrl').value`)).hash.match(/t=([^&]+)/)[1];
+  await js(`document.getElementById('shDone').click()`);
+  await js(`document.querySelector('[data-edit="${ln3}"]').click()`);
+  await setF([["sH", "90"]]);
+  await js(`document.getElementById('fSubmit').click()`);
+  await mapi({ op: "submit", token: tok3, l: 121, w: 80, h: 91, method: { l: "tape", w: "tape", h: "tape" } });
+  await js(`document.getElementById('msrCheck').click()`);
+  check(await until(`(()=>{const c=document.querySelector('[data-mtok="${tok3}"]');return !!c&&/Can’t apply automatically/.test(c.innerText)&&/changed after the request/.test(c.innerText)&&!c.querySelector('[data-mapply]')})()`), "when the line was edited after the request, applying is blocked with the reason");
+  check((await js(`JSON.parse(localStorage.getItem('adeyiq-ships')).find(s=>s.id==='${ln3}').h`)) === 90, "and the line is left as the planner edited it");
+  // a 404 from /api/measure is the expected answer for the expired, used and removed links opened on purpose above
+  const errs = pageErrors.slice(err0).filter((e) => !/favicon|_vercel\/insights/.test(e) && !/status of 404.*\/api\/measure/.test(e));
+  check(errs.length === 0, `no page errors in the measurement flow${errs.length ? ": " + errs.slice(0, 3).join(" || ") : ""}`);
 }
 
 console.log("\nAPI: methods and error replies");

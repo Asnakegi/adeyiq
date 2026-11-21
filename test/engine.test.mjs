@@ -514,3 +514,132 @@ test("by hand: maximize fills a ULD from the not-loaded ULDs inside its contour,
   const ntd = md.b.ulds.find((u) => u.id === td.id), cls = new Set(ntd.items.map((i) => i.s.dg));
   assert.ok(!(cls.has("3") && cls.has("5.1")), "maximize never mixes class 3 with 5.1");
 });
+
+// Measurement requests: compare planned vs measured and apply a result to the cargo list (pure functions of the page)
+const msrCtx = { Math, Number, Object, Array, String };
+vm.createContext(msrCtx);
+vm.runInContext(slice("/* ---------- measurement requests: compare and apply", "/* ---------- measurement requests: planner side") + "\nthis.M={msrDiff,msrApply};", msrCtx);
+const { msrDiff, msrApply } = msrCtx.M;
+const req = (s, piece = "Piece 1 of " + s.pcs) => ({ shipId: s.id, awb: s.awb, piece, planned: { l: s.l || null, w: s.w || null, h: s.h || null } });
+const M132 = { l: 132, w: 80, h: 78, method: { l: "tape", w: "tape", h: "photo" } };
+// apply a result the way the page does: patch the line, then add the split-off piece
+function applyTo(list, r, res, id) {
+  const a = msrApply(list, r, res, id);
+  if (!a.ok) return { list, a };
+  const next = list.map((s) => (s.id === a.update.id ? { ...s, ...a.update.patch } : s));
+  if (a.add) next.splice(next.findIndex((s) => s.id === a.update.id) + 1, 0, mk(a.add));
+  return { list: next, a };
+}
+const totals = (list) => ({ pcs: list.reduce((n, s) => n + s.pcs, 0), kg: Math.round(list.reduce((n, s) => n + s.wt, 0) * 10) / 10 });
+
+test("measure: planned 120×80×75 vs measured 132×80×78 gives +12, 0, +3 and flags the piece", () => {
+  const d = plain(msrDiff({ l: 120, w: 80, h: 75 }, M132));
+  assert.deepEqual(d.map((x) => x.d), [12, 0, 3]);
+  assert.deepEqual(d.map((x) => x.big), [true, false, true]);
+  const smaller = plain(msrDiff({ l: 120, w: 80, h: 75 }, { l: 118.5, w: 80, h: 70 }));
+  assert.deepEqual(smaller.map((x) => [x.d, x.big]), [[-1.5, false], [0, false], [-5, false]], "smaller is not flagged");
+});
+
+test("measure: a missing planned dimension shows no difference and is not flagged", () => {
+  const d = plain(msrDiff({ l: 120, w: null, h: 0 }, M132));
+  assert.deepEqual(d.map((x) => [x.p, x.d, x.big]), [[120, 12, true], [null, null, false], [null, null, false]]);
+  assert.deepEqual(plain(msrDiff(null, M132)).map((x) => x.d), [null, null, null]);
+});
+
+test("measure: applying to a multi-piece line splits off only the measured piece; pieces and weight totals unchanged", () => {
+  const other = mk({ id: "o1", awb: "071-99999999", pcs: 2, wt: 50, l: 60, w: 40, h: 40 });
+  const line = mk({ id: "s1", awb: "071-12345675", nat: "Machine parts", pcs: 3, wt: 300, l: 120, w: 80, h: 75, dg: "9", un: "UN3480", shc: "ELI", pin: "PMC:1" });
+  const before = [other, line];
+  const { list, a } = applyTo(before, req(line, "Piece 2 of 3"), M132, "new1");
+  assert.ok(a.ok);
+  assert.deepEqual(totals(list), totals(before), "same pieces and weight");
+  const rest = list.find((s) => s.id === "s1"), piece = list.find((s) => s.id === "new1");
+  assert.deepEqual([rest.pcs, rest.wt, rest.l, rest.w, rest.h, rest.mref], [2, 200, 120, 80, 75, ""], "the other pieces keep the planned size");
+  assert.deepEqual([piece.pcs, piece.wt, piece.l, piece.w, piece.h, piece.mref], [1, 100, 132, 80, 78, "Piece 2 of 3"]);
+  assert.deepEqual([piece.awb, piece.nat, piece.dg, piece.un, [...piece.shc], piece.pin], ["071-12345675", "Machine parts", "9", "UN3480", ["ELI"], "PMC:1"], "the piece keeps the line's AWB, goods, DG and placement");
+  assert.deepEqual(list.find((s) => s.id === "o1"), other, "other lines untouched");
+  const odd = applyTo([mk({ id: "s2", awb: "A", pcs: 3, wt: 100, l: 50, w: 50, h: 50 })], req(mk({ id: "s2", awb: "A", pcs: 3, l: 50, w: 50, h: 50 })), { l: 51, w: 50, h: 50 }, "n2").list;
+  assert.deepEqual(odd.map((s) => s.wt), [66.7, 33.3], "uneven weights still add up to the line total");
+});
+
+test("measure: a one-piece line is updated in place; two requests on one line split one piece each", () => {
+  const one = mk({ id: "s1", awb: "A", pcs: 1, wt: 80, l: 120, w: 80, h: 75 });
+  const r1 = applyTo([one], req(one), M132, "x");
+  assert.equal(r1.a.add, null);
+  assert.deepEqual(r1.list.map((s) => [s.id, s.pcs, s.l, s.w, s.h, s.mref]), [["s1", 1, 132, 80, 78, "Piece 1 of 1"]]);
+  const three = mk({ id: "s3", awb: "B", pcs: 3, wt: 90, l: 100, w: 100, h: 100 });
+  const ra = req(three, "P1"), rb = req(three, "P2"), rc = req(three, "P3"), rd = req(three, "P4");
+  let l = [three];
+  l = applyTo(l, ra, { l: 101, w: 100, h: 100 }, "a").list;
+  l = applyTo(l, rb, { l: 102, w: 100, h: 100 }, "b").list;
+  l = applyTo(l, rc, { l: 103, w: 100, h: 100 }, "c").list;
+  assert.deepEqual(l.map((s) => [s.pcs, s.l, s.mref]), [[1, 103, "P3"], [1, 102, "P2"], [1, 101, "P1"]]);
+  assert.deepEqual(totals(l), { pcs: 3, kg: 90 });
+  const r4 = msrApply(l, rd, { l: 104, w: 100, h: 100 }, "d");
+  assert.ok(!r4.ok && /already has a measured size/.test(r4.why), "a fourth request for a three-piece line is blocked: " + r4.why);
+});
+
+test("measure: the update is blocked, with the reason, when the piece can't be matched reliably", () => {
+  const line = mk({ id: "s1", awb: "071-12345675", pcs: 3, wt: 300, l: 120, w: 80, h: 75 });
+  const r = req(line);
+  const why = (list, rq = r) => {
+    const a = msrApply(list, rq, M132, "n");
+    assert.equal(a.ok, false);
+    return a.why;
+  };
+  assert.match(why([]), /no longer in the list/);
+  assert.match(why([{ ...line, awb: "071-00000000" }]), /now has AWB 071-00000000/);
+  assert.match(why([{ ...line, h: 90 }]), /changed after the request/);
+  assert.match(why([line], { ...r, shipId: null }), /not linked to a cargo line/);
+  assert.equal(msrApply([line], r, { l: 132, w: 0, h: 78 }, "n").ok, false, "an incomplete result is never applied");
+  // a line with missing planned sizes can still be matched (missing stays missing until the result is applied)
+  const noDims = mk({ id: "s9", awb: "C", pcs: 2, wt: 40 });
+  const ok = applyTo([noDims], req(noDims), M132, "m");
+  assert.ok(ok.a.ok);
+  assert.deepEqual(ok.list.map((s) => [s.pcs, s.l, s.w, s.h]), [[1, 0, 0, 0], [1, 132, 80, 78]]);
+});
+
+test("measure: after applying, the build-up reruns with every piece still accounted for", () => {
+  const list = Array.from({ length: 6 }, (_, i) => ({ id: "b" + i, awb: "071-1000000" + i, pcs: 4, wt: 400, l: 120, w: 80, h: 75 }));
+  const before = planRun("B787-9", list);
+  const { list: after } = applyTo(list.map(mk), req(mk(list[2])), M132, "split");
+  const run = planRun("B787-9", after);
+  assert.equal(pieces(run.b), pieces(before.b), "no piece lost or doubled by the split");
+  const where = run.b.ulds.find((u) => u.items.some((i) => i.s.id === "split")) || run.b.offload.find((o) => o.s && o.s.id === "split") || (run.b.bulk || []).find((h) => h.items.some((x) => x.id === "split" || (x._of && x._of.id === "split")));
+  assert.ok(where, "the measured piece is placed in the rerun build-up, or reported as not loaded");
+});
+
+// QR codes for the measurement link are made in the browser (public/adeyiq/qr.js), never by an outside service
+const qctx = { module: { exports: {} }, TextEncoder, Math, Array, String, Error };
+vm.createContext(qctx);
+vm.runInContext(fs.readFileSync(new URL("../public/adeyiq/qr.js", import.meta.url), "utf8"), qctx);
+const QR = qctx.module.exports;
+
+test("QR: structure of the code for a measurement link (finders, timing, format information for level M)", () => {
+  const url = "https://adeyiq.vercel.app/measure#t=AbCdEfGhIjKlMnOpQrStUv&e=mh3k2a1";
+  const q = QR.encode(url);
+  assert.equal(q.size, q.version * 4 + 17);
+  assert.ok(q.version >= 4 && q.version <= 6, "a link fits a small code, version " + q.version);
+  for (const [x0, y0] of [[0, 0], [q.size - 7, 0], [0, q.size - 7]])
+    for (let y = 0; y < 7; y++)
+      for (let x = 0; x < 7; x++) {
+        const d = Math.max(Math.abs(x - 3), Math.abs(y - 3));
+        assert.equal(q.get(x0 + x, y0 + y), d !== 2, `finder pattern at ${x0},${y0}`);
+      }
+  for (let i = 8; i < q.size - 8; i++) assert.equal(q.get(i, 6), i % 2 === 0, "timing row");
+  // format information around the top-left finder: BCH-valid, level M (00), and the same in the second copy
+  const bits1 = [0, 1, 2, 3, 4, 5, 7, 8].map((y) => q.get(8, y)).concat([7, 5, 4, 3, 2, 1, 0].map((x) => q.get(x, 8)));
+  const bits2 = Array.from({ length: 8 }, (_, i) => q.get(q.size - 1 - i, 8)).concat(Array.from({ length: 7 }, (_, i) => q.get(8, q.size - 7 + i)));
+  const num = (b) => b.reduce((n, v, i) => n | ((v ? 1 : 0) << i), 0);
+  assert.equal(num(bits1), num(bits2), "both copies of the format information agree");
+  const f = num(bits1) ^ 0x5412;
+  let rem = f >>> 10;
+  for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+  assert.equal(f & 0x3ff, rem & 0x3ff, "format BCH code is valid");
+  assert.equal(f >>> 13, 0, "error correction level M");
+  assert.equal((f >>> 10) & 7, q.mask);
+  assert.ok(q.get(8, q.size - 8), "dark module");
+  assert.match(QR.svg(url), /^<svg [^>]*viewBox="0 0 (\d+) \1"[^>]*>.*<\/svg>$/);
+  assert.throws(() => QR.encode("x".repeat(300)), /too long/);
+  // cross-checked once with the jsQR decoder: links of 1 to 213 bytes (versions 1 to 10) decode back to the same text
+});

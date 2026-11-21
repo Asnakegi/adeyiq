@@ -45,7 +45,7 @@ const APP = csp("'self' 'unsafe-inline'");
 /* the legacy optimizer demo (shown in /optimizer) still loads three.js and SheetJS from cdnjs; only it may */
 const LEGACY = csp("'self' 'unsafe-inline' https://cdnjs.cloudflare.com");
 const LEGACY_FILES = "adeyiq_cargo_optimizer_v[34]\\.html";
-const PRODUCT_PATHS = ["/", "/build", "/hold-view", "/aircraft-data", "/privacy", "/adeyiq/:path*", "/vendor/:path*"];
+const PRODUCT_PATHS = ["/", "/build", "/hold-view", "/aircraft-data", "/privacy", "/measure", "/adeyiq/:path*", "/vendor/:path*"];
 
 const nextConfig: NextConfig = {
   async rewrites() {
@@ -56,6 +56,7 @@ const nextConfig: NextConfig = {
         { source: "/hold-view", destination: "/adeyiq/hold-view.html" },
         { source: "/aircraft-data", destination: "/adeyiq/aircraft-data.html" },
         { source: "/privacy", destination: "/adeyiq/privacy.html" },
+        { source: "/measure", destination: "/adeyiq/measure.html" },
       ],
       afterFiles: [],
       fallback: [],
@@ -65,7 +66,7 @@ const nextConfig: NextConfig = {
     // the three groups never overlap, so every response gets exactly one Content-Security-Policy
     return [
       ...PRODUCT_PATHS.map((source) => ({ source, headers: headersWith(PRODUCT) })),
-      { source: `/:path((?!(?:build|hold-view|aircraft-data|privacy)$|adeyiq/|vendor/|${LEGACY_FILES}$).+)`, headers: headersWith(APP) },
+      { source: `/:path((?!(?:build|hold-view|aircraft-data|privacy|measure)$|adeyiq/|vendor/|${LEGACY_FILES}$).+)`, headers: headersWith(APP) },
       { source: `/:file(${LEGACY_FILES})`, headers: headersWith(LEGACY) },
     ];
   },

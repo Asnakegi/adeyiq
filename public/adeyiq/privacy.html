@@ -33,7 +33,15 @@ th{color:var(--fg)}
 <p>This page describes what AdeyIQ (adeyiq.vercel.app) collects and why. It covers the home page, the Cargo Builder (/build) and the other pages on this site.</p>
 
 <h2>Cargo you enter stays on your device</h2>
-<p>Shipments you type or upload in the Cargo Builder are saved only in your own browser (local storage). That includes AWB numbers, pieces, sizes, weights and DG codes. They are not sent to our servers. Clearing your browser's site data deletes them.</p>
+<p>Shipments you type or upload in the Cargo Builder are saved only in your own browser (local storage). That includes AWB numbers, pieces, sizes, weights and DG codes. They are not sent to our servers. Clearing your browser's site data deletes them. The one exception is a measurement request, described next.</p>
+
+<h2>Measurement requests</h2>
+<p>When a planner uses "Request measurement" for a piece, AdeyIQ's server stores that request so that warehouse staff can open it on a phone or tablet and send the measured size back. The server keeps only:</p>
+<ul>
+<li>the AWB, the planner's piece reference (for example "Piece 2 of 3") and the planned length, width and height in cm, where known</li>
+<li>once sent: the measured length, width and height, whether each was taped or estimated from a photo, an optional short note, and the time</li>
+</ul>
+<p>Photos taken for a camera estimate stay on the phone; they are never uploaded. No names, accounts or IP addresses are stored with a request. The link contains a random code that only the people you share it with have; it opens and can send sizes for that one piece only, once. An unanswered request is deleted automatically when its link expires (4 hours to 3 days, chosen by the planner). A sent result is kept for up to 3 days so the planner can review it, and is deleted as soon as the planner applies or removes it. Requests are stored with Upstash (Redis), our storage provider for this feature.</p>
 
 <h2>Usage counts</h2>
 <p>To see how the site is used, each page sends a short event to our server when it opens and when you use main tools such as add cargo, upload or load aircraft. Each event contains:</p>
@@ -56,6 +64,7 @@ th{color:var(--fg)}
 <tr><th>Service</th><th>What it does</th></tr>
 <tr><td>Vercel</td><td>Hosts the site and provides the network location. Like any web host, it keeps short-term request logs. Vercel Web Analytics also counts page views (page address, no cookies).</td></tr>
 <tr><td>Google (Sheets and Apps Script)</td><td>Stores usage events, access requests and feedback in a private spreadsheet only the AdeyIQ team can open, and sends an email notice for each access request.</td></tr>
+<tr><td>Upstash</td><td>Stores measurement requests and their results until they expire or are applied (see above). Nothing else is stored there.</td></tr>
 <tr><td>Google Fonts</td><td>Delivers the fonts. Your browser downloads them directly, so Google sees your IP address. The spreadsheet reader for Excel uploads is served by AdeyIQ itself and runs in your browser.</td></tr>
 </table></div>
 
@@ -69,7 +78,7 @@ th{color:var(--fg)}
 <li>To ask what we hold about you, or to have your access request or feedback deleted, send the Request access form on the <a href="/">home page</a> with "Privacy request" in the message. We reply to the email you give.</li>
 </ul>
 <p>We have not yet set a fixed period for keeping these records. Until we do, they are kept until you ask us to delete them or we no longer need them.</p>
-<p>Last updated: 19 November 2026.</p>
+<p>Last updated: 21 November 2026.</p>
 </main>
 </body>
 </html>

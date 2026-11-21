@@ -69,7 +69,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#i
 .upsum{font-size:13px}.upsum p{margin:6px 0}.upsum ul{margin:2px 0 6px;padding-left:18px}.upsum li{margin:1px 0;overflow-wrap:anywhere}
 .drawers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;align-items:start}
 .ship select{font-size:12px;padding:4px 6px;border-radius:7px;width:200px;max-width:100%}
-@media (max-width:560px){.ship{grid-template-columns:12px minmax(0,1fr) auto auto auto}.ship select{grid-column:2/-1;grid-row:2;width:100%}}
+@media (max-width:560px){.ship{grid-template-columns:12px minmax(0,1fr) auto auto auto auto}.ship select{grid-column:2/-1;grid-row:2;width:100%}}
 /* toolbar pills */
 .btn.outline{background:transparent;border:2px solid var(--accent);color:var(--fg)}
 .btn.outline:hover{background:rgba(255,210,31,.14)}
@@ -90,7 +90,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,#i
 .note{font-size:12px;color:var(--muted)}
 .payrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;font-size:13px}.payrow label{font-weight:600}.payrow input{width:130px}
 .list{display:flex;flex-direction:column;gap:5px;max-height:380px;overflow-y:auto;margin-top:8px}
-.ship{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto auto auto;gap:8px;align-items:center;padding:7px 8px;border:1px solid var(--line);border-radius:9px;font-size:13px}
+.ship{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto auto auto auto;gap:8px;align-items:center;padding:7px 8px;border:1px solid var(--line);border-radius:9px;font-size:13px}
 .ship .dot{width:12px;height:12px;border-radius:3px}
 .ship .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ship .m{font-size:11px;color:var(--muted);font-family:var(--mono)}
@@ -232,9 +232,9 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 .selbar b{font-family:var(--mono)}
 .mergeline{font-size:12px;color:var(--muted);margin-top:8px;padding:7px 9px;border-radius:8px;background:var(--panel2)}
 /* feedback questionnaire */
-#fbDlg,#dgDlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
-#fbDlg::backdrop,#dgDlg::backdrop{background:rgba(10,37,64,.55)}
-#fbDlg form,#dgDlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+#fbDlg,#dgDlg,#msrDlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
+#fbDlg::backdrop,#dgDlg::backdrop,#msrDlg::backdrop{background:rgba(10,37,64,.55)}
+#fbDlg form,#dgDlg form,#msrDlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
 /* DG acceptance check */
 .dgres{display:flex;flex-direction:column;gap:10px}
 .dgcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
@@ -253,6 +253,27 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 #fbDlg textarea{font:inherit;font-size:14px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%;resize:vertical;min-height:60px}
 .nudge{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));max-width:340px;background:var(--panel);border:1px solid var(--accent);border-radius:14px;padding:12px 14px;box-shadow:0 12px 30px -8px rgba(10,37,64,.4);z-index:21;display:flex;flex-direction:column;gap:8px;font-size:14px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+/* measurement requests */
+.msr{border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px;display:flex;flex-direction:column;gap:6px}
+.msr.mflag{border-color:var(--bad)}
+.msr .hd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.msr .st{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--panel2);color:var(--muted)}
+.msr .st.warn{background:var(--warn-bg);color:var(--fg)}.msr .st.bad{background:var(--bad-bg);color:var(--bad)}.msr .st.ok{background:var(--ok-bg);color:var(--ok)}
+.mtab{border-collapse:collapse;width:100%;font-size:12.5px}
+.mtab th,.mtab td{text-align:left;padding:3px 6px;border-bottom:1px solid var(--line);font-weight:400}
+.mtab thead th{font-size:11px;color:var(--muted);font-weight:600}
+.mtab tbody th{font-weight:700;width:24px}
+.mtab tr.big td{color:var(--bad)}
+.mtab td.d{font-family:var(--mono)}
+.mblock{background:var(--warn-bg);border-radius:8px;padding:6px 9px;font-size:12.5px}
+.mrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.mform{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mform label{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:600;color:var(--muted);min-width:0}
+.mform .span3{grid-column:1/-1}
+#msrDlg input,#msrDlg select{font:inherit;font-size:14px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 9px;width:100%;min-width:0}
+#msrDlg input:disabled{background:var(--panel2);color:var(--muted)}
+#shQrBox{display:flex;justify-content:center;padding:8px;background:#fff;border-radius:12px;align-self:center}
+#shQrBox svg{width:min(260px,70vw);height:auto;display:block}
 </style>
 </head>
 <body>
@@ -281,6 +302,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <button class="btn outline" id="addToggle" type="button" aria-expanded="false" aria-controls="addPanel">＋ Add Cargo</button>
   <button class="btn ghost" id="upBtn" type="button">↑ Import Manifest / CSV</button><input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden>
   <button class="btn ghost" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
+  <button class="btn ghost" id="msrToggle" type="button" aria-expanded="false" aria-controls="msrPanel" title="Ask warehouse staff to measure a piece on a phone, then review and apply the size">📏 Measurements <span class="note" id="msrN"></span></button>
   <button class="btn ghost" id="toolsBtn" type="button" aria-expanded="false" aria-controls="moreTools">More tools ▾</button>
   <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
   <!-- less frequent tools, one click away: cargo template, aircraft data, engines, DG lookup -->
@@ -312,12 +334,18 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
         <label class="span2">Load on<select id="sPin"></select></label>
         <div class="span2" style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><button class="btn link" id="moreBtn" type="button" aria-expanded="false">+ More</button><span style="display:flex;gap:6px"><button class="btn" id="editCancel" type="button" hidden>Cancel</button><button class="btn pri" type="submit" id="fSubmit">Add</button></span></div>
         <span class="err full" id="sErr" role="alert"></span>
+        <div class="full mrow" id="sMsr" hidden><button class="btn sm" type="button" id="sMsrBtn">📏 Request measurement</button><span class="note">No size yet? Ask the warehouse to measure a piece; add the cargo when the size comes back.</span></div>
       </form>
     </div>
     <div class="card" id="listPanel" hidden>
       <div class="addhd"><b>Cargo</b><div style="display:flex;gap:6px;align-items:center"><button class="btn link" id="clearBtn" type="button">Clear all</button><button class="x" type="button" data-close="listPanel" aria-label="Close">×</button></div></div>
       <p class="note" style="margin:4px 0 0">Pick a pallet or container in “Load on” to place a shipment by hand. “Auto-Assign ULD” lets AdeyIQ choose.</p>
       <div class="list" id="cargo"></div>
+    </div>
+    <div class="card" id="msrPanel" hidden>
+      <div class="addhd"><b>Measurement requests</b><div style="display:flex;gap:6px;align-items:center"><button class="btn link" id="msrNew" type="button">+ New request</button><button class="btn link" id="msrCheck" type="button">Check now</button><button class="x" type="button" data-close="msrPanel" aria-label="Close">×</button></div></div>
+      <p class="note" style="margin:4px 0 0">One request per physical piece. Staff open the link on a phone or tablet and send the measured size. Results show here, also when sent from another device. The plan changes only when you apply a result.</p>
+      <div class="list" id="msrList" style="max-height:560px"></div>
     </div>
     <div class="card" id="engPanel" hidden>
       <div class="addhd"><b>Engines &amp; landing gear · will it fit?</b><button class="x" type="button" data-close="engPanel" aria-label="Close">×</button></div>
@@ -452,9 +480,37 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <p class="note" id="dgSrc" style="margin:0">Planning aid only. Data: US 49 CFR 172.101 hazmat table, which is close to but not the same as the IATA List of Dangerous Goods. Confirm in the IATA DGR (incl. State and operator variations) before accepting.</p>
   </form>
 </dialog>
+<dialog id="msrDlg" aria-labelledby="msrT">
+  <form id="msrForm" method="dialog" novalidate>
+    <div class="addhd"><h2 id="msrT">Request measurement</h2><button class="x" type="button" id="msrX" aria-label="Close">×</button></div>
+    <div id="msrMake" style="display:flex;flex-direction:column;gap:12px">
+      <p class="note" style="margin:-6px 0 0">One request is for one physical piece. Staff open the link on a phone or tablet (no account or app) and measure with a tape, or estimate from a photo with a ruler in the picture.</p>
+      <div class="mform">
+        <label class="span3">AWB<input id="mAwb" maxlength="40" autocomplete="off" placeholder="071-88129031"></label>
+        <label class="span3">Piece reference<input id="mPiece" maxlength="60" autocomplete="off" placeholder="Piece 1 of 3, or the label number"></label>
+        <label>Planned L cm<input id="mpL" type="number" min="1" placeholder="missing"></label>
+        <label>Planned W cm<input id="mpW" type="number" min="1" placeholder="missing"></label>
+        <label>Planned H cm<input id="mpH" type="number" min="1" placeholder="missing"></label>
+        <label class="span3">Link expires in<select id="mHrs"><option value="4">4 hours</option><option value="12">12 hours</option><option value="24" selected>24 hours</option><option value="72">3 days</option></select></label>
+      </div>
+      <p class="note" id="mCtx" style="margin:0"></p>
+      <span class="err" id="mErr" role="alert"></span>
+      <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="mCancel">Cancel</button><button class="btn pri" type="submit" id="mGo">Create link</button></div>
+    </div>
+    <div id="msrShare" hidden style="display:flex;flex-direction:column;gap:12px">
+      <div><b id="shWhat"></b><div class="note" id="shExp"></div></div>
+      <input id="shUrl" readonly aria-label="Measurement link">
+      <div class="mrow"><button class="btn" type="button" id="shCopy">Copy link</button><a class="btn" id="shMail" href="#">Open email draft</a><button class="btn" type="button" id="shQr" aria-expanded="false">Show QR code</button></div>
+      <div id="shQrBox" hidden></div>
+      <p class="note" style="margin:0">The QR code is made in this browser. Anyone with the link can see the AWB, piece reference and planned size and send dimensions once, until it expires: share it only with the staff measuring the piece.</p>
+      <p class="note" id="shHttp" hidden style="margin:0;color:var(--bad)">This page is not on https, so phones may warn about the link. Use the https address of AdeyIQ for real requests.</p>
+      <div style="display:flex;justify-content:flex-end"><button class="btn pri" type="button" id="shDone">Done</button></div>
+    </div>
+  </form>
+</dialog>
 <div class="nudge" id="fbNudge" hidden role="status"><span>How close was this build to what your team builds on the ground? Tell us in 30 seconds.</span><span style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sm" type="button" id="nudgeNo">Not now</button><button class="btn pri sm" type="button" id="nudgeYes">★ Rate</button></span></div>
 
-<p style="text-align:center;font-size:13px;margin:24px 16px"><a href="/privacy">Privacy</a> · Cargo you enter is saved in this browser only and is not sent to AdeyIQ.</p>
+<p style="text-align:center;font-size:13px;margin:24px 16px"><a href="/privacy">Privacy</a> · Cargo you enter is saved in this browser only and is not sent to AdeyIQ. A measurement request you create sends only its AWB, piece reference and sizes, and is deleted when it expires.</p>
 <script>
 (function(){
 const $=id=>document.getElementById(id);
@@ -726,7 +782,7 @@ function parseCSV(t){t=String(t).replace(/^\uFEFF/,'');const head=t.split('\n').
 function mk(o){let dg=String(o.dg||'').trim().replace(/^class\s*/i,'').toUpperCase();if(/^1\.[1-6][A-L]?$/.test(dg))dg=dg==='1.4S'?'1.4S':'1';const known=DG.map(d=>d[0]);dg=known.includes(dg)?dg:'';
   const cap=(v,n)=>String(v==null?'':v).slice(0,n);
   const sub=dg?[...new Set((Array.isArray(o.sub)?o.sub:String(o.sub||'').split(/[,;/\s]+/)).map(v=>{v=String(v).trim().replace(/^class/i,'').toUpperCase();return/^1\.[1-6][A-L]?$/.test(v)&&v!=='1.4S'?'1':v}).filter(v=>v&&v!==dg&&known.includes(v)))].slice(0,4):[];
-  return{id:o.id||uid(),awb:cap(o.awb,40),pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:cap(o.nat,200),shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>cap(x,8).trim().toUpperCase()).filter(Boolean).slice(0,12),dg,sub,un:cap(o.un,12).toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,at:o.at||new Date().toISOString()}}
+  return{id:o.id||uid(),awb:cap(o.awb,40),pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:cap(o.nat,200),shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>cap(x,8).trim().toUpperCase()).filter(Boolean).slice(0,12),dg,sub,un:cap(o.un,12).toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,mref:cap(o.mref,60),at:o.at||new Date().toISOString()}}
 /* manual placement: "Load on" choices */
 function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boolean))].sort();const next=k=>k+':'+(1+Math.max(0,...used.filter(p=>p.startsWith(k)).map(p=>+p.split(':')[1])));
   const label=p=>{const[k,n]=p.split(':');return k==='PMC'?`Manual pallet ${n}`:`Manual container ${n}`};
@@ -1059,11 +1115,12 @@ function render(){
   const ac=acNow();$("specAc").textContent=ac.id;
   $('cargoN').textContent=ships.length?`${ships.length} · ${fmt(ships.reduce((s,x)=>s+x.wt,0))} kg`:'';
   $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);
-    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
+    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}${s.mref?`<span class="chip" title="Size measured: ${esc(s.mref)}">measured</span>`:''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
     <select data-pin="${s.id}" aria-label="Load ${esc(s.awb)} on">${pinOptions(s.pin)}</select>
-    <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:(build&&build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s))?'Bulk':'—')}</span></div><button class="x" type="button" data-edit="${s.id}" aria-label="Edit ${esc(s.awb)}" title="Edit">✎</button><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
+    <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:(build&&build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s))?'Bulk':'—')}</span></div><button class="x" type="button" data-msr="${s.id}" aria-label="Request measurement of a piece of ${esc(s.awb)}" title="Request measurement">📏</button><button class="x" type="button" data-edit="${s.id}" aria-label="Edit ${esc(s.awb)}" title="Edit">✎</button><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(b.dataset.del===editId)endEdit();delShip(b.dataset.del)});
   document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>startEdit(b.dataset.edit));
+  document.querySelectorAll('[data-msr]').forEach(b=>b.onclick=()=>msrFromShip(b.dataset.msr));
   document.querySelectorAll('[data-pin]').forEach(sl=>sl.onchange=()=>{updateShip(sl.dataset.pin,{pin:sl.value});toast(sl.value?`Placed by hand on ${sl.options[sl.selectedIndex].text.replace('+ New ','')}`:'Back to automatic build')});
   const keepPin=$('sPin').value;$('sPin').innerHTML=pinOptions(keepPin);
   const bt=build;$('st1s').textContent=bt?`${bt.ulds.length} ULDs built`:'Add cargo and build ULDs';
@@ -1620,17 +1677,18 @@ $('acSel').onchange=()=>{refresh();toast(`Rebuilt for the ${acNow().name}`)};
 function payChanged(kg){const ac=acNow();setPayOwn(ac.id,kg>0&&Math.round(kg)!==ac.pay?kg:0);if(build){plan=planLoad(build);render();savePlan();reportPlan()}toast(`Max payload ${fmt(payMax(ac))} kg for the ${ac.name}`)}
 $('payMax').addEventListener('change',()=>payChanged(Number($('payMax').value)));$('payReset').onclick=()=>payChanged(0);
 document.querySelectorAll('.settings input').forEach(i=>i.addEventListener('change',()=>{PCACHE.clear();refresh()}));
-function panel(id,open){if(!open&&id==='addPanel'&&editId)endEdit();const p=$(id),b=$({addPanel:'addToggle',listPanel:'listToggle',engPanel:'engToggle'}[id]);p.hidden=!open;b.setAttribute('aria-expanded',String(open));$('drawers').hidden=$('addPanel').hidden&&$('listPanel').hidden&&$('engPanel').hidden;if(open&&id==='engPanel')renderEng();if(open&&id==='addPanel')setTimeout(()=>$('sAwb').focus(),50)}
+function panel(id,open){if(!open&&id==='addPanel'&&editId)endEdit();const p=$(id),b=$({addPanel:'addToggle',listPanel:'listToggle',engPanel:'engToggle',msrPanel:'msrToggle'}[id]);p.hidden=!open;b.setAttribute('aria-expanded',String(open));$('drawers').hidden=$('addPanel').hidden&&$('listPanel').hidden&&$('engPanel').hidden&&$('msrPanel').hidden;if(open&&id==='engPanel')renderEng();if(open&&id==='msrPanel'){renderMsr();msrPoll()}if(open&&id==='addPanel')setTimeout(()=>$('sAwb').focus(),50)}
 $('addToggle').onclick=()=>panel('addPanel',$('addPanel').hidden);
 $('listToggle').onclick=()=>panel('listPanel',$('listPanel').hidden);
+$('msrToggle').onclick=()=>panel('msrPanel',$('msrPanel').hidden);
 $('engToggle').onclick=()=>panel('engPanel',$('engPanel').hidden);
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>panel(b.dataset.close,false));
 $('moreBtn').onclick=()=>{const m=$('more'),o=m.hidden;m.hidden=!o;$('moreBtn').setAttribute('aria-expanded',String(o));$('moreBtn').textContent=o?'− Less':'+ More'};
 $('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:wtFromForm(),nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,sub:$('sSub').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
-  const er=validate(s);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';
-  if(editId){const old=ships.find(x=>x.id===editId);if(old){if(!s.awb)s.awb=/^No AWB \d+$/.test(old.awb)?old.awb:nextNoAwb();const{id:_i,at:_a,...patch}=s;updateShip(old.id,patch);report('Shipments!A1',[shipRow(old,'edited')]);toast(`${s.awb} updated`)}endEdit();panel('addPanel',false);return}
-  if(!s.awb)s.awb=nextNoAwb();const pin=$('sPin').value;addShips([s]);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);wtHint();$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
-['sAwb','sWt','sL','sW','sH','sUn'].forEach(k=>$(k).addEventListener('input',()=>$('sErr').textContent=''));
+  const er=validate(s);$('sMsr').hidden=!(er&&/length, width and height/.test(er)&&!editId);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';
+  if(editId){const old=ships.find(x=>x.id===editId);if(old){if(!s.awb)s.awb=/^No AWB \d+$/.test(old.awb)?old.awb:nextNoAwb();const{id:_i,at:_a,...patch}=s;if(old.mref&&old.l===s.l&&old.w===s.w&&old.h===s.h)patch.mref=old.mref;updateShip(old.id,patch);report('Shipments!A1',[shipRow(old,'edited')]);toast(`${s.awb} updated`)}endEdit();panel('addPanel',false);return}
+  if(!s.awb)s.awb=nextNoAwb();const pin=$('sPin').value,mr=msrPendingFor(s);addShips([s]);if(mr)msrMarkApplied(mr,s.id);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);wtHint();$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
+['sAwb','sWt','sL','sW','sH','sUn'].forEach(k=>$(k).addEventListener('input',()=>{$('sErr').textContent='';$('sMsr').hidden=true}));
 /* weight typed as total or per piece; the shipment always stores the total */
 function wtFromForm(){const v=+$('sWt').value||0,p=Math.max(1,Math.round(+$('sPcs').value||1));return $('sWtMode').value==='p'?Math.round(v*p*10)/10:v}
 function wtHint(){const v=+$('sWt').value||0,p=Math.max(1,Math.round(+$('sPcs').value||1));$('wtHint').textContent=!v?'':$('sWtMode').value==='p'?`= ${fmt(v*p,v*p%1?1:0)} kg total for ${p} pcs`:`= ${fmt(v/p,1)} kg per piece`}
@@ -1644,7 +1702,7 @@ function startEdit(id){const s=ships.find(x=>x.id===id);if(!s)return;editId=id;p
   $('sPin').innerHTML=pinOptions(s.pin);$('sPin').value=s.pin;
   if(s.shc.length||s.ohg||s.excl){$('more').hidden=false;$('moreBtn').setAttribute('aria-expanded','true');$('moreBtn').textContent='− Less'}
   wtHint();setTimeout(()=>{$('sNat').focus();$('addPanel').scrollIntoView({block:'nearest',behavior:RM?'auto':'smooth'})},80)}
-function endEdit(){editId=null;$('addTitle').textContent='Add cargo';$('fSubmit').textContent='Add';$('editCancel').hidden=true;$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sWtMode').value='t';wtHint()}
+function endEdit(){editId=null;msrPending=null;$('sMsr').hidden=true;$('addTitle').textContent='Add cargo';$('fSubmit').textContent='Add';$('editCancel').hidden=true;$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sWtMode').value='t';wtHint()}
 $('editCancel').onclick=()=>endEdit();
 $('upBtn').onclick=()=>$('file').click();
 /* Excel is read in a background worker that is stopped after 15 s: a malformed or hostile file cannot freeze the page */
@@ -1867,10 +1925,134 @@ $('fbForm').addEventListener('submit',e=>{e.preventDefault();const miss=FBQ.filt
 /* one gentle prompt, a few seconds after the first Load to aircraft, never again once answered or dismissed */
 function fbNudgeLater(){if(fbStore('adeyiq-fb-done')||fbStore('adeyiq-fb-asked'))return;fbStore('adeyiq-fb-asked','1');setTimeout(()=>{if(!$('fbDlg').open)$('fbNudge').hidden=false},6000)}
 $('nudgeYes').onclick=openFb;$('nudgeNo').onclick=()=>{$('fbNudge').hidden=true};
-refresh();initStore().then(()=>{if(!ships.length)panel('addPanel',true)});spinId=requestAnimationFrame(spinTick);
+/* ---------- measurement requests: compare and apply (pure functions, tested in test/engine.test.mjs) ---------- */
+const MSR_AX=['l','w','h'];
+/* planned vs measured per axis, in cm; a missing planned value has no difference. big = measured larger than planned */
+function msrDiff(planned,res){return MSR_AX.map(k=>{const p=planned&&+planned[k]>0?+planned[k]:null,m=+res[k];return{k,p,m,d:p==null?null:Math.round((m-p)*10)/10,big:p!=null&&m>p}})}
+/* What applying a result does. Only the measured piece changes: a one-piece line takes the measured size; on a
+   multi-piece line that piece is split into its own line and the other pieces keep their planned size, with the
+   pieces and weight totals unchanged (the piece takes an equal share of the line weight). When the line can't be
+   matched reliably to the request, nothing changes and the reason is returned. */
+function msrApply(list,req,res,newId){
+  if(!req.shipId)return{ok:false,why:'This request is not linked to a cargo line. Use “Add as cargo” to add the piece with the measured size.'};
+  const s=list.find(x=>x.id===req.shipId);
+  if(!s)return{ok:false,why:'The cargo line this piece was on is no longer in the list (removed, cleared or replaced by an import), so AdeyIQ can’t tell which line to change. Add or edit the piece by hand.'};
+  if(s.awb!==req.awb)return{ok:false,why:`That cargo line now has AWB ${s.awb}, not ${req.awb}, so it may not be the same shipment. Check it and edit the size by hand.`};
+  if(!MSR_AX.every(k=>(+s[k]||0)===(+(req.planned||{})[k]||0)))return{ok:false,why:s.mref?'That cargo line already has a measured size applied, so there is no unmeasured piece left on it to match. Check the line and edit it by hand.':'The planned size of that cargo line was changed after the request, so the measured piece can’t be matched to it reliably. Check the line and edit the size by hand.'};
+  if(!MSR_AX.every(k=>res[k]>0))return{ok:false,why:'The result is missing a dimension.'};
+  const dims={l:res.l,w:res.w,h:res.h,mref:req.piece};
+  if(s.pcs<=1)return{ok:true,update:{id:s.id,patch:dims},add:null};
+  const per=Math.round(s.wt/s.pcs*10)/10;
+  return{ok:true,update:{id:s.id,patch:{pcs:s.pcs-1,wt:Math.round((s.wt-per)*10)/10}},add:Object.assign({},s,dims,{id:newId,pcs:1,wt:per})}}
+/* ---------- measurement requests: planner side ---------- */
+// Requests are listed in this browser only (link token, planner key, piece, planned size, result). The server keeps the
+// request and its result only until the link expires, or 72 h after a result, and deletes it once applied (lib/measure.ts).
+const MSRK='adeyiq-measure';
+let MSR=[],msrCtx=null,msrPending=null,msrBusy=false,msrArm='';
+function msrLoad(){try{const a=JSON.parse(localStorage.getItem(MSRK)||'[]');MSR=Array.isArray(a)?a.filter(r=>r&&typeof r.token==='string'):[]}catch(e){MSR=[]}}
+function msrSave(){try{localStorage.setItem(MSRK,JSON.stringify(MSR))}catch(e){}}
+const msrUrl=r=>`${location.origin}/measure#t=${r.token}&e=${Math.floor(r.expires/1000).toString(36)}`;
+async function msrApi(body){let res;try{res=await fetch('/api/measure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'})}catch(e){return{status:0,d:{}}}let d={};try{d=await res.json()}catch(e){}return{status:res.status,d}}
+const cmF=v=>fmt(v,v%1?1:0);
+const dimTxt=p=>MSR_AX.some(k=>p&&p[k]>0)?MSR_AX.map(k=>p&&p[k]>0?cmF(p[k]):'?').join(' × ')+' cm':'no planned size';
+const whenF=ms=>new Date(ms).toLocaleString([],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+function msrState(r){const late=Date.now()>=r.expires;
+  if(r.status==='applied')return['Applied','ok'];
+  if(r.status==='submitted'){const big=msrDiff(r.planned,r.result).some(x=>x.big);return[big?'Measured · larger than planned':'Measured · review',big?'bad':'warn']}
+  if(r.status==='gone'||late)return[late?'Link expired, nothing received':'Removed',''];
+  return['Waiting for measurement','']}
+function fitOf(s){if(!s||!build)return'';const u=uldOf(s);if(u)return`Build-up rerun: the piece is on ${u.id}.`;
+  const off=build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);if(off)return`Build-up rerun: not loaded, ${off.why}.`;
+  if(build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s)))return'Build-up rerun: the piece goes loose in the bulk hold.';return'Build-up rerun done.'}
+function msrCard(r){const[st,cls]=msrState(r),t=esc(r.token);let body='',act='';
+  if(r.result){const D=msrDiff(r.planned,r.result),sg=d=>d>0?'+'+cmF(d):d<0?'−'+cmF(-d):'0';
+    body=`<table class="mtab"><thead><tr><th></th><th>Planned</th><th>Measured</th><th>Difference</th></tr></thead><tbody>${D.map(x=>`<tr class="${x.big?'big':''}" data-ax="${x.k}"><th>${x.k.toUpperCase()}</th><td>${x.p==null?'<span class="note">No planned dimension</span>':cmF(x.p)}</td><td><b>${cmF(x.m)}</b> <span class="note">${r.result.method&&r.result.method[x.k]==='photo'?'photo estimate':'tape'}</span></td><td class="d">${x.d==null?'':sg(x.d)}${x.big?' <span class="chip dg">larger</span>':''}</td></tr>`).join('')}</tbody></table>
+    <div class="note">cm · sent ${whenF(r.result.at)}${r.result.note?` · “${esc(r.result.note)}”`:''}</div>`}
+  if(r.status==='submitted'){
+    if(!r.shipId)act=`<button class="btn sm pri" type="button" data-madd="${t}">Add as cargo…</button>`;
+    else{const a=msrApply(ships,r,r.result,'preview');
+      if(a.ok){const s=ships.find(x=>x.id===r.shipId);act=`<button class="btn sm pri" type="button" data-mapply="${t}">Apply and rerun build-up</button><span class="note">${s.pcs>1?`Splits this piece into its own line (1 pc, ${fmt(a.add.wt,a.add.wt%1?1:0)} kg). The other ${s.pcs-1} pcs keep the planned size.`:'Updates the size of this one-piece line.'}</span>`}
+      else act=`<div class="mblock" role="note"><b>Can’t apply automatically.</b> ${esc(a.why)}</div>`}}
+  if(r.status==='applied')act=`<span class="note">Applied ${whenF(r.appliedAt)}. ${esc(r.fit||'')}</span>`;
+  if(r.status==='open'&&Date.now()<r.expires)act=`<button class="btn sm" type="button" data-mshare="${t}">Share link</button><span class="note">valid until ${whenF(r.expires)}</span>`;
+  const del=`<button class="btn sm link" type="button" data-mdel="${t}">${msrArm===r.token?'Click again to remove':'Remove'}</button>`;
+  return `<div class="msr${cls==='bad'?' mflag':''}" data-mtok="${t}"><div class="hd"><b class="mono">${esc(r.awb)}</b><span>${esc(r.piece)}</span><span class="st ${cls}">${st}</span></div>
+    <div class="note">Planned ${esc(dimTxt(r.planned))}${r.shipId?'':' · not on a cargo line yet'}</div>${body}<div class="mrow">${act}${del}</div></div>`}
+function renderMsr(){const rev=MSR.filter(r=>r.status==='submitted').length,wait=MSR.filter(r=>r.status==='open'&&Date.now()<r.expires).length;
+  $('msrN').textContent=rev?`${rev} to review`:wait?`${wait} waiting`:'';
+  $('msrList').innerHTML=MSR.length?MSR.slice().reverse().map(msrCard).join(''):'<div class="empty" style="padding:16px">No requests yet. Use 📏 on a cargo line, or “+ New request”.</div>';
+  document.querySelectorAll('[data-mshare]').forEach(b=>b.onclick=()=>msrShare(b.dataset.mshare));
+  document.querySelectorAll('[data-mapply]').forEach(b=>b.onclick=()=>msrDoApply(b.dataset.mapply));
+  document.querySelectorAll('[data-madd]').forEach(b=>b.onclick=()=>msrAddAsCargo(b.dataset.madd));
+  document.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=()=>msrDel(b.dataset.mdel))}
+function msrDlg(open){const d=$('msrDlg');if(open){if(!d.open){if(d.showModal)d.showModal();else d.setAttribute('open','')}}else if(d.close)d.close();else d.removeAttribute('open')}
+function msrOpenMake(ctx){msrCtx=ctx;$('msrMake').hidden=false;$('msrShare').hidden=true;$('msrT').textContent='Request measurement';$('mErr').textContent='';
+  $('mAwb').value=ctx.awb||'';$('mAwb').disabled=!!ctx.shipId;$('mPiece').value=ctx.piece||'';
+  MSR_AX.forEach(k=>{const e=$('mp'+k.toUpperCase());e.value=ctx.planned&&ctx.planned[k]>0?ctx.planned[k]:'';e.disabled=!!ctx.shipId});
+  $('mCtx').textContent=ctx.note||'';msrDlg(true);setTimeout(()=>(ctx.awb?$('mPiece'):$('mAwb')).focus(),30)}
+function msrFromShip(id){const s=ships.find(x=>x.id===id);if(!s)return;const n=MSR.filter(r=>r.shipId===id).length;
+  msrOpenMake({shipId:id,awb:s.awb,piece:`Piece ${Math.min(n+1,s.pcs)} of ${s.pcs}`,planned:{l:s.l||null,w:s.w||null,h:s.h||null},
+    note:s.pcs>1?`This line has ${s.pcs} pieces with the same planned size. Applying the result splits the measured piece into its own line; the others keep the planned size.`:'Applying the result updates the size of this one-piece line.'})}
+function msrFromForm(){const pcs=Math.max(1,Math.round(+$('sPcs').value||1));
+  msrOpenMake({shipId:null,awb:$('sAwb').value.trim(),piece:`Piece 1 of ${pcs}`,planned:{l:+$('sL').value||null,w:+$('sW').value||null,h:+$('sH').value||null},
+    draft:{nat:$('sNat').value.trim(),pcs,wt:wtFromForm(),dg:$('sDg').value,sub:$('sSub').value,un:$('sUn').value.trim(),shc:$('sShc').value,ohg:+$('sOhg').value||0,excl:$('sExcl').checked},
+    note:'The cargo is not added yet. When the size comes back, “Add as cargo” fills in the form with the measured size.'})}
+$('sMsrBtn').onclick=msrFromForm;
+$('msrNew').onclick=()=>msrOpenMake({shipId:null,awb:'',piece:'',planned:null,note:'For a piece that is not in the cargo list yet. Leave a planned size empty when it is not known.'});
+$('msrCheck').onclick=()=>msrPoll(true);
+$('msrX').onclick=$('mCancel').onclick=$('shDone').onclick=()=>msrDlg(false);
+$('msrForm').addEventListener('submit',e=>{e.preventDefault();if(!$('msrMake').hidden)msrCreate()});
+async function msrCreate(){const ctx=msrCtx||{},awb=$('mAwb').value.trim(),piece=$('mPiece').value.trim();
+  if(!awb||!piece){$('mErr').textContent='Enter the AWB and which piece to measure.';return}
+  const s=ctx.shipId?ships.find(x=>x.id===ctx.shipId):null;if(ctx.shipId&&!s){$('mErr').textContent='That cargo line is no longer in the list.';return}
+  // a linked request keeps the line's own size, so applying later can check the line was not changed in between
+  const planned=s?{l:s.l||null,w:s.w||null,h:s.h||null}:{l:+$('mpL').value||null,w:+$('mpW').value||null,h:+$('mpH').value||null};
+  $('mGo').disabled=true;const r=await msrApi({op:'create',awb,piece,planned,hours:+$('mHrs').value});$('mGo').disabled=false;
+  if(r.status!==200||!r.d.ok){$('mErr').textContent=r.status===503?'Measurement requests are not set up on this server yet (no request storage is configured).':r.status===0?'No connection. Try again.':(r.d.error||'Could not create the request. Try again.');return}
+  MSR.push({token:r.d.token,key:r.d.key,awb,piece,planned,shipId:s?s.id:null,draft:ctx.draft||null,created:Date.now(),expires:r.d.expires,status:'open',result:null});
+  msrSave();renderMsr();msrShare(r.d.token)}
+function msrShare(tok){const r=MSR.find(x=>x.token===tok);if(!r)return;const u=msrUrl(r);
+  $('msrMake').hidden=true;$('msrShare').hidden=false;$('msrT').textContent='Measurement link';$('shWhat').textContent=`${r.awb} · ${r.piece}`;$('shExp').textContent=`Planned ${dimTxt(r.planned)} · link valid until ${whenF(r.expires)}`;
+  $('shUrl').value=u;$('shQrBox').hidden=true;$('shQrBox').innerHTML='';$('shQr').setAttribute('aria-expanded','false');$('shQr').textContent='Show QR code';
+  $('shHttp').hidden=location.protocol==='https:'||/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const body=`Please measure this piece and send its size with the link below. It opens on a phone or tablet; no app or account is needed.\n\nAWB: ${r.awb}\nPiece: ${r.piece}\nPlanned size: ${dimTxt(r.planned)}\n\nMeasure the maximum outside size as handled, including anything that sticks out, wrapping, and the pallet or skid if it travels with the piece.\n\nLink (valid until ${whenF(r.expires)}):\n${u}\n`;
+  $('shMail').href='mailto:?subject='+encodeURIComponent(`Please measure ${r.awb} · ${r.piece}`)+'&body='+encodeURIComponent(body);
+  msrDlg(true)}
+$('shCopy').onclick=async()=>{const u=$('shUrl').value;let ok=false;try{await navigator.clipboard.writeText(u);ok=true}catch(e){try{$('shUrl').select();ok=document.execCommand('copy')}catch(e2){}}toast(ok?'Link copied':'Select the link and copy it')};
+$('shQr').onclick=()=>{const box=$('shQrBox'),show=box.hidden;box.hidden=!show;$('shQr').setAttribute('aria-expanded',String(show));$('shQr').textContent=show?'Hide QR code':'Show QR code';
+  if(show&&!box.firstChild){try{box.innerHTML=window.AdeyQR.svg($('shUrl').value)}catch(e){box.textContent='The QR code could not be made here. Copy the link instead.'}}};
+async function msrPoll(loud){if(msrBusy)return;const open=MSR.filter(r=>r.status==='open').slice(-50);if(!open.length){if(loud)toast('No open requests');return}msrBusy=true;
+  try{const res=await msrApi({op:'status',tokens:open.map(r=>r.token)});
+    if(res.status===200&&res.d.ok){const got=[];open.forEach(r=>{const x=res.d.requests[r.token];if(!x)return;
+        if(x.status==='submitted'&&x.result){r.status='submitted';r.result=x.result;got.push(r)}else if(x.status==='gone')r.status='gone'});
+      msrSave();renderMsr();if(got.length)toast(got.length>1?`${got.length} measurements received`:`Measurement received: ${got[0].awb} · ${got[0].piece}`);else if(loud)toast('No new measurements yet')}
+    else if(loud)toast(res.status===503?'Measurement requests are not set up on this server':'Could not check now, try again')}finally{msrBusy=false}}
+setInterval(()=>{if(!document.hidden)msrPoll()},15000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)msrPoll()});
+window.addEventListener('storage',e=>{if(e.key===MSRK){msrLoad();renderMsr()}});
+async function msrDoApply(tok){const r=MSR.find(x=>x.token===tok);if(!r||r.status!=='submitted')return;
+  const a=msrApply(ships,r,r.result,uid());if(!a.ok){toast('Not applied: '+a.why);renderMsr();return}
+  await updateShip(a.update.id,a.update.patch);if(a.add)await addShips([mk(a.add)]);
+  msrMarkApplied(r,a.add?a.add.id:a.update.id)}
+function msrMarkApplied(r,shipId){r.status='applied';r.appliedAt=Date.now();r.appliedTo=shipId;if(!r.shipId)r.shipId=shipId;
+  refresh();r.fit=fitOf(ships.find(s=>s.id===shipId));msrSave();renderMsr();toast(`${r.awb} · ${r.piece}: measured size applied. ${r.fit}`);
+  msrApi({op:'cancel',token:r.token,key:r.key})} // the server copy is no longer needed
+/* an unlinked request: fill the Add cargo form with the measured size; the planner checks it and presses Add */
+function msrAddAsCargo(tok){const r=MSR.find(x=>x.token===tok);if(!r||!r.result)return;const d=r.draft||{};endEdit();panel('addPanel',true);
+  $('sAwb').value=r.awb;$('sNat').value=d.nat||'';$('sPcs').value=d.pcs||1;$('sWtMode').value='t';$('sWt').value=d.wt||'';$('sL').value=r.result.l;$('sW').value=r.result.w;$('sH').value=r.result.h;
+  $('sDg').value=d.dg||'';$('sSub').value=d.sub||'';$('sUn').value=d.un||'';$('sShc').value=d.shc||'';$('sOhg').value=d.ohg||0;$('sExcl').checked=!!d.excl;wtHint();
+  msrPending=r.token;$('sErr').textContent=(d.pcs||1)>1?`The measured size is for one piece and is filled in for all ${d.pcs}. If the others may differ, add them as separate lines.`:'Measured size filled in. Check the weight, then Add.'}
+function msrPendingFor(s){const r=msrPending&&MSR.find(x=>x.token===msrPending);msrPending=null;
+  if(!r||!r.result||r.status!=='submitted'||s.awb!==r.awb||!MSR_AX.every(k=>s[k]===r.result[k]))return null;s.mref=r.piece;return r}
+async function msrDel(tok){const r=MSR.find(x=>x.token===tok);if(!r)return;
+  if((r.status==='open'&&Date.now()<r.expires||r.status==='submitted')&&msrArm!==tok){msrArm=tok;renderMsr();return}
+  msrArm='';if(r.status==='open'||r.status==='submitted')msrApi({op:'cancel',token:r.token,key:r.key});
+  MSR=MSR.filter(x=>x!==r);msrSave();renderMsr()}
+refresh();initStore().then(()=>{if(!ships.length)panel('addPanel',true)});msrLoad();renderMsr();msrPoll();spinId=requestAnimationFrame(spinTick);
 })();
 </script>
 
+<script defer src="/adeyiq/qr.js"></script>
 <script defer src="/adeyiq/track.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 </body>
