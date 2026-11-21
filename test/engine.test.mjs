@@ -376,11 +376,16 @@ const planSrc =
   slice("/* ---------- build ULDs", "/* ---------- 3D ULD") +
   slice("function bounds(prof,z)", "\nlet yaw=") +
   "\nthis.P={run(ac,list){SEL=ac;ships=list.map(mk);const b=buildUlds();return{b,p:planLoad(b)}},R};";
+// localStorage stand-in: the user's own max payload per aircraft is kept in this browser only
+const store = new Map();
 const pctx = { Math, Map, Set, Array, Number, String, JSON, Object, performance, uid: (() => { let n = 0; return () => "p" + ++n; })(),
-  $: (id) => ({ value: inputDefaults[id] ?? "" }), fmt: (n, d = 0) => Number(n || 0).toFixed(d), BULKN: null };
+  $: (id) => ({ value: inputDefaults[id] ?? "" }), fmt: (n, d = 0) => Number(n || 0).toFixed(d), BULKN: null,
+  localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) } };
 vm.createContext(pctx);
-vm.runInContext(planSrc, pctx);
-const { run: planRun, R: setting } = pctx.P;
+vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;", pctx);
+const { run: planRun, R: setting, setPayOwn, payMax, AC } = pctx.P;
+const withPayload = (id, kg, fn) => { setPayOwn(id, kg); try { return fn(); } finally { setPayOwn(id, 0); } };
+const onBoardKg = (b) => b.ulds.reduce((s, u) => s + (u.pos ? u.kg : 0), 0);
 
 // heavy charter of low pieces (all under 150 cm): built as lower-deck-contour PMC pallets (163 cm), which the
 // 777F main deck must take two abreast like main-deck pallets (27 positions), not one per row (14)
@@ -394,10 +399,42 @@ function mainRows(b) {
   return rows;
 }
 
+test("every aircraft has a default max payload (placeholder figures)", () => {
+  for (const ac of AC) assert.ok(ac.pay > 0 && payMax(ac) === ac.pay, `${ac.id}: ${ac.pay} kg`);
+  assert.equal(AC.find((a) => a.id === "B777F").pay, 102000);
+});
+
+test("777F heavy charter (200 t): loads up to the 102 t default max payload, heaviest first, deck checks hold", () => {
+  const list = lowCharter(7);
+  const { b, p } = planRun("B777F", list);
+  const kg = onBoardKg(b), off = b.offload.filter((o) => o.uld);
+  assert.equal(p.pay, 102000);
+  assert.ok(kg <= 102000 && kg > 95000, `on board ${Math.round(kg)} kg, at or under 102,000 kg and close to it`);
+  assert.equal(Math.round(p.onBoard), Math.round(kg), "plan reports the weight on board");
+  assert.ok(off.some((o) => /max payload 102000 kg of the Boeing 777 Freighter reached/.test(o.why)), "offloaded ULDs say the max payload was reached");
+  assert.ok(off.filter((o) => /max payload/.test(o.why)).every((o) => o.uld.kg + kg > 102000), "every ULD offloaded for payload would have gone over it");
+  for (const c of p.C) assert.ok(c.kg <= c.maxKg, `${c.name} within its ${c.maxKg} kg limit`);
+  assert.ok(p.index >= setting("rIdxF") && p.index <= setting("rIdxA"), `balance index ${p.index.toFixed(1)} inside the limits`);
+  assert.equal(p.issues.filter((i) => i.k === "bad").length, 0, "no limit exceeded");
+  for (const [r, us] of Object.entries(mainRows(b))) assert.ok(us.length <= (r === "N" ? 1 : 2), `row ${r}: at most two pallets`);
+});
+
+test("a user max payload for the aircraft is respected (lower and higher than the default)", () => {
+  const list = lowCharter(7);
+  withPayload("B777F", 60000, () => {
+    const { b, p } = planRun("B777F", list);
+    assert.equal(p.pay, 60000);
+    assert.ok(onBoardKg(b) <= 60000 && onBoardKg(b) > 55000, `on board ${Math.round(onBoardKg(b))} kg with a 60,000 kg user figure`);
+  });
+  assert.equal(planRun("B777F", lowCharter(7, 20)).p.pay, 102000, "back to the default after the user figure is removed");
+  assert.equal(withPayload("B747-8F", 50000, () => planRun("B777F", lowCharter(7, 20)).p.pay), 102000, "a figure for another aircraft does not apply");
+});
+
 test("777F heavy charter of low pieces: lower-deck pallets fill all 27 main-deck positions two abreast", () => {
   const list = lowCharter(7);
   assert.ok(Math.abs(list.reduce((s, x) => s + x.wt, 0) - 200000) < 5000, "about 200 t booked");
-  const { b, p } = planRun("B777F", list);
+  // a high user payload, so the slot model (not the payload) decides how many pallets go on the main deck
+  const { b, p } = withPayload("B777F", 250000, () => planRun("B777F", list));
   const placed = b.ulds.filter((u) => u.pos), main = placed.filter((u) => u.blk.c === "main"), lower = placed.filter((u) => u.blk.c !== "main");
   assert.ok(main.every((u) => u.type === "PMCL"), "all built as lower-deck pallets");
   assert.equal(main.length, 27, `main deck takes 27 pallets (got ${main.length})`);
@@ -416,8 +453,8 @@ test("777F heavy charter of low pieces: lower-deck pallets fill all 27 main-deck
 
 test("lower-deck pallets sharing a main-deck row keep DG segregation (class 3 never beside 5.1)", () => {
   const list = lowCharter(11, 200, (i) => (i % 4 === 0 ? { dg: "3", un: "UN1263" } : i % 4 === 2 ? { dg: "5.1", un: "UN1942" } : {}));
-  const { b } = planRun("B777F", list);
-  const has = (u, cls) => u.items.some((i) => i.s.dg === cls), rows = mainRows(b);
+  const { b } = withPayload("B777F", 250000, () => planRun("B777F", list));
+  const has =(u, cls) => u.items.some((i) => i.s.dg === cls), rows = mainRows(b);
   assert.ok(Object.values(rows).filter((us) => us.length === 2).length >= 10, "pallets are paired two abreast");
   for (const [r, us] of Object.entries(rows)) {
     assert.ok(us.length <= (r === "N" ? 1 : 2), `row ${r}: at most two pallets`);

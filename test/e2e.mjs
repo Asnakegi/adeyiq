@@ -310,9 +310,23 @@ const low = (() => {
   return rows.join("\n") + "\n";
 })();
 const lc = await load777(low);
-const lcMain = lc.rows.filter((r) => / Main [A-N][LRP] /.test(r)), lcPairs = lc.rows.filter((r) => / Main [A-M][LR] /.test(r)).length;
-check(lcMain.length === 27 && lcPairs === 26 && lc.rows.filter((r) => / (1\d|3\d)P /.test(r)).length === 10 && /^Balanced ✓ · \d+ offloaded$/.test(lc.st2),
-  `low-piece charter: 26 main-deck positions two abreast + the single last row, 10 lower deck, in balance (main ${lcMain.length}, paired ${lcPairs}; ${lc.st2})`);
+// the 777F default max payload (102 t placeholder) stops the load: heaviest ULDs first, the rest offloaded with the reason
+const payState = () => js(`(()=>({st2:document.getElementById('st2s').textContent,rows:[...document.querySelectorAll('#ulds .ulrow')].map(b=>b.innerText.replace(/\\s+/g,' ')),
+  pay:document.getElementById('payMax').value,reset:!document.getElementById('payReset').hidden,tr:(document.getElementById('payTr')||{}).innerText||'',alerts:document.getElementById('loadAlerts').innerText,
+  saved:localStorage.getItem('adeyiq-payload')}))()`);
+const kgOf = (tr) => Number((tr.match(/([\d,]+)\s+([\d,]+)\s*$/) || [])[1]?.replace(/,/g, "") || NaN);
+const p0 = await payState();
+check(p0.pay === "102000" && !p0.reset && kgOf(p0.tr) <= 102000 && kgOf(p0.tr) > 95000 && /max payload 102,000 kg of the Boeing 777 Freighter reached/.test(p0.alerts) && /^Balanced ✓ · \d+ offloaded$/.test(lc.st2),
+  `200 t charter on the 777F stops at the 102,000 kg default max payload (${p0.tr.replace(/\s+/g, " ")}; ${lc.st2})`);
+// the user types a higher figure for tonight's flight: the slot model then fills all 27 main-deck positions two abreast
+await js(`(async()=>{const i=document.getElementById('payMax');i.value='250000';i.dispatchEvent(new Event('change'));await new Promise(r=>setTimeout(r,800))})()`);
+const p1 = await payState();
+const lcMain = p1.rows.filter((r) => / Main [A-N][LRP] /.test(r)), lcPairs = p1.rows.filter((r) => / Main [A-M][LR] /.test(r)).length;
+check(p1.pay === "250000" && p1.reset && /"B777F":250000/.test(p1.saved || "") && lcMain.length === 27 && lcPairs === 26 && p1.rows.filter((r) => / (1\d|3\d)P /.test(r)).length === 10 && /^Balanced ✓ · \d+ offloaded$/.test(p1.st2),
+  `user max payload 250,000 kg (saved in this browser): 26 main-deck positions two abreast + the single last row, 10 lower deck, in balance (main ${lcMain.length}, paired ${lcPairs}; ${p1.st2})`);
+await js(`(async()=>{document.getElementById('payReset').click();await new Promise(r=>setTimeout(r,800))})()`);
+const p2 = await payState();
+check(p2.pay === "102000" && !p2.reset && !/B777F/.test(p2.saved || "") && kgOf(p2.tr) <= 102000, `"Use default" goes back to the 102,000 kg placeholder (${p2.pay}, ${p2.tr.replace(/\s+/g, " ")})`);
 
 console.log("\nLocal performance (production build, this machine)");
 for (const p of ["/", "/build"]) {
