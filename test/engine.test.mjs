@@ -338,3 +338,26 @@ test("sample: charter piece list, a Piece ID column is a label and never a piece
   for (const h of ["No. of pcs", "Number of pieces"]) assert.equal(imp.headerField(h).k, "pcs", h);
   assert.equal(imp.parsePcs("PC-002"), null);
 });
+
+test("the downloadable cargo template: every column is understood, examples import, an empty template says what to do", () => {
+  const wb = sheetjs.read(fs.readFileSync(new URL("../public/adeyiq/adeyiq-cargo-template.xlsx", import.meta.url)), { type: "buffer" });
+  assert.equal(wb.SheetNames[0], "Cargo", "the sheet people fill is the first one (the only one imported)");
+  const rows = (n) => sheetjs.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: "" });
+  const head = rows("Cargo")[1];
+  const want = ["awb", "nat", "pcs", "wt", "wpp", "l", "w", "h", "dg", "un", "sub", "shc", "excl", "ohg"];
+  assert.deepEqual(plain(head.map((h) => imp.headerField(h).k)), want);
+  const csvHead = imp.parseCSV(fs.readFileSync(new URL("../public/adeyiq/adeyiq-cargo-template.csv", import.meta.url), "utf8"))[0];
+  assert.deepEqual(plain(csvHead), plain(head), "the CSV template has the same columns");
+  const how = rows("How to fill").map((r) => r[0] + "|" + r[1]);
+  for (const h of ["Weight kg (total) *", "Length cm *", "Width cm *", "Height cm *"]) assert.ok(how.some((x) => x.startsWith(h + "|Required")), h + " is marked required");
+  const r = imp.rowsToShips(rows("Example"));
+  assert.equal(r.errs.length, 0, r.errs.join("; "));
+  assert.deepEqual(plain(brief(r)), [
+    ["071-12345675", 4, 480, "120x80x60"], ["071-12345686", 10, 180, "40x30x30"], ["071-12345690", 2, 300, "100x80x90"],
+    ["071-12345701", 30, 450, "100x50x40"], ["No AWB 1", 1, 2400, "300x200x150"],
+  ]);
+  assert.deepEqual([r.list[1].dg, r.list[1].un, r.list[4].excl, r.list[4].ohg, plain(r.list[3].shc)], ["3", "UN1263", true, 10, ["PER", "COL"]]);
+  const empty = imp.rowsToShips(rows("Cargo"));
+  assert.equal(empty.list.length, 0);
+  assert.match(empty.errs[0], /no cargo lines under the header/);
+});

@@ -274,6 +274,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 <div class="toolbar">
   <button class="btn outline" id="addToggle" type="button" aria-expanded="false" aria-controls="addPanel">＋ Add Cargo</button>
   <button class="btn ghost" id="upBtn" type="button">↑ Import Manifest / CSV</button><input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden>
+  <a class="btn link" id="tplBtn" href="/adeyiq/adeyiq-cargo-template.xlsx" download="adeyiq-cargo-template.xlsx" title="Excel template: required fields marked *, a How to fill sheet and examples. Fill it and import it here">⬇ Cargo template</a><a class="btn link" id="tplCsv" href="/adeyiq/adeyiq-cargo-template.csv" download="adeyiq-cargo-template.csv" title="The same template as CSV (header row only)" style="padding-left:0">CSV</a>
   <a class="btn ghost" id="specBtn" href="/aircraft-data" title="Doors, holds, contours and ULDs for this aircraft">⚙ Aircraft Spec: <span id="specAc">B787-9</span></a>
   <button class="btn ghost" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
   <button class="btn ghost" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">✈ Engines &amp; gear</button>
@@ -632,7 +633,7 @@ function rowsToShips(rows){rows=(Array.isArray(rows)?rows:[]).map(r=>Array.isArr
   if(!m.awb&&m.ref){m.awb=m.ref;notes.push(`no AWB column: "${m.ref.label}" is used as the label of each line`)}delete m.ref;
   if(hi<0){const first=rows.findIndex(r=>(m.awb&&/^\d{3}[-\s]?\d{8}$/.test(String(r[m.awb.i]||'').trim()))||(m.dims&&parseDims(r[m.dims.i],'',true))||r.filter(c=>num(c)!=null&&/^[\d.,\s'’]+/.test(c.trim())).length>=3);
     start=Math.max(0,first);info.title=rows.slice(0,start).filter(r=>!blankRow(r)).length}
-  info.hdr=hi;if(!m.wt&&!m.wpp&&!m.dims&&!(m.l&&m.w&&m.h))return{list,errs:['no weight or size columns found. Name the columns like AWB, Pieces, Weight, Dims (or L, W, H)'],notes,info};
+  info.hdr=hi;if(!m.wt&&!m.wpp&&!m.dims&&!(m.l&&m.w&&m.h))return{list,errs:['no weight or size columns found. Name the columns like AWB, Pieces, Weight, Dims (or L, W, H), or use the cargo template'],notes,info};
   info.cols=Object.keys(FNAME).filter(k=>m[k]).map(k=>({k,name:FNAME[k],col:colName(m[k].i),label:m[k].label||'',guessed:!!m[k].guessed}));
   const cell=(r,k)=>m[k]?String(r[m[k].i]==null?'':r[m[k].i]).replace(/\s+/g,' ').trim():'',raw=(r,k)=>m[k]?String(r[m[k].i]==null?'':r[m[k].i]):'';
   /* sizes in plain numbers with no unit: millimetres or metres are spotted from the whole column */
@@ -659,6 +660,7 @@ function rowsToShips(rows){rows=(Array.isArray(rows)?rows:[]).map(r=>Array.isArr
         if(o.pcs!=null&&!prev.more&&prev.lines.length===1&&prev.lines[0].p==null&&prev.pcs)prev.lines[0].p=prev.pcs;prev.lines.push(...o.lines);prev.more=true;continue}
       for(const k of ['awb','nat','shc','dg','sub','un','excl','ohg'])if(!o[k])o[k]=prev[k]}
     groups.push(o);prev=o}
+  if(!groups.length&&!Object.keys(info.skip).length)errs.push('no cargo lines under the header: fill one line per AWB (weight and sizes are required)');
   /* groups -> shipments: piece count per size, weight shared by volume */
   for(const g of groups){const L=g.lines.length?g.lines:[{p:null,l:0,w:0,h:0,at:g.at}],un=L.filter(d=>d.p==null),known=L.reduce((a,d)=>a+(d.p||0),0);
     if(L.length===1&&un.length)L[0].p=g.pcs||1;

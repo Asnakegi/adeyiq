@@ -455,7 +455,16 @@ console.log("\nMessy real-world manifests (synthetic samples in test/fixtures/ma
   const d = await up("multi.csv", `AWB,Pcs,Weight,Dims,Goods\n071-70000011,3,600,"2/120x80x60, 1/60x40x40",Parts\n`);
   const sd = await shipsNow();
   check(sd.length === 2 && sd[0][1] === 2 && sd[1][1] === 1 && Math.round((sd[0][2] + sd[1][2]) * 10) === 6000 && /2 shipments added/.test(d.toast), `"2/120x80x60, 1/60x40x40" becomes two lines with 2 and 1 pieces (${JSON.stringify(sd)})`);
-  await up("hostile-header.csv", `AWB,"<img src=x onerror=window.__xss=9> Weight",Dims,"<b>Goods</b>"\n071-70000022,10,50x40x30,Box\n`);
+  // the downloadable template: the button points at a real file, and a filled template imports
+  const tpl = await js(`(async()=>{const a=document.getElementById('tplBtn'),c=document.getElementById('tplCsv');const r=await fetch(a.href),t=await fetch(c.href);return {x:r.status,xs:(await r.arrayBuffer()).byteLength,xd:a.getAttribute('download'),c:t.status,head:(await t.text()).split(/\\r?\\n/)[0]}})()`);
+  check(tpl.x === 200 && tpl.xs > 1000 && tpl.xd === "adeyiq-cargo-template.xlsx" && tpl.c === 200 && /Weight kg \(total\) \*/.test(tpl.head), `the "Cargo template" button downloads the Excel template, and the CSV link the same columns (${tpl.xs} bytes)`);
+  const tb = SHEETJS.read(fs.readFileSync(new URL("../public/adeyiq/adeyiq-cargo-template.xlsx", import.meta.url)), { type: "buffer" });
+  const exRows = SHEETJS.utils.sheet_to_json(tb.Sheets.Example, { header: 1, raw: false, defval: "" });
+  const filled = SHEETJS.utils.sheet_to_json(tb.Sheets.Cargo, { header: 1, raw: false, defval: "" }).concat(exRows.slice(2));
+  const t = await up("my-cargo.xlsx", xlsxB64(filled), true);
+  const st = await shipsNow();
+  check(st.length === 5 && /5 shipments added/.test(t.toast) && JSON.stringify(st[1]) === JSON.stringify(["071-12345686", 10, 180, "40x30x30"]), `a filled-in cargo template imports every line (${st.length} lines, "${t.toast}")`);
+  await up("hostile-header.csv",`AWB,"<img src=x onerror=window.__xss=9> Weight",Dims,"<b>Goods</b>"\n071-70000022,10,50x40x30,Box\n`);
   check((await js(`window.__xss===undefined&&!document.querySelector('#upSum img')&&![...document.querySelectorAll('#upSum b')].some(b=>b.textContent==='Goods')&&document.getElementById('upSum').textContent.includes('<img src=x')`)), "header text from the file is shown as text in the import summary, never as HTML");
 }
 
