@@ -11,7 +11,7 @@ const XLSX = ctx.XLSX;
 
 // [header in the template, required?, what to write, example]
 export const FIELDS = [
-  ["AWB", "Optional", "Air waybill number, like 071-12345675. Lines without one are named No AWB 1, 2 …", "071-12345675"],
+  ["AWB", "Optional", "Air waybill number, like 000-12345675. Lines without one are named No AWB 1, 2 …", "000-12345675"],
   ["Goods", "Optional", "Nature of goods, shown on the ULD and the build sheet", "Spare parts"],
   ["Pieces", "Recommended", "Number of pieces with these sizes. Empty = 1", "4"],
   ["Weight kg (total) *", "Required (or weight per piece)", "Gross weight of all pieces on this line, in kg. Not chargeable weight", "480"],
@@ -28,10 +28,10 @@ export const FIELDS = [
 ];
 const HEAD = FIELDS.map((f) => f[0]);
 export const EXAMPLES = [
-  ["071-12345675", "Spare parts", 4, 480, "", 120, 80, 60, "", "", "", "", "", ""],
-  ["071-12345686", "Paint", 10, "", 18, 40, 30, 30, "3", "UN1263", "", "", "", ""],
-  ["071-12345690", "Lithium ion batteries", 2, 300, "", 100, 80, 90, "9", "UN3480", "", "", "", ""],
-  ["071-12345701", "Fresh flowers", 30, 450, "", 100, 50, 40, "", "", "", "PER COL", "", ""],
+  ["000-12345675", "Spare parts", 4, 480, "", 120, 80, 60, "", "", "", "", "", ""],
+  ["000-12345686", "Paint", 10, "", 18, 40, 30, 30, "3", "UN1263", "", "", "", ""],
+  ["000-12345690", "Lithium ion batteries", 2, 300, "", 100, 80, 90, "9", "UN3480", "", "", "", ""],
+  ["000-12345701", "Fresh flowers", 30, 450, "", 100, 50, 40, "", "", "", "PER COL", "", ""],
   ["", "Machine on skid", 1, 2400, "", 300, 200, 150, "", "", "", "HEA", "yes", "10"],
 ];
 

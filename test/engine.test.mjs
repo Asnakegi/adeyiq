@@ -353,8 +353,8 @@ test("the downloadable cargo template: every column is understood, examples impo
   const r = imp.rowsToShips(rows("Example"));
   assert.equal(r.errs.length, 0, r.errs.join("; "));
   assert.deepEqual(plain(brief(r)), [
-    ["071-12345675", 4, 480, "120x80x60"], ["071-12345686", 10, 180, "40x30x30"], ["071-12345690", 2, 300, "100x80x90"],
-    ["071-12345701", 30, 450, "100x50x40"], ["No AWB 1", 1, 2400, "300x200x150"],
+    ["000-12345675", 4, 480, "120x80x60"], ["000-12345686", 10, 180, "40x30x30"], ["000-12345690", 2, 300, "100x80x90"],
+    ["000-12345701", 30, 450, "100x50x40"], ["No AWB 1", 1, 2400, "300x200x150"],
   ]);
   assert.deepEqual([r.list[1].dg, r.list[1].un, r.list[4].excl, r.list[4].ohg, plain(r.list[3].shc)], ["3", "UN1263", true, 10, ["PER", "COL"]]);
   const empty = imp.rowsToShips(rows("Cargo"));

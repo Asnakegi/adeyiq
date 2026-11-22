@@ -241,14 +241,14 @@ const U=(id,k,what,kg,awb,note)=>({id,k,what,kg,awb,note:note||''});
 const AC={
  'B787-8':{flight:'Your flight',route:'Tonight',std:'23:45',maker:'Boeing',role:'Passenger · lower deck',len:56.7,dia:5.77,kind:'pax',wing:.47,
    lower:[{name:'Forward hold',a:.20,b:.42,rows:8,start:11},{name:'Aft hold',a:.53,b:.70,rows:6,start:31}],bulk:{a:.71,b:.76},doors:[.23,.58],pdoors:[.07,.33,.62,.88],cg:[14,36,27.4],
-   load:{L11:{L:U('A1','g','Auto parts',1180,'071-10002'),R:U('A2','g','Electronics',960,'071-10004')},L12:{L:U('A3','g','Textiles',1240,'071-10011'),R:U('A4','g','Machinery parts',1420,'071-10015')},L13:{L:U('D1','d','Lithium batteries in equipment',410,'071-10020','UN3481 · class 9')},L31:{L:U('F4','p','Fresh flowers',820,'071-10001','Keep 2–8 °C'),R:U('F5','p','Fresh flowers',790,'071-10007','Keep 2–8 °C')},L32:{L:U('F6','p','Pharmaceuticals',540,'071-10031','Keep 2–8 °C')}}},
+   load:{L11:{L:U('A1','g','Auto parts',1180,'000-10002'),R:U('A2','g','Electronics',960,'000-10004')},L12:{L:U('A3','g','Textiles',1240,'000-10011'),R:U('A4','g','Machinery parts',1420,'000-10015')},L13:{L:U('D1','d','Lithium batteries in equipment',410,'000-10020','UN3481 · class 9')},L31:{L:U('F4','p','Fresh flowers',820,'000-10001','Keep 2–8 °C'),R:U('F5','p','Fresh flowers',790,'000-10007','Keep 2–8 °C')},L32:{L:U('F6','p','Pharmaceuticals',540,'000-10031','Keep 2–8 °C')}}},
  'B777F':{flight:'Your flight',route:'Tonight',std:'23:45',maker:'Boeing',role:'Freighter · main and lower deck',len:63.7,dia:6.2,kind:'freighter',wing:.475,
    main:{name:'Main deck',a:.13,b:.80,rows:14},
    lower:[{name:'Forward hold',a:.17,b:.42,rows:9,start:11},{name:'Aft hold',a:.53,b:.71,rows:7,start:31}],bulk:{a:.72,b:.77},doors:[.2,.57],mainDoor:.765,pdoors:[.07],cg:[14,34,24.8],
-   load:{M0:{L:U('P1','g','Machinery',6200,'071-20001'),R:U('P2','g','Machinery',5900,'071-20002')},M1:{L:U('P3','g','Vehicle parts',5600,'071-20005'),R:U('P4','g','Electronics',4800,'071-20009')},M2:{L:U('P5','p','Fresh flowers',4300,'071-20012','Keep 2–8 °C'),R:U('P6','p','Fresh flowers',4100,'071-20013','Keep 2–8 °C')},M3:{L:U('P7','g','Textiles',3900,'071-20017')},M4:{L:U('P8','d','Dry ice shipment',2100,'071-20021','UN1845 · class 9'),R:U('P9','g','Garments',4400,'071-20022')},M5:{L:U('P10','g','Tyres',5200,'071-20026'),R:U('P11','g','Building materials',6100,'071-20030')}}},
+   load:{M0:{L:U('P1','g','Machinery',6200,'000-20001'),R:U('P2','g','Machinery',5900,'000-20002')},M1:{L:U('P3','g','Vehicle parts',5600,'000-20005'),R:U('P4','g','Electronics',4800,'000-20009')},M2:{L:U('P5','p','Fresh flowers',4300,'000-20012','Keep 2–8 °C'),R:U('P6','p','Fresh flowers',4100,'000-20013','Keep 2–8 °C')},M3:{L:U('P7','g','Textiles',3900,'000-20017')},M4:{L:U('P8','d','Dry ice shipment',2100,'000-20021','UN1845 · class 9'),R:U('P9','g','Garments',4400,'000-20022')},M5:{L:U('P10','g','Tyres',5200,'000-20026'),R:U('P11','g','Building materials',6100,'000-20030')}}},
  'A350-900':{flight:'Your flight',route:'Tonight',std:'23:45',maker:'Airbus',role:'Passenger · lower deck',len:66.8,dia:5.96,kind:'pax',cockpit:'mask',wing:.475,
    lower:[{name:'Forward hold',a:.18,b:.42,rows:10,start:11},{name:'Aft hold',a:.53,b:.72,rows:8,start:31}],bulk:{a:.73,b:.78},doors:[.21,.58],pdoors:[.07,.27,.6,.87],cg:[15,38,29.1],
-   load:{L11:{L:U('A1','g','Coffee',1350,'071-30001'),R:U('A2','g','Coffee',1310,'071-30002')},L12:{L:U('A3','g','Leather goods',980,'071-30006'),R:U('A4','g','Garments',1100,'071-30008')},L13:{L:U('A5','g','E-commerce parcels',870,'071-30011')},L14:{R:U('D2','d','Paint',360,'071-30014','UN1263 · class 3')},L31:{L:U('F1','p','Chilled meat',1420,'071-30020','Keep 0–4 °C'),R:U('F2','p','Chilled meat',1390,'071-30021','Keep 0–4 °C')},L32:{L:U('M1','g','Mail',640,'071-30025'),R:U('M2','g','Mail',590,'071-30026')}}},
+   load:{L11:{L:U('A1','g','Coffee',1350,'000-30001'),R:U('A2','g','Coffee',1310,'000-30002')},L12:{L:U('A3','g','Leather goods',980,'000-30006'),R:U('A4','g','Garments',1100,'000-30008')},L13:{L:U('A5','g','E-commerce parcels',870,'000-30011')},L14:{R:U('D2','d','Paint',360,'000-30014','UN1263 · class 3')},L31:{L:U('F1','p','Chilled meat',1420,'000-30020','Keep 0–4 °C'),R:U('F2','p','Chilled meat',1390,'000-30021','Keep 0–4 °C')},L32:{L:U('M1','g','Mail',640,'000-30025'),R:U('M2','g','Mail',590,'000-30026')}}},
  'B737-800':{flight:'Your flight',route:'Tonight',std:'23:45',maker:'Boeing',role:'Narrow-body · bulk holds',len:39.5,dia:3.76,kind:'narrow',wing:.47,
    bulkOnly:[{key:'FWD',name:'Forward hold',a:.17,b:.40,vol:19.6,cap:3500,kg:620,pcs:34},{key:'AFT',name:'Aft hold',a:.56,b:.78,vol:25.4,cap:4500,kg:1140,pcs:61}],doors:[.2,.66],pdoors:[.08,.86],cg:[9,31,18.6],load:{}}
 };
@@ -273,11 +273,11 @@ function consign(u){
   const extra=1+Math.floor(R()*3),pool=POOL[u.k].slice();
   const order=[3,4,5,6,7,0,1].filter(i=>i!==prim);
   const share0=0.45+R()*0.25;let rest=1-share0;
-  const list=[{awb:awbNo('071',+u.awb.split('-')[1]),what:u.what,shc:SHCMAP[u.what]||['GEN'],ci:prim,share:share0,note:u.note}];
+  const list=[{awb:awbNo('000',+u.awb.split('-')[1]),what:u.what,shc:SHCMAP[u.what]||['GEN'],ci:prim,share:share0,note:u.note}];
   for(let i=0;i<extra&&pool.length;i++){
     const p=pool.splice(Math.floor(R()*pool.length),1)[0];
     const sh=i===extra-1?rest:rest*(0.35+R()*0.4);rest-=sh;
-    list.push({awb:awbNo(R()<.7?'071':'176',1000000+Math.floor(R()*8999999)),what:p.what,shc:p.shc,ci:order[i%order.length],share:sh,note:''});
+    list.push({awb:awbNo('000',1000000+Math.floor(R()*8999999)),what:p.what,shc:p.shc,ci:order[i%order.length],share:sh,note:''});
   }
   list.forEach(a=>a.kg=Math.round(u.kg*a.share));
   return CONS[key]=list;

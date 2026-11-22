@@ -221,7 +221,7 @@ tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
     </div>
 
     <div class="tp" id="tp-manual" style="padding:0">
-      <div class="f-row"><label class="f-lbl">AWB / Description</label><input id="fdesc" placeholder="071-10001 fresh flowers"></div>
+      <div class="f-row"><label class="f-lbl">AWB / Description</label><input id="fdesc" placeholder="000-10001 fresh flowers"></div>
       <div class="r3" style="gap:4px;margin-bottom:6px">
         <div><label class="f-lbl">L (cm)</label><input id="fl" type="number" placeholder="80"></div>
         <div><label class="f-lbl">W (cm)</label><input id="fw" type="number" placeholder="60"></div>
@@ -1535,7 +1535,7 @@ function setStat(t,msg){const el=document.getElementById('upStat');el.className=
 
 async function dlTemplate(){
   const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet([['AWB Number','Description','Length (cm)','Width (cm)','Height (cm)','Weight (kg)','Pieces'],['071-10001','Fresh flowers','80','60','50','40','2'],['071-10002','Auto parts','120','100','80','180','1'],['071-10003','Pharma','60','50','40','25','3']]);
+  const ws=XLSX.utils.aoa_to_sheet([['AWB Number','Description','Length (cm)','Width (cm)','Height (cm)','Weight (kg)','Pieces'],['000-10001','Fresh flowers','80','60','50','40','2'],['000-10002','Auto parts','120','100','80','180','1'],['000-10003','Pharma','60','50','40','25','3']]);
   ws['!cols']=[{wch:14},{wch:22},{wch:12},{wch:11},{wch:12},{wch:12},{wch:8}];
   XLSX.utils.book_append_sheet(wb,ws,'Manifest');XLSX.writeFile(wb,'AdeyIQ_Manifest_Template.xlsx');
 }
@@ -1691,10 +1691,10 @@ window.addEventListener('load',()=>{
   renderULDView();
   // Load demo shipments
   const demo=[
-    {desc:'071-10001 Fresh flowers',l:80,w:60,h:50,wt:40,pcs:3},
-    {desc:'071-10002 Auto parts',l:120,w:100,h:80,wt:180,pcs:2},
-    {desc:'071-10003 Pharma',l:60,w:50,h:40,wt:25,pcs:4},
-    {desc:'071-10004 Electronics',l:90,w:70,h:60,wt:60,pcs:2},
+    {desc:'000-10001 Fresh flowers',l:80,w:60,h:50,wt:40,pcs:3},
+    {desc:'000-10002 Auto parts',l:120,w:100,h:80,wt:180,pcs:2},
+    {desc:'000-10003 Pharma',l:60,w:50,h:40,wt:25,pcs:4},
+    {desc:'000-10004 Electronics',l:90,w:70,h:60,wt:60,pcs:2},
   ];
   demo.forEach(d=>shipments.push({...d,id:Date.now()+Math.random(),color:COLORS[shipments.length%COLORS.length]}));
   renderList();
