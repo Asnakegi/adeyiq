@@ -49,10 +49,10 @@ function run(name, code, shipments) {
 }
 
 const demo = [
-  { desc: '071-10001 Fresh flowers', l: 80, w: 60, h: 50, wt: 40, pcs: 3 },
-  { desc: '071-10002 Auto parts', l: 120, w: 100, h: 80, wt: 180, pcs: 2 },
-  { desc: '071-10003 Pharma', l: 60, w: 50, h: 40, wt: 25, pcs: 4 },
-  { desc: '071-10004 Electronics', l: 90, w: 70, h: 60, wt: 60, pcs: 2 },
+  { desc: '000-10001 Fresh flowers', l: 80, w: 60, h: 50, wt: 40, pcs: 3 },
+  { desc: '000-10002 Auto parts', l: 120, w: 100, h: 80, wt: 180, pcs: 2 },
+  { desc: '000-10003 Pharma', l: 60, w: 50, h: 40, wt: 25, pcs: 4 },
+  { desc: '000-10004 Electronics', l: 90, w: 70, h: 60, wt: 60, pcs: 2 },
 ];
 
 const all = [];

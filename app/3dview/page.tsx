@@ -14,25 +14,25 @@ const uldLibrary: Record<string, UldSpec> = {
 
 const ulds = [
   {
-    id: "PMC-1234-ET", type: "PMC", flight: "ET608",
+    id: "PMC-1234-ADIQ", type: "PMC", flight: "ADIQ608",
     shipments: [
-      { awb: "057-11111", commodity: "Pharma", pieces: 6, weight: 720, l: 80, w: 60, h: 70, color: "#3B82F6", stackable: false, priority: "Critical" },
-      { awb: "057-22222", commodity: "Electronics", pieces: 4, weight: 480, l: 70, w: 50, h: 60, color: "#22C55E", stackable: true, priority: "High" },
-      { awb: "057-33333", commodity: "General", pieces: 8, weight: 960, l: 100, w: 80, h: 50, color: "#F59E0B", stackable: true, priority: "Normal" },
-      { awb: "057-44444", commodity: "Courier", pieces: 12, weight: 340, l: 50, w: 40, h: 40, color: "#EC4899", stackable: true, priority: "High" },
+      { awb: "000-11111", commodity: "Pharma", pieces: 6, weight: 720, l: 80, w: 60, h: 70, color: "#3B82F6", stackable: false, priority: "Critical" },
+      { awb: "000-22222", commodity: "Electronics", pieces: 4, weight: 480, l: 70, w: 50, h: 60, color: "#22C55E", stackable: true, priority: "High" },
+      { awb: "000-33333", commodity: "General", pieces: 8, weight: 960, l: 100, w: 80, h: 50, color: "#F59E0B", stackable: true, priority: "Normal" },
+      { awb: "000-44444", commodity: "Courier", pieces: 12, weight: 340, l: 50, w: 40, h: 40, color: "#EC4899", stackable: true, priority: "High" },
     ]
   },
   {
-    id: "AKE-5678-ET", type: "AKE", flight: "ET608",
+    id: "AKE-5678-ADIQ", type: "AKE", flight: "ADIQ608",
     shipments: [
-      { awb: "057-55555", commodity: "Pharmaceuticals", pieces: 3, weight: 360, l: 60, w: 50, h: 55, color: "#8B5CF6", stackable: false, priority: "Critical" },
-      { awb: "057-66666", commodity: "Documents", pieces: 20, weight: 180, l: 40, w: 30, h: 20, color: "#06B6D4", stackable: true, priority: "Normal" },
+      { awb: "000-55555", commodity: "Pharmaceuticals", pieces: 3, weight: 360, l: 60, w: 50, h: 55, color: "#8B5CF6", stackable: false, priority: "Critical" },
+      { awb: "000-66666", commodity: "Documents", pieces: 20, weight: 180, l: 40, w: 30, h: 20, color: "#06B6D4", stackable: true, priority: "Normal" },
     ]
   },
   {
-    id: "RKN-9012-ET", type: "RKN", flight: "ET608",
+    id: "RKN-9012-ADIQ", type: "RKN", flight: "ADIQ608",
     shipments: [
-      { awb: "057-77777", commodity: "Cool Chain", pieces: 4, weight: 480, l: 70, w: 60, h: 65, color: "#0EA5E9", stackable: false, priority: "High" },
+      { awb: "000-77777", commodity: "Cool Chain", pieces: 4, weight: 480, l: 70, w: 60, h: 65, color: "#0EA5E9", stackable: false, priority: "High" },
     ]
   },
 ]

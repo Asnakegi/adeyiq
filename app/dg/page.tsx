@@ -2,11 +2,11 @@
 import { useState } from "react"
 
 const dgAlerts = [
-  { id: "DG-001", awb: "057-12345678", flight: "ET302", class: "Class 3", subclass: "Flammable Liquid", un: "UN1263", pieces: 4, weight: "120 kg", conflict: "Class 5.1", severity: "Critical", status: "On Hold" },
-  { id: "DG-002", awb: "057-23456789", flight: "ET512", class: "Class 8", subclass: "Corrosive", un: "UN1824", pieces: 2, weight: "45 kg", conflict: "None", severity: "Warning", status: "Approved" },
-  { id: "DG-003", awb: "057-34567890", flight: "ET608", class: "Class 2.2", subclass: "Non-Flammable Gas", un: "UN1066", pieces: 6, weight: "200 kg", conflict: "Class 2.3", severity: "Critical", status: "Rejected" },
-  { id: "DG-004", awb: "057-45678901", flight: "ET847", class: "Class 6.1", subclass: "Toxic", un: "UN2810", pieces: 1, weight: "30 kg", conflict: "None", severity: "Info", status: "Approved" },
-  { id: "DG-005", awb: "057-56789012", flight: "ET717", class: "Class 9", subclass: "Misc Dangerous", un: "UN3077", pieces: 8, weight: "340 kg", conflict: "None", severity: "Info", status: "Pending" },
+  { id: "DG-001", awb: "000-12345678", flight: "ADIQ302", class: "Class 3", subclass: "Flammable Liquid", un: "UN1263", pieces: 4, weight: "120 kg", conflict: "Class 5.1", severity: "Critical", status: "On Hold" },
+  { id: "DG-002", awb: "000-23456789", flight: "ADIQ512", class: "Class 8", subclass: "Corrosive", un: "UN1824", pieces: 2, weight: "45 kg", conflict: "None", severity: "Warning", status: "Approved" },
+  { id: "DG-003", awb: "000-34567890", flight: "ADIQ608", class: "Class 2.2", subclass: "Non-Flammable Gas", un: "UN1066", pieces: 6, weight: "200 kg", conflict: "Class 2.3", severity: "Critical", status: "Rejected" },
+  { id: "DG-004", awb: "000-45678901", flight: "ADIQ847", class: "Class 6.1", subclass: "Toxic", un: "UN2810", pieces: 1, weight: "30 kg", conflict: "None", severity: "Info", status: "Approved" },
+  { id: "DG-005", awb: "000-56789012", flight: "ADIQ717", class: "Class 9", subclass: "Misc Dangerous", un: "UN3077", pieces: 8, weight: "340 kg", conflict: "None", severity: "Info", status: "Pending" },
 ]
 
 const dgRules = [

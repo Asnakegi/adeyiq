@@ -2,12 +2,12 @@
 
 export default function FlightsPage() {
   const flights = [
-    { id: "ET608", route: "ADD → DXB", std: "23:45", aircraft: "B777F", ulds: 11, weight: "74.2T", utilization: 91, status: "In progress" },
-    { id: "ET847", route: "ADD → FRA", std: "01:10", aircraft: "B787-8", ulds: 8, weight: "62.1T", utilization: 84, status: "Completed" },
-    { id: "ET302", route: "ADD → HKG", std: "02:30", aircraft: "B777F", ulds: 11, weight: "58.3T", utilization: 71, status: "Delayed" },
-    { id: "ET512", route: "ADD → LHR", std: "03:55", aircraft: "B787-9", ulds: 9, weight: "81.4T", utilization: 96, status: "Critical" },
-    { id: "ET204", route: "ADD → NBO", std: "06:00", aircraft: "B737-800", ulds: 2, weight: "14.8T", utilization: 62, status: "Scheduled" },
-    { id: "ET717", route: "ADD → PVG", std: "08:15", aircraft: "A350-900", ulds: 10, weight: "68.9T", utilization: 79, status: "Scheduled" },
+    { id: "ADIQ608", route: "ADD → DXB", std: "23:45", aircraft: "B777F", ulds: 11, weight: "74.2T", utilization: 91, status: "In progress" },
+    { id: "ADIQ847", route: "ADD → FRA", std: "01:10", aircraft: "B787-8", ulds: 8, weight: "62.1T", utilization: 84, status: "Completed" },
+    { id: "ADIQ302", route: "ADD → HKG", std: "02:30", aircraft: "B777F", ulds: 11, weight: "58.3T", utilization: 71, status: "Delayed" },
+    { id: "ADIQ512", route: "ADD → LHR", std: "03:55", aircraft: "B787-9", ulds: 9, weight: "81.4T", utilization: 96, status: "Critical" },
+    { id: "ADIQ204", route: "ADD → NBO", std: "06:00", aircraft: "B737-800", ulds: 2, weight: "14.8T", utilization: 62, status: "Scheduled" },
+    { id: "ADIQ717", route: "ADD → PVG", std: "08:15", aircraft: "A350-900", ulds: 10, weight: "68.9T", utilization: 79, status: "Scheduled" },
   ]
 
   const statusColor: Record<string, string> = {

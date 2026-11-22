@@ -2,12 +2,12 @@
 
 export default function ShipmentsPage() {
   const shipments = [
-    { awb: "057-12345678", origin: "ADD", dest: "DXB", weight: "1,240 kg", volume: "8.2 m³", commodity: "Perishables", priority: "High", status: "In Transit" },
-    { awb: "057-23456789", origin: "ADD", dest: "FRA", weight: "890 kg", volume: "5.1 m³", commodity: "Electronics", priority: "Normal", status: "Booked" },
-    { awb: "057-34567890", origin: "ADD", dest: "LHR", weight: "2,100 kg", volume: "12.4 m³", commodity: "General Cargo", priority: "Normal", status: "Build Up" },
-    { awb: "057-45678901", origin: "ADD", dest: "HKG", weight: "560 kg", volume: "3.8 m³", commodity: "Pharmaceuticals", priority: "Critical", status: "On Hold" },
-    { awb: "057-56789012", origin: "ADD", dest: "NBO", weight: "340 kg", volume: "2.1 m³", commodity: "Documents", priority: "Low", status: "Delivered" },
-    { awb: "057-67890123", origin: "ADD", dest: "PVG", weight: "1,780 kg", volume: "9.6 m³", commodity: "Machinery", priority: "Normal", status: "In Transit" },
+    { awb: "000-12345678", origin: "ADD", dest: "DXB", weight: "1,240 kg", volume: "8.2 m³", commodity: "Perishables", priority: "High", status: "In Transit" },
+    { awb: "000-23456789", origin: "ADD", dest: "FRA", weight: "890 kg", volume: "5.1 m³", commodity: "Electronics", priority: "Normal", status: "Booked" },
+    { awb: "000-34567890", origin: "ADD", dest: "LHR", weight: "2,100 kg", volume: "12.4 m³", commodity: "General Cargo", priority: "Normal", status: "Build Up" },
+    { awb: "000-45678901", origin: "ADD", dest: "HKG", weight: "560 kg", volume: "3.8 m³", commodity: "Pharmaceuticals", priority: "Critical", status: "On Hold" },
+    { awb: "000-56789012", origin: "ADD", dest: "NBO", weight: "340 kg", volume: "2.1 m³", commodity: "Documents", priority: "Low", status: "Delivered" },
+    { awb: "000-67890123", origin: "ADD", dest: "PVG", weight: "1,780 kg", volume: "9.6 m³", commodity: "Machinery", priority: "Normal", status: "In Transit" },
   ]
 
   const statusColor: Record<string, string> = {

@@ -247,13 +247,13 @@ test("weights and pieces with units and number formats", () => {
 });
 
 test("the old simple layout still imports the same way", () => {
-  const r = imp.rowsToShips([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H", "DG", "UN"], ["071-12345675", "Paint", "2", "100", "50", "40", "30", "3", "1263"], [], ["", "No AWB box", "1", "10", "30", "30", "30", "", ""]]);
-  assert.deepEqual(plain(brief(r)), [["071-12345675", 2, 100, "50x40x30"], ["No AWB 1", 1, 10, "30x30x30"]]);
+  const r = imp.rowsToShips([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H", "DG", "UN"], ["000-12345675", "Paint", "2", "100", "50", "40", "30", "3", "1263"], [], ["", "No AWB box", "1", "10", "30", "30", "30", "", ""]]);
+  assert.deepEqual(plain(brief(r)), [["000-12345675", 2, 100, "50x40x30"], ["No AWB 1", 1, 10, "30x30x30"]]);
   assert.equal(r.list[0].dg, "3");
   assert.equal(r.list[0].un, "UN1263");
-  const p = imp.rowsToShips([["AWB", "Goods", "Pieces", "Weight per piece", "L", "W", "H"], ["071-1", "Box", "4", "25", "50", "40", "30"]]);
+  const p = imp.rowsToShips([["AWB", "Goods", "Pieces", "Weight per piece", "L", "W", "H"], ["000-1", "Box", "4", "25", "50", "40", "30"]]);
   assert.equal(p.list[0].wt, 100, "weight per piece x pieces");
-  const e = imp.rowsToShips([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], ["071-1", "Box", "999999", "10", "50", "40", "30"], ["071-2", "Box", "1", "", "50", "40", "30"]]);
+  const e = imp.rowsToShips([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], ["000-1", "Box", "999999", "10", "50", "40", "30"], ["000-2", "Box", "1", "", "50", "40", "30"]]);
   assert.equal(e.list.length, 0);
   assert.equal(e.errs.length, 2);
   assert.match(e.errs[1], /line 3: no weight/);
@@ -263,8 +263,8 @@ test("sample: title rows, semicolons, 1.234,5 weights, chargeable column, total 
   const r = readFixture("title-rows-semicolon.csv");
   assert.equal(r.info.hdr, 3, "header on row 4");
   assert.deepEqual(plain(brief(r)), [
-    ["071-10000011", 4, 1234.5, "120x80x60"], ["071-10000022", 2, 450, "120x80x60"], ["071-10000033", 1, 86, "100x50x40"],
-    ["071-10000044", 3, 300, "120x80x60"], ["071-10000055", 2, 95.5, "60x40x40"], ["071-10000066", 1, 40, "80x60x50"],
+    ["000-10000011", 4, 1234.5, "120x80x60"], ["000-10000022", 2, 450, "120x80x60"], ["000-10000033", 1, 86, "100x50x40"],
+    ["000-10000044", 3, 300, "120x80x60"], ["000-10000055", 2, 95.5, "60x40x40"], ["000-10000066", 1, 40, "80x60x50"],
   ]);
   assert.equal(r.info.cols.find((c) => c.k === "wt").label, "Gross Wt (kg)");
   assert.ok(r.info.ignored.some((x) => x.label === "Chargeable weight"));
@@ -276,14 +276,14 @@ test("sample: title rows, semicolons, 1.234,5 weights, chargeable column, total 
 test("sample: several sizes in one cell split into lines, weight shared by volume", () => {
   const r = readFixture("multi-dims.csv");
   assert.deepEqual(plain(brief(r)), [
-    ["071-20000011", 2, 553.8, "120x80x60"], ["071-20000011", 1, 46.2, "60x40x40"],
-    ["071-20000022", 2, 449.1, "120x80x60"],
-    ["071-20000033", 3, 947, "100x80x50"], ["071-20000033", 2, 303, "80x60x40"],
-    ["071-20000044", 3, 120, "80x50x40"],
+    ["000-20000011", 2, 553.8, "120x80x60"], ["000-20000011", 1, 46.2, "60x40x40"],
+    ["000-20000022", 2, 449.1, "120x80x60"],
+    ["000-20000033", 3, 947, "100x80x50"], ["000-20000033", 2, 303, "80x60x40"],
+    ["000-20000044", 3, 120, "80x50x40"],
   ]);
   const w = (awb) => Math.round(r.list.filter((s) => s.awb === awb).reduce((a, s) => a + s.wt, 0) * 10) / 10;
-  assert.equal(w("071-20000011"), 600, "the split keeps the AWB weight");
-  assert.equal(w("071-20000033"), 1250);
+  assert.equal(w("000-20000011"), 600, "the split keeps the AWB weight");
+  assert.equal(w("000-20000033"), 1250);
   assert.ok(r.info.ignored.some((x) => /Volume/.test(x.label)));
   assert.equal(r.info.split, 2);
 });
@@ -292,13 +292,13 @@ test("sample: no header row, columns guessed from content", () => {
   const r = readFixture("no-header.csv");
   assert.equal(r.info.hdr, -1);
   assert.deepEqual(plain(r.info.guessed).sort(), ["awb", "dims", "nat", "pcs", "wt"]);
-  assert.deepEqual(plain(brief(r)), [["071-30000011", 10, 250, "100x50x40"], ["071-30000022", 2, 40, "60x40x40"], ["071-30000033", 1, 800, "200x120x100"]]);
+  assert.deepEqual(plain(brief(r)), [["000-30000011", 10, 250, "100x50x40"], ["000-30000022", 2, 40, "60x40x40"], ["000-30000033", 1, 800, "200x120x100"]]);
   assert.equal(r.list[0].nat, "Fresh flowers");
 });
 
 test("sample: tabs, L/W/H columns, weight per piece, repeated header", () => {
   const r = readFixture("lwh-tabs.tsv");
-  assert.deepEqual(plain(brief(r)), [["071-40000011", 5, 500, "120x80x60"], ["071-40000022", 4, 100, "60x40x40"], ["071-40000033", 2, 180, "100x80x80"]]);
+  assert.deepEqual(plain(brief(r)), [["000-40000011", 5, 500, "120x80x60"], ["000-40000022", 4, 100, "60x40x40"], ["000-40000033", 2, 180, "100x80x80"]]);
   assert.equal(r.info.skip["repeated header row"], 1);
   assert.equal(r.list[2].un, "UN1263");
 });
@@ -307,9 +307,9 @@ test("sample (Excel): two-row header, merged AWB cells, empty column and rows", 
   const r = readFixture("merged-awb.xlsx");
   assert.equal(r.info.hdr, 3);
   assert.deepEqual(plain(brief(r)), [
-    ["071-50000011", 3, 810, "120x80x60"], ["071-50000011", 2, 90, "60x40x40"],
-    ["071-50000022", 1, 250, "150x100x90"],
-    ["071-50000033", 4, 400, "100x60x50"], ["071-50000033", 4, 200, "50x40x30"],
+    ["000-50000011", 3, 810, "120x80x60"], ["000-50000011", 2, 90, "60x40x40"],
+    ["000-50000022", 1, 250, "150x100x90"],
+    ["000-50000033", 4, 400, "100x60x50"], ["000-50000033", 4, 200, "50x40x30"],
   ]);
   assert.ok(r.list.every((s) => s.nat), "goods filled down from the merged cell");
   assert.equal(r.info.skip["total line"], 1);
@@ -317,11 +317,11 @@ test("sample (Excel): two-row header, merged AWB cells, empty column and rows", 
 
 test("sample (Excel): inches and pounds converted", () => {
   const r = readFixture("inches-lbs.xlsx");
-  assert.deepEqual(plain(brief(r)), [["071-60000011", 2, 499, "119.4x78.7x61"], ["071-60000022", 1, 99.8, "119.4x78.7x61"], ["071-60000033", 3, 149.7, "61x50.8x50.8"]]);
+  assert.deepEqual(plain(brief(r)), [["000-60000011", 2, 499, "119.4x78.7x61"], ["000-60000022", 1, 99.8, "119.4x78.7x61"], ["000-60000033", 3, 149.7, "61x50.8x50.8"]]);
 });
 
 test("sizes in plain millimetres are spotted from the column, and a file with no usable columns says so", () => {
-  const r = imp.rowsToShips([["AWB", "Pcs", "Weight", "Dims"], ["071-1", "1", "100", "1200x800x600"], ["071-2", "1", "100", "1000x500x400"]]);
+  const r = imp.rowsToShips([["AWB", "Pcs", "Weight", "Dims"], ["000-1", "1", "100", "1200x800x600"], ["000-2", "1", "100", "1000x500x400"]]);
   assert.deepEqual(plain(brief(r)).map((x) => x[3]), ["120x80x60", "100x50x40"]);
   assert.ok(r.notes.some((n) => /millimetres/.test(n)));
   const bad = imp.rowsToShips([["Shipper", "Consignee"], ["Sample Co", "Other Co"]]);

@@ -208,7 +208,7 @@ check(await until(`/ULD/.test(document.getElementById('st1s').textContent)`), "s
 check(await until(`document.querySelectorAll('#iso g[data-i], #iso polygon, #iso path').length>0`), "3D view draws the build");
 const nShips = () => js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`);
 const before = await nShips();
-await js(`(()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'));e.dispatchEvent(new Event('change'))};s('sAwb','071-12345675');s('sNat','E2E crate');s('sPcs','3');s('sWt','90');s('sL','60');s('sW','40');s('sH','40');document.getElementById('fSubmit').click()})()`);
+await js(`(()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'));e.dispatchEvent(new Event('change'))};s('sAwb','000-12345675');s('sNat','E2E crate');s('sPcs','3');s('sWt','90');s('sL','60');s('sW','40');s('sH','40');document.getElementById('fSubmit').click()})()`);
 check(await until(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length===${before + 1}`), "adding a shipment saves it on this device");
 check(await js(`document.getElementById('saved').textContent.includes('this device')`), "save label says the cargo is saved on this device");
 const idE = await js(`JSON.parse(localStorage.getItem('adeyiq-ships')).find(s=>s.awb.includes('12345675')).id`);
@@ -218,7 +218,7 @@ check(await until(`JSON.parse(localStorage.getItem('adeyiq-ships')).find(s=>s.id
 await js(`document.querySelector('[data-del="${idE}"]').click()`);
 check(await until(`!JSON.parse(localStorage.getItem('adeyiq-ships')).some(s=>s.id==='${idE}')`), "removing a shipment deletes it");
 
-const evil = `AWB,Goods,Pieces,Weight,L,W,H\n071-11111111,"<img src=x onerror=window.__xss=1>",2,40,50,40,30\n071-22222222,<script>window.__xss=2</script>,1,20,40,30,30\n"<svg onload=window.__xss=3>",Text,1,10,30,30,30\n`;
+const evil = `AWB,Goods,Pieces,Weight,L,W,H\n000-11111111,"<img src=x onerror=window.__xss=1>",2,40,50,40,30\n000-22222222,<script>window.__xss=2</script>,1,20,40,30,30\n"<svg onload=window.__xss=3>",Text,1,10,30,30,30\n`;
 await js(`(()=>{const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(evil)}],'evil.csv',{type:'text/csv'}));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));return true})()`);
 await sleep(2500);
 check(await js(`window.__xss===undefined && !document.querySelector('img[src="x"]') && !document.querySelector('#cargo svg[onload], #cargo script')`), "CSV with HTML/script payloads is shown as text and never runs");
@@ -260,9 +260,9 @@ async function exportFor(acId, csv) {
   const html=blob?await blob.text():'',d=new DOMParser().parseFromString(html,'text/html'),h2=[...d.querySelectorAll('h2')],tbl=t=>{const h=h2.find(x=>x.textContent.startsWith(t));return h?[...h.nextElementSibling.querySelectorAll('tbody tr')].map(r=>[...r.cells].map(c=>c.textContent.trim())):null};
   return {ok:!!blob,loose:tbl('Loose cargo'),notoc:tbl('Dangerous goods')}})()`);
 }
-const b738 = await exportFor("B737-800", "AWB,Goods,Pieces,Weight,L,W,H,DG,UN\n071-90000011,Spare parts,10,300,50,40,30,,\n071-90000022,Perfume,4,40,40,30,30,3,UN1266\n");
-check(b738.ok && b738.loose && b738.loose.some((r) => r[1] === "071-90000022") && b738.notoc && b738.notoc[0][4] === "4", `737-800 (loose cargo only) can be printed: loose AWBs and their DG are in the plan (${JSON.stringify(b738.notoc)})`);
-const bcf = await exportFor("B737-800BCF", "AWB,Goods,Pieces,Weight,L,W,H,DG,UN\n071-93000011,Lithium battery packs,52,20800,150,100,150,9,UN3481\n");
+const b738 = await exportFor("B737-800", "AWB,Goods,Pieces,Weight,L,W,H,DG,UN\n000-90000011,Spare parts,10,300,50,40,30,,\n000-90000022,Perfume,4,40,40,30,30,3,UN1266\n");
+check(b738.ok && b738.loose && b738.loose.some((r) => r[1] === "000-90000022") && b738.notoc && b738.notoc[0][4] === "4", `737-800 (loose cargo only) can be printed: loose AWBs and their DG are in the plan (${JSON.stringify(b738.notoc)})`);
+const bcf = await exportFor("B737-800BCF", "AWB,Goods,Pieces,Weight,L,W,H,DG,UN\n000-93000011,Lithium battery packs,52,20800,150,100,150,9,UN3481\n");
 check(bcf.ok && bcf.notoc && bcf.notoc[0][4] === "44" && bcf.notoc[0][5] === "17,600", `NOTOC counts only the DG pieces loaded, not the booked total (${bcf.notoc && bcf.notoc[0].slice(4, 6).join(" pcs, ")} kg of 52 pcs booked)`);
 await go("/build");
 await js(`localStorage.clear()`);
@@ -303,7 +303,7 @@ const charter = (() => {
   const LOW = ["Spare engine parts", "Medical supplies", "Electronics", "E-commerce parcels", "Textile cartons", "Tools", "Printed matter", "Ceramic tiles", "Coffee", "Leather goods", "Tyres", "Cables"];
   const rows = ["AWB,Goods,Pieces,Weight,L,W,H"];
   for (let i = 0; i < 300; i++) {
-    const tall = i < 84, g = tall ? TALL[i % 8] : LOW[(i - 84) % 12], awb = "071-" + (55300000 + (tall ? i % 8 : 20 + ((i - 84) % 12)) * 11);
+    const tall = i < 84, g = tall ? TALL[i % 8] : LOW[(i - 84) % 12], awb = "000-" + (55300000 + (tall ? i % 8 : 20 + ((i - 84) % 12)) * 11);
     const [l, w, h] = tall ? [ri(100, 200), ri(80, 150), ri(170, 230)] : [ri(155, 175), ri(45, 85), ri(45, 75)];
     rows.push([awb, g, 1, tall ? ri(700, 1100) : ri(50, 120), l, w, h].join(","));
   }
@@ -322,7 +322,7 @@ check(cr.st2 === "Balanced ✓ · 2 offloaded", `full freighter in balance, the 
 await go("/build");
 await js(`localStorage.clear()`);
 await go("/build");
-const pga = "AWB,Goods,Pieces,Weight,L,W,H\n071-66100011,Machinery skids,12,30000,200,120,180\n" + Array.from({ length: 10 }, (_, i) => `071-6620000${i},Steel beams ${i},1,1000,500,200,100`).join("\n") + "\n";
+const pga = "AWB,Goods,Pieces,Weight,L,W,H\n000-66100011,Machinery skids,12,30000,200,120,180\n" + Array.from({ length: 10 }, (_, i) => `000-6620000${i},Steel beams ${i},1,1000,500,200,100`).join("\n") + "\n";
 const pr = await js(`(async()=>{const s=document.getElementById('acSel');s.value='B777F';s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,400));
   const b0=document.getElementById('st1s').textContent;const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(pga)}],'pga.csv'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
   await new Promise(r=>{const iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0){clearInterval(iv);r()}},30)});await new Promise(r=>setTimeout(r,500));
@@ -340,11 +340,11 @@ async function load777(csv) {
   document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));
   return {st2:document.getElementById('st2s').textContent,rows:[...document.querySelectorAll('#ulds .ulrow')].map(b=>b.innerText.replace(/\\s+/g,' '))}})()`);
 }
-const one = await load777("AWB,Goods,Pieces,Weight,L,W,H\n071-77200011,Heavy machine,1,5000,200,120,180\n");
+const one = await load777("AWB,Goods,Pieces,Weight,L,W,H\n000-77200011,Heavy machine,1,5000,200,120,180\n");
 check(one.st2 === "Balanced ✓" && !one.rows.some((r) => / Main NP /.test(r)), `one heavy pallet stays near the middle, not at the aft single position (${one.st2}; ${one.rows.join(" | ").slice(0, 80)})`);
-const pga14 = await load777("AWB,Goods,Pieces,Weight,L,W,H\n" + Array.from({ length: 14 }, (_, i) => `071-772000${10 + i},Steel beam ${i},1,1000,500,200,100`).join("\n") + "\n");
+const pga14 = await load777("AWB,Goods,Pieces,Weight,L,W,H\n" + Array.from({ length: 14 }, (_, i) => `000-772000${10 + i},Steel beam ${i},1,1000,500,200,100`).join("\n") + "\n");
 check(pga14.st2 === "Balanced ✓ · 2 offloaded" && !pga14.rows.some((r) => / Main [MN][LRP] /.test(r) && /Steel/.test(r) && / Main N/.test(r)), `14 PGA: only 6 pairs fit (the last row takes one pallet), 2 offloaded (${pga14.st2})`);
-const dgf = await load777("AWB,Goods,Pieces,Weight,L,W,H,DG\n071-77100011,Flammable liquids,52,52000,200,120,180,3\n071-77100022,Oxidizers,4,4000,200,120,180,5.1\n");
+const dgf = await load777("AWB,Goods,Pieces,Weight,L,W,H,DG\n000-77100011,Flammable liquids,52,52000,200,120,180,3\n000-77100022,Oxidizers,4,4000,200,120,180,5.1\n");
 check(dgf.st2 === "Balanced ✓ · 2 offloaded" && !dgf.rows.some((r) => /Oxidizers/.test(r)), `oxidizers are not squeezed into the single position next to flammable liquids (${dgf.st2})`);
 // heavy charter of low pieces (300 pieces, ~200 t, no AWB, all under 150 cm): built as lower-deck PMC pallets, which
 // the main deck takes two abreast like main-deck pallets, so all 27 main-deck positions are used (not 14 rows of one)
@@ -403,7 +403,7 @@ for (const p of ["/", "/build"]) {
 await go("/build");
 await js(`localStorage.clear()`);
 await go("/build");
-const t100 = await js(`new Promise(res=>{let rows=['AWB,Goods,Pieces,Weight,L,W,H'];const d=[[60,40,40],[50,40,30],[40,30,30],[80,60,50],[100,60,60],[120,80,60]];for(let i=0;i<100;i++){const x=d[i%d.length],p=5+((i*7)%40);rows.push('071-'+(88000000+i)+',Goods '+i+','+p+','+p*12+','+x.join(','))}
+const t100 = await js(`new Promise(res=>{let rows=['AWB,Goods,Pieces,Weight,L,W,H'];const d=[[60,40,40],[50,40,30],[40,30,30],[80,60,50],[100,60,60],[120,80,60]];for(let i=0;i<100;i++){const x=d[i%d.length],p=5+((i*7)%40);rows.push('000-'+(88000000+i)+',Goods '+i+','+p+','+p*12+','+x.join(','))}
   const t0=performance.now(),b0=document.getElementById('st1s').textContent;const dt=new DataTransfer();dt.items.add(new File([rows.join('\\n')+'\\n'],'c.csv'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));
   const iv=setInterval(()=>{if(document.getElementById('st1s').textContent!==b0){clearInterval(iv);res(Math.round(performance.now()-t0))}},20)})`);
 check(t100 < 6000, `100-shipment upload builds in ${t100} ms`);
@@ -433,7 +433,7 @@ const xlsxB64 = (aoa, patch) => {
 console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every request watched)");
 {
   // distinctive synthetic values that must never appear in any request or in anything forwarded to the sheet
-  const MK = { awb: "999-77700011", awb2: "999-77700022", nat: "ZQXPRIVATECARGO", nat2: "ZQXXLSXCARGO", nat3: "ZQXMANUALCARGO", un: "UN3456", dims: "137x41x59", kg: "4321" };
+  const MK = { awb: "000-77700011", awb2: "000-77700022", nat: "ZQXPRIVATECARGO", nat2: "ZQXXLSXCARGO", nat3: "ZQXMANUALCARGO", un: "UN3456", dims: "137x41x59", kg: "4321" };
   const net0 = netLog.length, rows0 = rows.length;
   await go("/build");
   await js(`localStorage.clear()`);
@@ -447,7 +447,7 @@ console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every
   check((await js(`typeof window.XLSX`)) === "undefined", "the builder page itself does not load SheetJS (Excel is read only in the worker)");
   await up("secret.xlsx", xlsxB64([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], [MK.awb2, MK.nat2, 2, +MK.kg, 137, 41, 59]]), true);
   await js(`(async()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'));e.dispatchEvent(new Event('change'))};if(document.getElementById('addPanel').hidden)document.getElementById('addToggle').click();
-    s('sAwb','999-77700033');s('sNat',${JSON.stringify(MK.nat3)});s('sPcs','2');s('sWt','${MK.kg}');s('sL','137');s('sW','41');s('sH','59');document.getElementById('fSubmit').click();await new Promise(r=>setTimeout(r,1500))})()`);
+    s('sAwb','000-77700033');s('sNat',${JSON.stringify(MK.nat3)});s('sPcs','2');s('sWt','${MK.kg}');s('sL','137');s('sW','41');s('sH','59');document.getElementById('fSubmit').click();await new Promise(r=>setTimeout(r,1500))})()`);
   const n = await js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`);
   check(n === 3, `synthetic cargo from CSV, Excel and the form is in the builder (${n} shipments)`);
   await js(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const c=document.querySelector('#strip .uchip');if(c)c.click();await w(300);
@@ -464,7 +464,7 @@ console.log("\nPrivacy: cargo never leaves the browser (synthetic markers, every
   await sleep(2500);
   const reqs = netLog.slice(net0), fwd = rows.slice(rows0).map((r) => JSON.stringify(r)).join("\n");
   const all = reqs.map((r) => r.url + " " + r.body + " " + r.headers).join("\n");
-  const leaks = Object.values(MK).concat(["999-77700033"]).filter((v) => all.includes(v) || all.includes(encodeURIComponent(v)) || fwd.includes(v));
+  const leaks = Object.values(MK).concat(["000-77700033"]).filter((v) => all.includes(v) || all.includes(encodeURIComponent(v)) || fwd.includes(v));
   check(leaks.length === 0, `no AWB, goods, UN number, weight or dimensions in any of ${reqs.length} browser requests or ${rows.length - rows0} forwarded rows${leaks.length ? " — found: " + leaks.join(", ") : ""}`);
   const hosts = [...new Set(reqs.map((r) => { try { return new URL(r.url).host; } catch { return r.url.slice(0, 20); } }))].sort();
   const allowed = ["localhost:" + APP, "fonts.googleapis.com", "fonts.gstatic.com"];
@@ -488,9 +488,9 @@ console.log("\nHostile manifests (synthetic)");
     document.getElementById('toast').textContent='';const dt=new DataTransfer();dt.items.add(new File([data],${JSON.stringify(name)}));const f=document.getElementById('file');f.files=dt.files;const t0=performance.now();f.dispatchEvent(new Event('change'));
     await new Promise(r=>{const t1=Date.now(),iv=setInterval(()=>{if(document.getElementById('toast').textContent||Date.now()-t1>20000){clearInterval(iv);r()}},50)});await new Promise(r=>setTimeout(r,300));return {toast:document.getElementById('toast').textContent,n:JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length,ms:Math.round(performance.now()-t0)}})()`);
   const net0 = netLog.length;
-  const f1 = await up("formula.csv", `AWB,Goods,Pieces,Weight,L,W,H\n071-11112222,"=HYPERLINK(""http://evil.test/x"",""click"")",1,10,50,40,30\n071-11113333,"=WEBSERVICE(""http://evil.test/y"")",1,10,50,40,30\n071-11114444,@SUM(1+1)*cmd|' /C calc'!A0,1,10,50,40,30\n`);
+  const f1 = await up("formula.csv", `AWB,Goods,Pieces,Weight,L,W,H\n000-11112222,"=HYPERLINK(""http://evil.test/x"",""click"")",1,10,50,40,30\n000-11113333,"=WEBSERVICE(""http://evil.test/y"")",1,10,50,40,30\n000-11114444,@SUM(1+1)*cmd|' /C calc'!A0,1,10,50,40,30\n`);
   check(f1.n === 3 && (await js(`document.getElementById('cargo').textContent.includes('=HYPERLINK(')`)) && !netLog.slice(net0).some((r) => r.url.includes("evil.test")), "spreadsheet formulas in cells stay plain text and never trigger a request");
-  const xf = xlsxB64([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], ["071-22223333", "x", 1, 10, 50, 40, 30]], (ws) => {
+  const xf = xlsxB64([["AWB", "Goods", "Pieces", "Weight", "L", "W", "H"], ["000-22223333", "x", 1, 10, 50, 40, 30]], (ws) => {
     ws.B2 = { t: "s", v: "cached", f: 'HYPERLINK("http://evil.test/z","x")' };
   });
   await up("formula.xlsx", xf, true);
@@ -501,16 +501,16 @@ console.log("\nHostile manifests (synthetic)");
   check(/CSV or Excel/.test(f3.toast), `unexpected file types are refused ("${f3.toast}")`);
   const f4 = await up("fake.csv", "PK\u0003\u0004\u0000\u0000\u0000binary\u0000data");
   check(/not a text CSV/.test(f4.toast), `a binary file renamed .csv is refused ("${f4.toast}")`);
-  const big = "AWB,Goods,Pieces,Weight,L,W,H\n" + Array.from({ length: 5002 }, (_, i) => `071-${String(30000000 + i)},Box,1,10,50,40,30`).join("\n");
+  const big = "AWB,Goods,Pieces,Weight,L,W,H\n" + Array.from({ length: 5002 }, (_, i) => `000-${String(30000000 + i)},Box,1,10,50,40,30`).join("\n");
   const f5 = await up("huge.csv", big);
   check(/more than 5,000 lines/.test(f5.toast), `manifests over 5,000 lines are refused ("${f5.toast}")`);
-  const f6 = await up("bomb.csv", "AWB,Goods,Pieces,Weight,L,W,H\n071-44445555,Box,999999999,10,50,40,30\n071-44446666,Box,2,999999999,50,40,30\n071-44447777,Box,2,10,99999,40,30\n");
+  const f6 = await up("bomb.csv", "AWB,Goods,Pieces,Weight,L,W,H\n000-44445555,Box,999999999,10,50,40,30\n000-44446666,Box,2,999999999,50,40,30\n000-44447777,Box,2,10,99999,40,30\n");
   check(f6.ms < 4000 && /3 skipped/.test(f6.toast), `absurd pieces, weights and sizes are skipped and the page stays responsive (${f6.ms} ms, "${f6.toast}")`);
   const before = await js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`);
-  await up("proto.csv", `__proto__,constructor,prototype,AWB,Goods,Pieces,Weight,L,W,H\n{"polluted":1},x,y,071-55556666,Box,1,10,50,40,30\n`);
+  await up("proto.csv", `__proto__,constructor,prototype,AWB,Goods,Pieces,Weight,L,W,H\n{"polluted":1},x,y,000-55556666,Box,1,10,50,40,30\n`);
   check((await js(`({}).polluted===undefined&&Object.prototype.polluted===undefined`)) && (await js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`)) === before + 1, "__proto__ / constructor columns do not pollute JavaScript objects");
   const uni = "‮gnp.exe‭ ​zero‍width 𝐁𝐎𝐋𝐃 ☢️ 中文 العربية <b>x</b>";
-  await up("unicode.csv", `AWB,Goods,Pieces,Weight,L,W,H\n071-66667777,${uni},1,10,50,40,30\n`);
+  await up("unicode.csv", `AWB,Goods,Pieces,Weight,L,W,H\n000-66667777,${uni},1,10,50,40,30\n`);
   check((await js(`document.getElementById('cargo').textContent.includes('<b>x</b>')&&!document.querySelector('#cargo b')`)), "Unicode controls, emoji and mixed scripts are shown as text, and HTML inside them stays text");
   const html = await js(`(async()=>{let blob=null;const oc=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return oc.call(URL,b)};const ac=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){};
     document.getElementById('toLoad').click();await new Promise(r=>setTimeout(r,1200));document.getElementById('dlFlight').click();await new Promise(r=>setTimeout(r,500));HTMLAnchorElement.prototype.click=ac;URL.createObjectURL=oc;return blob?await blob.text():''})()`);
@@ -532,7 +532,7 @@ console.log("\nMessy real-world manifests (synthetic samples in test/fixtures/ma
   };
   const a = await up("title-rows-semicolon.csv", fs.readFileSync(new URL("title-rows-semicolon.csv", FIX), "utf8"));
   const sa = await shipsNow();
-  check(sa.length === 6 && JSON.stringify(sa[0]) === JSON.stringify(["071-10000011", 4, 1234.5, "120x80x60"]) && /6 shipments added/.test(a.toast),
+  check(sa.length === 6 && JSON.stringify(sa[0]) === JSON.stringify(["000-10000011", 4, 1234.5, "120x80x60"]) && /6 shipments added/.test(a.toast),
     `a CSV with title rows above the header, ";" separators and "1.234,5" weights imports (${sa.length} lines, first ${JSON.stringify(sa[0])})`);
   check(/Header found on row 4/.test(a.sum) && /Weight ← “Gross Wt \(kg\)”/.test(a.sum) && /Chargeable weight.*not gross weight/.test(a.sum) && /total line/.test(a.sum),
     `the import summary names the columns used, the ignored chargeable weight and the skipped total line ("${a.sum.slice(0, 160)}…")`);
@@ -540,12 +540,12 @@ console.log("\nMessy real-world manifests (synthetic samples in test/fixtures/ma
   const merged = xlsxB64(JSON.parse(fs.readFileSync(new URL("merged-awb.json", FIX), "utf8")), (ws) => { ws["!merges"] = ["A6:A7", "D6:D7", "H6:H7", "E4:G4"].map((r) => SHEETJS.utils.decode_range(r)); });
   const b = await up("merged-awb.xlsx", merged, true);
   const sb = await shipsNow();
-  check(sb.length === 5 && sb.filter((s) => s[0] === "071-50000011").reduce((n, s) => n + s[2], 0) === 900 && /5 shipments added/.test(b.toast),
+  check(sb.length === 5 && sb.filter((s) => s[0] === "000-50000011").reduce((n, s) => n + s[2], 0) === 900 && /5 shipments added/.test(b.toast),
     `an Excel load list with merged AWB cells and "Dimensions (cm)" over L / W / H imports, weight shared by volume (${JSON.stringify(sb.slice(0, 2))})`);
   check(/shared by volume/.test(b.sum) && (await js(`typeof window.XLSX`)) === "undefined", "the summary states the weight-sharing rule, and the page still does not load SheetJS");
   const c = await up("no-header.csv", fs.readFileSync(new URL("no-header.csv", FIX), "utf8"));
   check((await shipsNow()).length === 3 && /No header row found/.test(c.sum) && /guessed/.test(c.sum), `a file without a header row is read by guessing the columns, and the summary says so`);
-  const d = await up("multi.csv", `AWB,Pcs,Weight,Dims,Goods\n071-70000011,3,600,"2/120x80x60, 1/60x40x40",Parts\n`);
+  const d = await up("multi.csv", `AWB,Pcs,Weight,Dims,Goods\n000-70000011,3,600,"2/120x80x60, 1/60x40x40",Parts\n`);
   const sd = await shipsNow();
   check(sd.length === 2 && sd[0][1] === 2 && sd[1][1] === 1 && Math.round((sd[0][2] + sd[1][2]) * 10) === 6000 && /2 shipments added/.test(d.toast), `"2/120x80x60, 1/60x40x40" becomes two lines with 2 and 1 pieces (${JSON.stringify(sd)})`);
   // the downloadable template: the button points at a real file, and a filled template imports
@@ -557,7 +557,7 @@ console.log("\nMessy real-world manifests (synthetic samples in test/fixtures/ma
   const t = await up("my-cargo.xlsx", xlsxB64(filled), true);
   const st = await shipsNow();
   check(st.length === 5 && /5 shipments added/.test(t.toast) && JSON.stringify(st[1]) === JSON.stringify(["000-12345686", 10, 180, "40x30x30"]), `a filled-in cargo template imports every line (${st.length} lines, "${t.toast}")`);
-  await up("hostile-header.csv",`AWB,"<img src=x onerror=window.__xss=9> Weight",Dims,"<b>Goods</b>"\n071-70000022,10,50x40x30,Box\n`);
+  await up("hostile-header.csv",`AWB,"<img src=x onerror=window.__xss=9> Weight",Dims,"<b>Goods</b>"\n000-70000022,10,50x40x30,Box\n`);
   check((await js(`window.__xss===undefined&&!document.querySelector('#upSum img')&&![...document.querySelectorAll('#upSum b')].some(b=>b.textContent==='Goods')&&document.getElementById('upSum').textContent.includes('<img src=x')`)), "header text from the file is shown as text in the import summary, never as HTML");
 }
 

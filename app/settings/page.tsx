@@ -3,7 +3,7 @@ import { useState } from "react"
 
 export default function SettingsPage() {
   const [station, setStation] = useState("ADD")
-  const [airline, setAirline] = useState("Ethiopian Airlines")
+  const [airline, setAirline] = useState("Sample Airline")
   const [timezone, setTimezone] = useState("Africa/Addis_Ababa")
   const [weightUnit, setWeightUnit] = useState("KG")
   const [notifications, setNotifications] = useState(true)

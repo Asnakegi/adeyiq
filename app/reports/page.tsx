@@ -2,12 +2,12 @@
 import { useState } from "react"
 
 const flightRevenue = [
-  { flight: "ET608", route: "ADD→DXB", revenue: 145000, prorated: 82000, yield: 4.5, ulds: 11, utilization: 91, score: 92 },
-  { flight: "ET847", route: "ADD→FRA", revenue: 128000, prorated: 71000, yield: 3.8, ulds: 8, utilization: 84, score: 85 },
-  { flight: "ET302", route: "ADD→HKG", revenue: 119000, prorated: 68000, yield: 4.1, ulds: 11, utilization: 71, score: 76 },
-  { flight: "ET512", route: "ADD→LHR", revenue: 156000, prorated: 91000, yield: 5.2, ulds: 9, utilization: 96, score: 94 },
-  { flight: "ET204", route: "ADD→NBO", revenue: 48000, prorated: 31000, yield: 2.1, ulds: 2, utilization: 62, score: 61 },
-  { flight: "ET717", route: "ADD→PVG", revenue: 132000, prorated: 74000, yield: 4.3, ulds: 10, utilization: 79, score: 81 },
+  { flight: "ADIQ608", route: "ADD→DXB", revenue: 145000, prorated: 82000, yield: 4.5, ulds: 11, utilization: 91, score: 92 },
+  { flight: "ADIQ847", route: "ADD→FRA", revenue: 128000, prorated: 71000, yield: 3.8, ulds: 8, utilization: 84, score: 85 },
+  { flight: "ADIQ302", route: "ADD→HKG", revenue: 119000, prorated: 68000, yield: 4.1, ulds: 11, utilization: 71, score: 76 },
+  { flight: "ADIQ512", route: "ADD→LHR", revenue: 156000, prorated: 91000, yield: 5.2, ulds: 9, utilization: 96, score: 94 },
+  { flight: "ADIQ204", route: "ADD→NBO", revenue: 48000, prorated: 31000, yield: 2.1, ulds: 2, utilization: 62, score: 61 },
+  { flight: "ADIQ717", route: "ADD→PVG", revenue: 132000, prorated: 74000, yield: 4.3, ulds: 10, utilization: 79, score: 81 },
 ]
 
 const proratedRoutes = [
@@ -28,18 +28,18 @@ const buildMix = [
 
 const aiRecommendations = [
   { type: "opportunity", text: "Increase allocation for CAN→LOS next week due to high yield trend (+18%)", impact: "High" },
-  { type: "warning", text: "PMC utilization on ET507 dropped 12% below normal — investigate build quality", impact: "Medium" },
+  { type: "warning", text: "PMC utilization on ADIQ507 dropped 12% below normal — investigate build quality", impact: "Medium" },
   { type: "insight", text: "Courier cargo gives 18% better yield than general cargo on LHR route", impact: "High" },
   { type: "insight", text: "HKG shipments generate highest revenue density at $5.2/kg", impact: "High" },
-  { type: "warning", text: "Flight ET204 has high dead space risk — 38% empty capacity predicted", impact: "Critical" },
+  { type: "warning", text: "Flight ADIQ204 has high dead space risk — 38% empty capacity predicted", impact: "Critical" },
   { type: "opportunity", text: "Pharma demand forecast up 22% next month — allocate more RKN/RAP ULDs", impact: "High" },
 ]
 
 const riskData = [
-  { risk: "Offload Risk", flight: "ET512", level: "High", detail: "Overbooking 103% — main deck" },
-  { risk: "ULD Shortage", flight: "ET608", level: "Medium", detail: "PMC availability dropping" },
-  { risk: "Low Yield", flight: "ET204", level: "High", detail: "Yield 2.1/kg vs 4.2/kg average" },
-  { risk: "Dead Space", flight: "ET302", level: "Medium", detail: "29% unused capacity predicted" },
+  { risk: "Offload Risk", flight: "ADIQ512", level: "High", detail: "Overbooking 103% — main deck" },
+  { risk: "ULD Shortage", flight: "ADIQ608", level: "Medium", detail: "PMC availability dropping" },
+  { risk: "Low Yield", flight: "ADIQ204", level: "High", detail: "Yield 2.1/kg vs 4.2/kg average" },
+  { risk: "Dead Space", flight: "ADIQ302", level: "Medium", detail: "29% unused capacity predicted" },
 ]
 
 const monthlyTrend = [

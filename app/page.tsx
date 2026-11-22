@@ -19,20 +19,20 @@ interface Alert {
 
 // ── Static data ────────────────────────────────────────────────────────────
 const FLIGHTS: Flight[] = [
-  { id:"1", number:"ET608", route:"ADD → DXB", origin:"ADD", dest:"DXB", std:"23:45", aircraft:"B777F",  ulds:11, weight:"74.2T", util:91, status:"in_progress" },
-  { id:"2", number:"ET847", route:"ADD → FRA", origin:"ADD", dest:"FRA", std:"01:10", aircraft:"B787-8", ulds:8,  weight:"62.1T", util:84, status:"completed" },
-  { id:"3", number:"ET302", route:"ADD → HKG", origin:"ADD", dest:"HKG", std:"02:30", aircraft:"B777F",  ulds:11, weight:"58.3T", util:71, status:"delayed" },
-  { id:"4", number:"ET512", route:"ADD → LHR", origin:"ADD", dest:"LHR", std:"03:55", aircraft:"B787-9", ulds:9,  weight:"81.4T", util:96, status:"critical" },
-  { id:"5", number:"ET204", route:"ADD → NBO", origin:"ADD", dest:"NBO", std:"06:00", aircraft:"B737-800",ulds:2, weight:"14.8T", util:62, status:"scheduled" },
-  { id:"6", number:"ET717", route:"ADD → PVG", origin:"ADD", dest:"PVG", std:"08:15", aircraft:"A350-900",ulds:10,weight:"68.9T", util:79, status:"scheduled" },
+  { id:"1", number:"ADIQ608", route:"ADD → DXB", origin:"ADD", dest:"DXB", std:"23:45", aircraft:"B777F",  ulds:11, weight:"74.2T", util:91, status:"in_progress" },
+  { id:"2", number:"ADIQ847", route:"ADD → FRA", origin:"ADD", dest:"FRA", std:"01:10", aircraft:"B787-8", ulds:8,  weight:"62.1T", util:84, status:"completed" },
+  { id:"3", number:"ADIQ302", route:"ADD → HKG", origin:"ADD", dest:"HKG", std:"02:30", aircraft:"B777F",  ulds:11, weight:"58.3T", util:71, status:"delayed" },
+  { id:"4", number:"ADIQ512", route:"ADD → LHR", origin:"ADD", dest:"LHR", std:"03:55", aircraft:"B787-9", ulds:9,  weight:"81.4T", util:96, status:"critical" },
+  { id:"5", number:"ADIQ204", route:"ADD → NBO", origin:"ADD", dest:"NBO", std:"06:00", aircraft:"B737-800",ulds:2, weight:"14.8T", util:62, status:"scheduled" },
+  { id:"6", number:"ADIQ717", route:"ADD → PVG", origin:"ADD", dest:"PVG", std:"08:15", aircraft:"A350-900",ulds:10,weight:"68.9T", util:79, status:"scheduled" },
 ];
 
 const ALERTS: Alert[] = [
-  { id:"1", level:"critical", flight:"ET512", title:"Payload limit exceeded — main deck 103%", time:"2m ago" },
-  { id:"2", level:"critical", flight:"ET302", title:"DG Class 3 + Class 5.1 conflict detected", time:"8m ago" },
-  { id:"3", level:"warning",  flight:"ET608", title:"CG deviation approaching limit — recheck P7", time:"15m ago" },
-  { id:"4", level:"warning",  flight:"ET717", title:"Perishable temp breach risk — FWD hold", time:"22m ago" },
-  { id:"5", level:"info",     flight:"ET204", title:"Load plan approved by ground supervisor", time:"34m ago" },
+  { id:"1", level:"critical", flight:"ADIQ512", title:"Payload limit exceeded — main deck 103%", time:"2m ago" },
+  { id:"2", level:"critical", flight:"ADIQ302", title:"DG Class 3 + Class 5.1 conflict detected", time:"8m ago" },
+  { id:"3", level:"warning",  flight:"ADIQ608", title:"CG deviation approaching limit — recheck P7", time:"15m ago" },
+  { id:"4", level:"warning",  flight:"ADIQ717", title:"Perishable temp breach risk — FWD hold", time:"22m ago" },
+  { id:"5", level:"info",     flight:"ADIQ204", title:"Load plan approved by ground supervisor", time:"34m ago" },
 ];
 
 const ULD_UTIL = [

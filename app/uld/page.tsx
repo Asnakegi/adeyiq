@@ -22,24 +22,24 @@ const uldTypes = [
 
 const activeULDs = [
   {
-    id: "PMC-1234-ET", iata: "PM", maxWeight: 6804,
+    id: "PMC-1234-ADIQ", iata: "PM", maxWeight: 6804,
     items: [
-      { awb: "057-12345678", commodity: "Perishables", weight: 1240, pieces: 12 },
-      { awb: "057-23456789", commodity: "Electronics", weight: 890, pieces: 6 },
-      { awb: "057-34567890", commodity: "General Cargo", weight: 1100, pieces: 8 },
+      { awb: "000-12345678", commodity: "Perishables", weight: 1240, pieces: 12 },
+      { awb: "000-23456789", commodity: "Electronics", weight: 890, pieces: 6 },
+      { awb: "000-34567890", commodity: "General Cargo", weight: 1100, pieces: 8 },
     ],
   },
   {
-    id: "AKE-5678-ET", iata: "AK", maxWeight: 1588,
+    id: "AKE-5678-ADIQ", iata: "AK", maxWeight: 1588,
     items: [
-      { awb: "057-45678901", commodity: "Pharmaceuticals", weight: 560, pieces: 4 },
-      { awb: "057-56789012", commodity: "Documents", weight: 340, pieces: 20 },
+      { awb: "000-45678901", commodity: "Pharmaceuticals", weight: 560, pieces: 4 },
+      { awb: "000-56789012", commodity: "Documents", weight: 340, pieces: 20 },
     ],
   },
   {
-    id: "RAP-9012-ET", iata: "RAP", maxWeight: 1588,
+    id: "RAP-9012-ADIQ", iata: "RAP", maxWeight: 1588,
     items: [
-      { awb: "057-67890123", commodity: "Cool Chain Cargo", weight: 780, pieces: 3 },
+      { awb: "000-67890123", commodity: "Cool Chain Cargo", weight: 780, pieces: 3 },
     ],
   },
 ]

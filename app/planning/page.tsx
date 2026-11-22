@@ -2,30 +2,30 @@
 import { useState } from "react"
 
 const flights = [
-  { id: "ET608", route: "ADD→DXB", aircraft: "B777F", reg: "ET-AXF", maxPayload: 102000, mainSlots: 6, lowerSlots: 10 },
-  { id: "ET512", route: "ADD→LHR", aircraft: "B787-9", reg: "ET-AXM", maxPayload: 43000, mainSlots: 0, lowerSlots: 16 },
-  { id: "ET302", route: "ADD→HKG", aircraft: "B777F", reg: "ET-AXG", maxPayload: 102000, mainSlots: 6, lowerSlots: 10 },
+  { id: "ADIQ608", route: "ADD→DXB", aircraft: "B777F", reg: "ADIQ-01", maxPayload: 102000, mainSlots: 6, lowerSlots: 10 },
+  { id: "ADIQ512", route: "ADD→LHR", aircraft: "B787-9", reg: "ADIQ-02", maxPayload: 43000, mainSlots: 0, lowerSlots: 16 },
+  { id: "ADIQ302", route: "ADD→HKG", aircraft: "B777F", reg: "ADIQ-03", maxPayload: 102000, mainSlots: 6, lowerSlots: 10 },
 ]
 
 const shipmentQueue = {
   ready: [
-    { awb: "057-12345678", commodity: "Pharma", weight: 1240, pieces: 12, priority: "Critical", yield: 5.8, dg: false },
-    { awb: "057-23456789", commodity: "Electronics", weight: 890, pieces: 6, priority: "High", yield: 4.2, dg: false },
-    { awb: "057-34567890", commodity: "General", weight: 2100, pieces: 24, priority: "Normal", yield: 2.1, dg: false },
-    { awb: "057-45678901", commodity: "Courier", weight: 340, pieces: 80, priority: "High", yield: 6.1, dg: false },
+    { awb: "000-12345678", commodity: "Pharma", weight: 1240, pieces: 12, priority: "Critical", yield: 5.8, dg: false },
+    { awb: "000-23456789", commodity: "Electronics", weight: 890, pieces: 6, priority: "High", yield: 4.2, dg: false },
+    { awb: "000-34567890", commodity: "General", weight: 2100, pieces: 24, priority: "Normal", yield: 2.1, dg: false },
+    { awb: "000-45678901", commodity: "Courier", weight: 340, pieces: 80, priority: "High", yield: 6.1, dg: false },
   ],
   priority: [
-    { awb: "057-56789012", commodity: "Diplomatic", weight: 45, pieces: 2, priority: "Must Fly", yield: 9.9, dg: false },
-    { awb: "057-67890123", commodity: "Humanitarian", weight: 680, pieces: 8, priority: "Must Fly", yield: 0, dg: false },
+    { awb: "000-56789012", commodity: "Diplomatic", weight: 45, pieces: 2, priority: "Must Fly", yield: 9.9, dg: false },
+    { awb: "000-67890123", commodity: "Humanitarian", weight: 680, pieces: 8, priority: "Must Fly", yield: 0, dg: false },
   ],
   waitlist: [
-    { awb: "057-78901234", commodity: "DG Class 3", weight: 120, pieces: 4, priority: "Normal", yield: 3.2, dg: true },
-    { awb: "057-89012345", commodity: "Perishable", weight: 1800, pieces: 40, priority: "High", yield: 3.8, dg: false },
+    { awb: "000-78901234", commodity: "DG Class 3", weight: 120, pieces: 4, priority: "Normal", yield: 3.2, dg: true },
+    { awb: "000-89012345", commodity: "Perishable", weight: 1800, pieces: 40, priority: "High", yield: 3.8, dg: false },
   ],
 }
 
 const aircraftPositions = {
-  "ET608": {
+  "ADIQ608": {
     main: [
       { pos: "P1", uld: "PMC-1234", weight: 3230, commodity: "Pharma", status: "loaded", priority: "Critical" },
       { pos: "P2", uld: "PMC-5678", weight: 4100, commodity: "Courier", status: "loaded", priority: "High" },
@@ -50,7 +50,7 @@ const aircraftPositions = {
     fwdCG: 28.4,
     aftCG: 31.2,
   },
-  "ET512": {
+  "ADIQ512": {
     main: [],
     lower: [
       { pos: "L1", uld: "AKE-6666", weight: 1100, commodity: "General", status: "loaded", priority: "Normal" },
@@ -74,7 +74,7 @@ const aircraftPositions = {
     fwdCG: 24.1,
     aftCG: 26.8,
   },
-  "ET302": {
+  "ADIQ302": {
     main: [
       { pos: "P1", uld: "PMC-2233", weight: 5100, commodity: "General", status: "loaded", priority: "Normal" },
       { pos: "P2", uld: "", weight: 0, commodity: "", status: "empty", priority: "" },
@@ -104,13 +104,13 @@ const aircraftPositions = {
 const aiRecommendations = [
   { type: "revenue", text: "Replace General Cargo on P3 with waitlisted Pharma — adds $4,200 revenue", action: "Apply" },
   { type: "balance", text: "Move PMC on P4 to P6 for better CG balance — reduces aft CG by 1.2%", action: "Apply" },
-  { type: "warning", text: "AWB 057-78901234 (DG Class 3) cannot be next to cool chain cargo on L5", action: "Review" },
+  { type: "warning", text: "AWB 000-78901234 (DG Class 3) cannot be next to cool chain cargo on L5", action: "Review" },
   { type: "insight", text: "12 BOM shipments likely arriving 4hrs early — reserve provisional space on L6-L7", action: "Reserve" },
   { type: "revenue", text: "Consolidate L6+L7 into one PMC — improves utilization by 23%", action: "Apply" },
 ]
 
 export default function LoadPlanningPage() {
-  const [selectedFlight, setSelectedFlight] = useState("ET608")
+  const [selectedFlight, setSelectedFlight] = useState("ADIQ608")
   const [queueTab, setQueueTab] = useState<"ready"|"priority"|"waitlist">("ready")
   const [autoBuilding, setAutoBuilding] = useState(false)
   const [autoBuilt, setAutoBuilt] = useState(false)
