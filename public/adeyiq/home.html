@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AdeyIQ · Build smarter. Fly fuller.</title>
-<meta name="description" content="AdeyIQ helps airline cargo teams build ULDs, plan loads and grow revenue.">
+<meta name="description" content="AdeyIQ helps airline cargo teams build ULDs, check contour, weight and DG separation, load the aircraft and print the load plan.">
 <link rel="icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -251,7 +251,7 @@ html:has(#aboutDlg[open]){overflow:hidden}
 </section>
 
 <section id="modules" aria-labelledby="modT">
-  <div class="sechead"><h2 id="modT">Three modules</h2><p>The first is free for everyone. The other two open after a short conversation with the AdeyIQ team.</p></div>
+  <div class="sechead"><h2 id="modT">Three modules</h2><p>The first is free for everyone and works today. The other two are planned.</p></div>
   <div class="mods">
     <article class="mod free">
       <span class="num">Module 1</span>
@@ -265,21 +265,21 @@ html:has(#aboutDlg[open]){overflow:hidden}
     </article>
     <article class="mod">
       <span class="num">Module 2</span>
-      <span class="badge lock">🔒 ENTERPRISE ADD-ON</span>
+      <span class="badge lock">PLANNED</span>
       <h3>Optimize revenue</h3>
       <div class="art ld7"><svg id="rev" viewBox="0 0 300 180" role="img" aria-label="Tonight's bookings re-rank by yield per kilo: the lowest-yield booking is offloaded, a higher-yield one takes its place, and revenue rises."></svg></div>
       <p>Load the bookings that pay best first, without breaking the build.</p>
       <ul><li>Ranks bookings by yield per chargeable kg and per m³</li><li>Suggests what to offload when a flight is full</li><li>Checks every suggestion still fits the contour</li><li>Report of revenue gained per flight</li></ul>
-      <button class="btn sec" type="button" data-req="Optimize revenue">Request yield demo</button>
+      <button class="btn sec" type="button" data-req="Optimize revenue">Ask about this module</button>
     </article>
     <article class="mod">
       <span class="num">Module 3</span>
-      <span class="badge lock">🔒 ENTERPRISE ADD-ON</span>
+      <span class="badge lock">PLANNED</span>
       <h3>Bid your space with AdeyIQ</h3>
       <div class="art ld7"><svg id="bid" viewBox="0 0 300 180" role="img" aria-label="A flight offers 6.2 tonnes of open capacity; forwarder bids arrive, sort by price, and the two best are accepted into the build."></svg></div>
       <p>Turn open capacity on every flight into revenue. Forwarders bid, you choose.</p>
       <ul><li>Publish free weight and volume per departure</li><li>Set a floor price, receive bids, accept the best</li><li>Each bid is checked against what can still be built</li><li>Accepted bids go straight into the build plan</li></ul>
-      <button class="btn sec" type="button" data-req="Bid your space">Join bidding network</button>
+      <button class="btn sec" type="button" data-req="Bid your space">Ask about this module</button>
     </article>
   </div>
   <div class="stdrib" role="note"><span>Supported ULDs:</span><b>PMC • PAG • PGA • AKE • AKH</b><span aria-hidden="true">|</span><span>Contours from IATA ULD standards · DG segregation per IATA DGR table 9.3.A</span></div>
@@ -567,7 +567,7 @@ start('b777');requestAnimationFrame(tick);
 })();
 </script>
 <script>
-/* Module 2 and 3 cards: small looping stories for Optimize revenue and Bid your space, both on flight ET600. */
+/* Module 2 and 3 cards: small looping stories for Optimize revenue and Bid your space, both on one sample flight. */
 (function(){
   const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ease=q=>q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2,cl=v=>Math.max(0,Math.min(1,v)),seg=(t,a,b)=>ease(cl((t-a)/(b-a)));
@@ -600,7 +600,7 @@ start('b777');requestAnimationFrame(tick);
     o+=`<text x="8" y="174" ${sans} font-size="11" font-weight="500" fill="${gainP>0?'var(--free)':'var(--muted)'}">${gainP>0?'Revenue +$'+gain.toLocaleString('en-US')+' · still fits the contour':(t<3.4?'Ranking by yield…':'Weakest booking found')}</text>`;
     o+='</g>';rev.innerHTML=o;
   },8.6);
-  /* Module 3: forwarders bid for ET600 spare space */
+  /* Module 3: forwarders bid for a flight's spare space */
   const bid=document.getElementById('bid');
   const BIDS=[{f:'Forwarder A',p:1.80,w:2.0},{f:'Forwarder B',p:2.10,w:3.5},{f:'Forwarder C',p:1.55,w:1.2},{f:'Forwarder D',p:1.95,w:2.2}];
   const FLOOR=1.60,CAP=6.2,ord=BIDS.slice().sort((a,b)=>b.p-a.p);BIDS.forEach(b=>b.r=ord.indexOf(b));
