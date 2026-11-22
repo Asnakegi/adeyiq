@@ -138,6 +138,18 @@ await send("Emulation.setUserAgentOverride", { userAgent: realUA });
 console.log("\nHome page: access request");
 await go("/");
 check(!!(await waitRow((r) => r.event === "open" && r.page === "/")), "page open is counted through sendBeacon (passes the origin check)");
+{
+  const about = () => js(`(()=>{const d=document.getElementById('aboutDlg');return d.open&&d.getBoundingClientRect().height>0})()`);
+  check(!(await about()), "About is not shown on the page until someone opens it");
+  await js(`document.querySelector('.nav [data-about]').click()`);
+  check(await about(), "the About link opens the About dialog");
+  await js(`document.getElementById('aboutX').click()`);
+  check(!(await about()), "the About dialog closes with its × button");
+  const links = await js(`[...document.querySelectorAll('#contact .contacts a')].map(x=>x.getAttribute('href'))`);
+  check(JSON.stringify(links) === JSON.stringify(["https://wa.me/251946566225", "tel:+251946566225", "https://www.linkedin.com/in/asnake-gizaw-891b80167/"]), "WhatsApp, phone and LinkedIn links are on the home page");
+  const hrefs = await js(`[...document.querySelectorAll('a[href]')].map(x=>x.getAttribute('href')).filter(h=>!/^(https:|mailto:|tel:|#|[/])/.test(h))`);
+  check(hrefs.length === 0, `every home page link is a site path, anchor or https link${hrefs.length ? ": " + hrefs.join(", ") : ""}`);
+}
 const fill = `(()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'))};document.getElementById('access').hidden=false;document.getElementById('m2').checked=true;s('fName','E2E Tester');s('fEmail','e2e@example.test');s('fCompany','<b>Co</b>');document.getElementById('fSend').click();return true})()`;
 await js(`(()=>{document.getElementById('access').hidden=false;document.getElementById('fSend').click()})()`);
 check(await js(`document.getElementById('eName').textContent.length>0&&document.getElementById('eEmail').textContent.length>0`), "empty form shows name and email errors and sends nothing");
