@@ -135,6 +135,40 @@ await send("Runtime.enable"); await send("Page.enable"); await send("Log.enable"
 const realUA = (await send("Browser.getVersion")).result.userAgent.replace("HeadlessChrome", "Chrome");
 await send("Emulation.setUserAgentOverride", { userAgent: realUA });
 
+console.log("\nHelp and glossary");
+{
+  const isOpen = () => js("!!(document.getElementById('adqHelp')||{}).open");
+  for (const p of ["/", "/build", "/hold-view", "/aircraft-data", "/privacy"]) {
+    await go(p);
+    await js("document.querySelector('button[data-help]').click()");
+    check(await isOpen(), p + ": the Help button opens the help window");
+  }
+  await go("/build?help=glossary");
+  check(await until("!!(document.getElementById('adqHelp')||{}).open&&document.querySelectorAll('#adqBody dt').length>=90"), "/build?help=glossary opens the glossary");
+  const find = (s) => js("(()=>{const q=document.getElementById('adqQ');q.value=" + JSON.stringify(s) + ";q.dispatchEvent(new Event('input'));return document.getElementById('adqBody').innerText})()");
+  check(/Cargo Aircraft Only/.test(await find("cao")), "glossary search finds a term by its code");
+  check(/^\s*Glossary\s+Contour/i.test(await find("contour")), "the best match comes first");
+  await find("<img src=x onerror=window.__x=1>");
+  check((await js("typeof window.__x")) === "undefined" && !(await js("!!document.querySelector('#adqBody img')")), "search text is never shown as HTML");
+  await js("document.querySelector('[data-tab=tools]').click()");
+  const src = fs.readFileSync(new URL("../public/adeyiq/help.js", import.meta.url), "utf8");
+  const sels = [...src.slice(src.indexOf("var TOOLS"), src.indexOf("var FAQ")).matchAll(/, "([#.][\w-]+)", "[^"]*"\]/g)].map((m) => m[1]);
+  const gone = await js(JSON.stringify(sels) + ".filter(s=>!document.querySelector(s))");
+  check(sels.length >= 20 && gone.length === 0, "every tool in Help exists in the builder (" + sels.length + " tools)" + (gone.length ? ": missing " + gone.join(", ") : ""));
+  const rows0 = rows.filter((r) => r.event === "load aircraft").length;
+  await js("localStorage.removeItem('adeyiq-ships')"); await go("/build"); await js("document.getElementById('sampleBtn').click()");
+  await until("!document.getElementById('toLoad').disabled");
+  await js("document.querySelector('button[data-help]').click();document.querySelector('[data-tour]').click()");
+  let steps = 1;
+  while (steps < 20 && (await js("(()=>{const n=document.querySelector('#adqTour [data-step=\"1\"]');if(!n)return false;n.click();return true})()"))) steps++;
+  check(steps === 10 && (await js("!document.getElementById('p2').hidden&&!!document.querySelector('.adqSpot')")), "the tour walks through " + steps + " tools in both steps");
+  await js("document.querySelector('#adqTour [data-end]').click()");
+  check(!(await js("!!document.getElementById('adqTour')||!!document.querySelector('.adqSpot')")), "the tour ends cleanly");
+  await sleep(1800);
+  check(rows.filter((r) => r.event === "load aircraft").length === rows0, "steps opened by the tour are not counted as usage");
+  await js("localStorage.removeItem('adeyiq-ships')");
+}
+
 console.log("\nHome page: access request");
 await go("/");
 check(!!(await waitRow((r) => r.event === "open" && r.page === "/")), "page open is counted through sendBeacon (passes the origin check)");

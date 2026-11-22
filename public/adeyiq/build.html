@@ -264,6 +264,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <div><h1>Build your cargo</h1><div class="sub">AdeyIQ · build ULDs, then load the aircraft</div></div>
   <div class="hright">
     <span class="saved" id="saved" aria-live="polite" title="Your cargo is saved in this browser only">✓ Saved on this device</span>
+    <button class="adqh" type="button" data-help><i aria-hidden="true">?</i>Help</button>
     <button class="btn ghost" id="rateBtn" type="button">★ Rate AdeyIQ</button>
     <select id="acSel" aria-label="Aircraft"></select>
     <a class="iconbtn" href="/aircraft-data" title="Aircraft &amp; ULD data" aria-label="Aircraft and ULD data">✈</a>
@@ -1871,6 +1872,7 @@ refresh();initStore().then(()=>{if(!ships.length)panel('addPanel',true)});spinId
 })();
 </script>
 
+<script defer src="/adeyiq/help.js"></script>
 <script defer src="/adeyiq/track.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 </body>

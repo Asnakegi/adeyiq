@@ -35,7 +35,7 @@
   send("open");
   document.addEventListener("click", function (e) {
     var t = e.target && e.target.closest && e.target.closest("button");
-    if (!t) return;
+    if (!t || window.adqHelpClick) return; /* pressed by the help tour, not by the visitor */
     var id = t.id;
     if (id === "sampleBtn") later("try sample", built);
     else if (id === "toLoad" || id === "st2") later("load aircraft", loaded);
