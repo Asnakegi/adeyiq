@@ -40,7 +40,7 @@ tr.g td{background:var(--panel2);font-weight:600;font-family:var(--display);font
 <body>
 
 <div class="wrap">
-<header><a class="logo" href="/" aria-label="AdeyIQ home" style="text-decoration:none">A</a><div><h1>Aircraft &amp; ULD data</h1><div class="sub">AdeyIQ reference · doors, holds, contours and ULDs for active commercial aircraft</div></div><a class="back" href="/build">Open Cargo Builder →</a></header>
+<header><a class="logo" href="/" aria-label="AdeyIQ home" style="text-decoration:none">A</a><div><h1>Aircraft &amp; ULD data</h1><div class="sub">AdeyIQ reference · doors, holds, contours and ULDs for active commercial aircraft</div></div><a class="back" href="/build">Open Cargo Builder →</a><button class="adqh" type="button" data-help><i aria-hidden="true">?</i>Help</button></header>
 <div class="card">
   <h2>Aircraft</h2>
   <p class="note"><span class="b v">Sourced</span> has a public source. <span class="b u">Verify</span> is a working value to confirm in the manufacturer's airport-planning document (ACAPS). Position, zonal floor and balance limits are not public; they come from each airline's weight-and-balance manual.</p>
@@ -116,6 +116,7 @@ const GEAR=[
 document.getElementById('gear').innerHTML=GEAR.map(g=>`<tr><td><b>${g.name}</b></td><td>${g.on}</td><td class="mono">${g.gear[0]} × ${g.gear[1]} × ${g.gear[2]}</td><td class="num">${g.gear[3].toLocaleString("en-US")}</td></tr>`).join("");
 </script>
 
+<script defer src="/adeyiq/help.js"></script>
 <script defer src="/adeyiq/track.js"></script>
 <p style="text-align:center;font-size:13px;margin:24px 16px"><a href="/privacy" style="color:inherit">Privacy</a></p>
 <script defer src="/_vercel/insights/script.js"></script>
