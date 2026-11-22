@@ -135,7 +135,7 @@ test("explosive divisions are read as class 1, except 1.4S", () => {
   assert.ok(conflict(dg("1.1"), dg("3")));
 });
 
-test("DG acceptance list (public/adeyiq/un-list.json) has the entries cargo teams check most", () => {
+test("DG look-up list (public/adeyiq/un-list.json) has the entries cargo teams check most", () => {
   const L = JSON.parse(fs.readFileSync(new URL("../public/adeyiq/un-list.json", import.meta.url), "utf8"));
   assert.ok(L.n > 2000 && Object.keys(L.d).length === L.n, `${L.n} UN numbers`);
   const first = (id) => L.d[id][0];

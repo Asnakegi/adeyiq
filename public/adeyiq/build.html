@@ -235,7 +235,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 #fbDlg,#dgDlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
 #fbDlg::backdrop,#dgDlg::backdrop{background:rgba(10,37,64,.55)}
 #fbDlg form,#dgDlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
-/* DG acceptance check */
+/* DG look-up */
 .dgres{display:flex;flex-direction:column;gap:10px}
 .dgcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .dgcard h3{margin:0;font-size:15px}
@@ -284,12 +284,12 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
   <button class="btn ghost" id="listToggle" type="button" aria-expanded="false" aria-controls="listPanel">☰ Cargo <span class="note" id="cargoN"></span></button>
   <button class="btn ghost" id="toolsBtn" type="button" aria-expanded="false" aria-controls="moreTools">More tools ▾</button>
   <button class="btn link" id="sampleBtn" type="button">Try sample cargo</button>
-  <!-- less frequent tools, one click away: cargo template, aircraft data, engines, DG lookup -->
+  <!-- less frequent tools, one click away: cargo template, aircraft data, engines, DG look-up -->
   <span class="toolrow" id="moreTools" hidden>
     <a class="btn link" id="tplBtn" href="/adeyiq/adeyiq-cargo-template.xlsx" download="adeyiq-cargo-template.xlsx" title="Excel template: required fields marked *, a How to fill sheet and examples. Fill it and import it here">⬇ Cargo template (Excel)</a><a class="btn link" id="tplCsv" href="/adeyiq/adeyiq-cargo-template.csv" download="adeyiq-cargo-template.csv" title="The same template as CSV (header row only)" style="padding-left:0">CSV</a>
     <a class="btn ghost" id="specBtn" href="/aircraft-data" title="Doors, holds, contours and ULDs for this aircraft">⚙ Aircraft spec: <span id="specAc">B787-9</span></a>
     <button class="btn ghost" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">✈ Engines &amp; gear</button>
-    <button class="btn ghost" id="dgBtn" type="button" title="Look up a UN number: can it fly on this aircraft, and what must it be kept apart from">⚠ DG acceptance</button>
+    <button class="btn ghost" id="dgBtn" type="button" title="Look up a UN number: can it fly on this aircraft, and what must it be kept apart from">⚠ DG look-up</button>
   </span>
 </div>
 <div class="card upsum" id="upSum" hidden><div class="addhd"><b id="upSumT">Import</b><button class="x" type="button" id="upSumX" aria-label="Close">×</button></div><div id="upSumB"></div></div>
@@ -297,7 +297,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <div class="card" id="addPanel" hidden>
       <div class="addhd"><b id="addTitle">Add cargo</b><button class="x" type="button" data-close="addPanel" aria-label="Close">×</button></div>
       <form id="f" class="form" novalidate>
-        <label class="span2">AWB <span style="font-weight:400">(optional)</span><input id="sAwb" placeholder="071-88129031" autocomplete="off" inputmode="numeric"></label>
+        <label class="span2">AWB <span style="font-weight:400">(optional)</span><input id="sAwb" placeholder="000-88129031" autocomplete="off" inputmode="numeric"></label>
         <label class="span2">Goods<input id="sNat" placeholder="Gen Cargo"></label>
         <label>Pieces<input id="sPcs" type="number" min="1" value="1"></label>
         <label class="span2">Weight kg<span style="display:flex;gap:6px"><input id="sWt" type="number" min="0" step="0.1" placeholder="1450"><select id="sWtMode" aria-label="Weight entered as" style="width:auto;flex:none"><option value="t">Total</option><option value="p">Per piece</option></select></span><span class="note" id="wtHint" style="font-weight:400;min-height:16px"></span></label>
@@ -446,7 +446,7 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 </dialog>
 <dialog id="dgDlg" aria-labelledby="dgT">
   <form id="dgForm" method="dialog" novalidate>
-    <div class="addhd"><h2 id="dgT">DG acceptance check</h2><button class="x" type="button" id="dgX" aria-label="Close">×</button></div>
+    <div class="addhd"><h2 id="dgT">DG look-up</h2><button class="x" type="button" id="dgX" aria-label="Close">×</button></div>
     <p class="note" style="margin:-6px 0 0">Enter a UN number or part of a name. You see the basic entry, whether it can fly on the <b id="dgAc"></b>, and what it must be kept apart from.</p>
     <div style="display:flex;gap:8px"><input id="dgQ" placeholder="UN3480 or 3480 or perfume" autocomplete="off" aria-label="UN number or name"><button class="btn pri" type="submit" id="dgGo">Check</button></div>
     <div class="dgres" id="dgOut" role="status"></div>
@@ -739,7 +739,7 @@ async function updateShip(id,patch){const s=ships.find(x=>x.id===id);if(!s)retur
 /* AWB is optional; when typed by hand it must look like an AWB. Files are lenient (any AWB text, DG without UN is flagged, not rejected). */
 /* upload and input limits: keep a malicious or broken manifest from freezing the page */
 const LIM={fileMB:10,rows:5000,ships:5000,pcs:10000,kg:250000,cm:2000};
-function validate(s,fromFile){if(!fromFile&&s.awb&&!/^\d{3}-?\d{8}$/.test(s.awb.replace(/\s/g,'')))return'AWB should look like 071-12345675, or leave it empty';if(!(s.wt>0))return'enter the weight in kg';if(s.pcs>LIM.pcs)return`more than ${LIM.pcs.toLocaleString('en-US')} pieces on one line`;if(s.wt>LIM.kg)return`more than ${LIM.kg.toLocaleString('en-US')} kg on one line`;if(s.l>LIM.cm||s.w>LIM.cm||s.h>LIM.cm)return`a dimension above ${LIM.cm} cm`;if(!(s.l>0&&s.w>0&&s.h>0))return'enter length, width and height';if(!fromFile&&s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))return'dangerous goods need a UN number, like UN1263';return null}
+function validate(s,fromFile){if(!fromFile&&s.awb&&!/^\d{3}-?\d{8}$/.test(s.awb.replace(/\s/g,'')))return'AWB should look like 000-12345675, or leave it empty';if(!(s.wt>0))return'enter the weight in kg';if(s.pcs>LIM.pcs)return`more than ${LIM.pcs.toLocaleString('en-US')} pieces on one line`;if(s.wt>LIM.kg)return`more than ${LIM.kg.toLocaleString('en-US')} kg on one line`;if(s.l>LIM.cm||s.w>LIM.cm||s.h>LIM.cm)return`a dimension above ${LIM.cm} cm`;if(!(s.l>0&&s.w>0&&s.h>0))return'enter length, width and height';if(!fromFile&&s.dg&&s.dg!=='9'&&!/^UN\d{4}$/.test(s.un))return'dangerous goods need a UN number, like UN1263';return null}
 
 /* ---------- saving (quiet) ---------- */
 /* the website never writes cargo anywhere: the spreadsheet id is not published here */
@@ -1737,8 +1737,8 @@ function engLoad(acId){const e=engCur(),v=engVals();$('acSel').value=acId;
 const makers=[...new Set(PARTS.map(e=>e.maker))];
 $('engSel').innerHTML=makers.map(m=>`<optgroup label="${esc(m)}">${PARTS.map((e,i)=>e.maker===m?`<option value="${i}">${esc(e.name)} · ${esc(e.on)}</option>`:'').join('')}</optgroup>`).join('');
 $('engSel').value=String(PARTS.findIndex(e=>e.name==='GEnx-1B'));$('engSel').onchange=engPick;['eL','eW','eH','eKg'].forEach(id=>$(id).addEventListener('input',renderEng));engPick();
-$('sampleBtn').onclick=()=>{const S=[['071-18402213',10,120,80,90,1450,'Auto parts','GEN','','',0,0],['071-18405526',30,100,40,30,620,'Fresh flowers','PEF,COL','','',0,0],['071-18410031',40,60,40,40,1200,'Coffee','EAT','','',0,0],['071-55201184',60,50,40,30,380,'E-commerce parcels','ECC','','',0,0],['071-18417745',12,80,60,50,410,'Electronics','VUN','','',0,0],['071-18420962',8,50,40,40,160,'Paint','RFL','3','UN1263',0,0],['071-18433310',6,60,40,40,210,'Pool chlorine','ROX','5.1','UN2880',0,0],['071-18440015',4,60,40,40,120,'Lithium-ion batteries','RLI,CAO','9','UN3480',0,0],['071-18451120',5,50,40,40,150,'Pesticide','RPB','6.1','UN2588',0,0],['071-18462277',1,290,220,150,1250,'Machinery','HEA','','',1,0],['071-18473390',1,300,230,210,3800,'Generator','HEA','','',1,0],['071-18480012',2,380,40,40,900,'Steel pipe','HEA','','',1,40],['071-18491104',1,340,230,140,1800,'Machinery crate (overhang)','HEA','','',1,30],['071-18502215',1,360,220,120,950,'Boat (overhang)','','','',1,60],
-  ['071-18513326',20,80,60,60,700,'Textiles','GEN','','',0,0,'PMC:1'],['071-18524430',18,60,50,50,520,'Spare parts','GEN','','',0,0,'PMC:1']]
+$('sampleBtn').onclick=()=>{const S=[['000-18402213',10,120,80,90,1450,'Auto parts','GEN','','',0,0],['000-18405526',30,100,40,30,620,'Fresh flowers','PEF,COL','','',0,0],['000-18410031',40,60,40,40,1200,'Coffee','EAT','','',0,0],['000-55201184',60,50,40,30,380,'E-commerce parcels','ECC','','',0,0],['000-18417745',12,80,60,50,410,'Electronics','VUN','','',0,0],['000-18420962',8,50,40,40,160,'Paint','RFL','3','UN1263',0,0],['000-18433310',6,60,40,40,210,'Pool chlorine','ROX','5.1','UN2880',0,0],['000-18440015',4,60,40,40,120,'Lithium-ion batteries','RLI,CAO','9','UN3480',0,0],['000-18451120',5,50,40,40,150,'Pesticide','RPB','6.1','UN2588',0,0],['000-18462277',1,290,220,150,1250,'Machinery','HEA','','',1,0],['000-18473390',1,300,230,210,3800,'Generator','HEA','','',1,0],['000-18480012',2,380,40,40,900,'Steel pipe','HEA','','',1,40],['000-18491104',1,340,230,140,1800,'Machinery crate (overhang)','HEA','','',1,30],['000-18502215',1,360,220,120,950,'Boat (overhang)','','','',1,60],
+  ['000-18513326',20,80,60,60,700,'Textiles','GEN','','',0,0,'PMC:1'],['000-18524430',18,60,50,50,520,'Spare parts','GEN','','',0,0,'PMC:1']]
   .map(r=>mk({awb:r[0],pcs:r[1],l:r[2],w:r[3],h:r[4],wt:r[5],nat:r[6],shc:r[7],dg:r[8],un:r[9],excl:!!r[10],ohg:r[11],pin:r[12]||''}));addShips(S.filter(s=>!ships.some(x=>x.awb===s.awb)));toast('Sample cargo added, including overhang and a hand-built pallet')};
 $('clearBtn').onclick=async()=>{if(!ships.length)return;report('Shipments!A1',ships.map(s=>shipRow(s,'deleted')));for(const id of ships.map(s=>s.id))await delShip(id,true);refresh()};
 /* ---------- print and save: ULD build sheets and the flight load plan (print to paper or "Save as PDF", or download as HTML) ---------- */
@@ -1823,7 +1823,7 @@ const fbStore=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localS
 function openFb(){$('fbNudge').hidden=true;$('fbErr').textContent='';const d=$('fbDlg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 function closeFb(){const d=$('fbDlg');if(d.close)d.close();else d.removeAttribute('open')}
 $('rateBtn').onclick=openFb;$('fbX').onclick=closeFb;$('fbLater').onclick=closeFb;
-/* ---------- DG acceptance check ---------- */
+/* ---------- DG look-up ---------- */
 let UNL=null,dgHits=[],dgLast='';
 async function unList(){if(!UNL){const r=await fetch('/adeyiq/un-list.json');if(!r.ok)throw new Error('list '+r.status);UNL=await r.json()}return UNL}
 const dgSubs=(cls,labels)=>String(labels||'').split(/,\s*/).filter(l=>/^\d(\.\d)?$/.test(l)&&l!==cls&&!cls.startsWith(l+'.')&&l!==String(cls).split('.')[0]);

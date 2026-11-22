@@ -39,7 +39,7 @@
     ["iso", "Step 1 · Build ULDs", "3D view", "Drag to turn (or use the arrow keys). Click a box to select it; hold Ctrl or Shift to add more and see their total weight and volume.", "#iso", "1"],
     ["hand", "Step 1 · Build ULDs", "Load, Offload, Maximize", "Buttons inside an open ULD. Load puts it on first, Offload takes it off, Maximize adds pieces that still fit the contour, weight and DG rules.", "#info", "1"],
     ["printuld", "Step 1 · Build ULDs", "Print ULD", "Build sheet for the open ULD. Choose Save as PDF in the print window to keep a file.", "#prtUld", "1"],
-    ["dg", "Step 1 · Build ULDs", "DG acceptance", "Type a UN number or part of a name. It shows whether the goods can go on this aircraft and what they must be kept apart from. Always confirm in the IATA DGR.", "#dgBtn", "1 more"],
+    ["dg", "Step 1 · Build ULDs", "DG look-up", "Type a UN number or part of a name. It shows whether the goods can go on this aircraft and what they must be kept apart from. Always confirm in the IATA DGR.", "#dgBtn", "1 more"],
     ["engine", "Step 1 · Build ULDs", "Engines & gear", "Checks which aircraft can take an engine or landing gear of the size you enter.", "#engToggle", "1 more"],
     ["spec", "Step 1 · Build ULDs", "Aircraft spec", "Opens the data page: doors, holds, contours and ULDs.", "#specBtn", "1 more"],
     ["load", "Step 1 · Build ULDs", "Load to aircraft", "Goes to step 2 with the ULDs you built.", "#toLoad", "1"],
@@ -60,7 +60,7 @@
     ["Why is a shipment or ULD not loaded?", "Open the red “not loaded” message in step 1 or Checks in step 2. Common reasons: too big for the door or contour, no position left, over the max payload, Cargo Aircraft Only on a passenger aircraft, or offloaded by hand."],
     ["My Excel file was read wrongly. What can I do?", "Read the import summary: it says which column was used for each field and which rows were skipped. Rename the column (for example Pieces, Weight kg, Dims) or use the cargo template, then import again."],
     ["Can I use the result as a load sheet?", "No. AdeyIQ is a planning aid. Position, zonal and balance limits are placeholders until your airline’s figures are entered, and the final load sheet comes from the airline’s approved system."],
-    ["Does it replace a dangerous goods acceptance check?", "No. It follows IATA DGR Table 9.3.A for separation in the build and gives a quick lookup. A trained person must do the acceptance with the current IATA DGR and operator rules."],
+    ["Does it replace a dangerous goods acceptance check?", "No. It follows IATA DGR Table 9.3.A for separation in the build and gives a quick DG look-up, which is a planning aid. A trained person must do the acceptance with the current IATA DGR and operator rules."],
     ["How do I undo changes I made by hand?", "Open a ULD and press Undo hand changes. Change Load on back to Auto-Assign ULD in the cargo list."],
     ["How do I start again?", "Open ☰ Cargo and press Clear all. This deletes the cargo saved in this browser."],
     ["Does it work on a phone?", "Yes, for checking and small changes. A computer is easier for big loads, 3D and printing."],
@@ -70,7 +70,7 @@
   /* ---------- glossary: group, term, also searched as, meaning ---------- */
   var G = "Shipment and weight", U = "ULDs and build-up", A = "Aircraft and loading", D = "Dangerous goods", S = "Handling codes (SHC)", B = "Business and people";
   var TERMS = [
-    [G, "AWB", "air waybill", "Air waybill: the transport document of a shipment. Its number has 11 digits: a 3-digit airline prefix and 8 more, like 071-12345675."],
+    [G, "AWB", "air waybill", "Air waybill: the transport document of a shipment. Its number has 11 digits: a 3-digit airline prefix and 8 more, like 000-12345675."],
     [G, "Shipment", "consignment", "Cargo moving under one AWB. It can have one piece or many."],
     [G, "Piece", "pcs pieces package", "One box, crate or item that is handled on its own."],
     [G, "Manifest", "cargo manifest", "The list of shipments on a flight. You can import it as Excel or CSV."],
@@ -133,7 +133,7 @@
     [D, "Segregation", "keep apart", "Keeping goods that react with each other in separate places. AdeyIQ follows IATA DGR Table 9.3.A."],
     [D, "CAO", "cargo aircraft only", "Cargo Aircraft Only: not allowed on passenger aircraft."],
     [D, "NOTOC", "notification to captain", "Notification to Captain: the list of dangerous and special cargo given to the pilot."],
-    [D, "Acceptance check", "", "The check a trained person makes before taking dangerous goods. The lookup in AdeyIQ is only a help."],
+    [D, "Acceptance check", "", "The check a trained person makes before taking dangerous goods. The DG look-up in AdeyIQ is only a planning aid."],
     [D, "Lithium batteries", "un3480 un3090 un3551 sodium", "UN3480 (lithium ion), UN3090 (lithium metal) and UN3551 (sodium ion) alone are Cargo Aircraft Only and kept apart from several classes."],
     [S, "SHC", "special handling code", "Special handling code: three letters that tell staff how to treat cargo."],
     [S, "GEN", "general", "General cargo, no special handling."],

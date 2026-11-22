@@ -1,4 +1,4 @@
-// Builds public/adeyiq/un-list.json for the builder's "DG acceptance" check.
+// Builds public/adeyiq/un-list.json for the builder's "DG look-up".
 // Source: US Hazardous Materials Table, 49 CFR 172.101 (US government work, public domain), read from the eCFR API.
 // It is used as a free stand-in for the IATA List of Dangerous Goods, which cannot be copied. Differences exist:
 // the app labels the result as a planning aid and asks staff to confirm in the IATA DGR.
