@@ -6,7 +6,7 @@
 //
 // Writes (POST) are sent only to a local server (localhost / 127.0.0.1), never to the live site, so the owner's Google
 // Sheet is never touched. For a full run, start the site against a local stand-in sheet, as test/e2e.mjs does.
-// For any other address only the read-only GET checks run.
+// For any other address only the read-only GET checks run. Set VERIFY_ACCESS_CODE to also try a valid Module 2 code.
 const BASE = (process.argv[2] || process.env.BASE || "http://localhost:3000").replace(/\/$/, "");
 const LOCAL = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(BASE);
 const ORIGIN = new URL(BASE).origin;
@@ -115,6 +115,28 @@ if (LOCAL) {
   }
   r = await call("GET", "/api/request");
   check("/api/request", "GET → 405", r.status === 405, String(r.status));
+
+  /* ---------- POST /api/access (Module 2 access codes) ---------- */
+  const A = (b, o) => call("POST", "/api/access", { body: typeof b === "string" ? b : json(b), ...o });
+  r = await A({ code: "WRONG-CODE-1" });
+  if (r.status === 503) check("/api/access", "no codes configured → 503 {ok:false,error:'not set up'} (documented)", r.json && r.json.ok === false, r.text);
+  else {
+    check("/api/access", "wrong code → 401", r.status === 401 && r.json && r.json.ok === false, `${r.status} ${r.text}`);
+    r = await A({ code: "" });
+    check("/api/access", "empty code → 400", r.status === 400, String(r.status));
+    r = await A("not json");
+    check("/api/access", "body that is not JSON → 400", r.status === 400, String(r.status));
+    r = await A({ code: "x".repeat(1200) });
+    check("/api/access", "body over 1 KB → 413", r.status === 413, String(r.status));
+    r = await A({ code: "WRONG-CODE-2" }, { origin: "https://evil.example" });
+    check("/api/access", "post from another site → 403", r.status === 403, String(r.status));
+    if (process.env.VERIFY_ACCESS_CODE) {
+      r = await A({ code: process.env.VERIFY_ACCESS_CODE, visitor: "verify-endpoints" });
+      check("/api/access", "valid code → 200 {ok:true,modules:['revenue']}", r.status === 200 && r.json && r.json.ok === true, `${r.status} ${r.text}`);
+    }
+  }
+  r = await call("GET", "/api/access");
+  check("/api/access", "GET → 405", r.status === 405, String(r.status));
 }
 
 const fails = results.filter((x) => !x.ok);

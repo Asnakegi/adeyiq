@@ -232,8 +232,15 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 .selbar b{font-family:var(--mono)}
 .mergeline{font-size:12px;color:var(--muted);margin-top:8px;padding:7px 9px;border-radius:8px;background:var(--panel2)}
 /* feedback questionnaire */
-#fbDlg,#dgDlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
-#fbDlg::backdrop,#dgDlg::backdrop{background:rgba(10,37,64,.55)}
+body:not(.m2on) .m2f{display:none!important}
+.m2bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-color:var(--accent)}
+.m2bar b{font-family:var(--display);font-size:18px;font-weight:600}
+.m2bar .badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--info-bg);color:var(--link)}
+.m2bar select{width:auto}
+#m2Dlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+#m2Dlg input{font:inherit;font-size:16px;letter-spacing:.06em;text-transform:uppercase}
+#fbDlg,#dgDlg,#m2Dlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
+#fbDlg::backdrop,#dgDlg::backdrop,#m2Dlg::backdrop{background:rgba(10,37,64,.55)}
 #fbDlg form,#dgDlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
 /* DG acceptance check */
 .dgres{display:flex;flex-direction:column;gap:10px}
@@ -290,8 +297,10 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <a class="btn ghost" id="specBtn" href="/aircraft-data" title="Doors, holds, contours and ULDs for this aircraft">⚙ Aircraft spec: <span id="specAc">B787-9</span></a>
     <button class="btn ghost" id="engToggle" type="button" aria-expanded="false" aria-controls="engPanel">✈ Engines &amp; gear</button>
     <button class="btn ghost" id="dgBtn" type="button" title="Look up a UN number: can it fly on this aircraft, and what must it be kept apart from">⚠ DG acceptance</button>
+    <button class="btn ghost" id="m2Btn" type="button" title="Optimize revenue: rate per kg, priority and currency. Open to people with an access code">💲 Module 2 · Revenue</button>
   </span>
 </div>
+<div class="card m2bar m2f" id="m2Bar" aria-label="Module 2 · Optimize revenue"><b>Module 2 · Optimize revenue</b><span class="badge">Beta</span><label class="note" style="display:flex;gap:6px;align-items:center">Currency for this flight<select id="m2Cur" aria-label="Currency for this flight"></select></label><span class="note" style="flex:1;min-width:220px">Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser. The revenue view comes next.</span><button class="btn link" id="m2Lock" type="button">Lock</button></div>
 <div class="card upsum" id="upSum" hidden><div class="addhd"><b id="upSumT">Import</b><button class="x" type="button" id="upSumX" aria-label="Close">×</button></div><div id="upSumB"></div></div>
 <div class="drawers" id="drawers" hidden>
     <div class="card" id="addPanel" hidden>
@@ -310,6 +319,8 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
           <label>Overhang %<input id="sOhg" type="number" min="0" max="100" value="0"></label>
           <label style="flex-direction:row;align-items:center;gap:6px;margin-top:18px"><input type="checkbox" id="sExcl"> Own ULD</label>
         </div>
+        <label class="m2f">Rate per kg · <span class="m2cur">USD</span><input id="sRate" type="number" min="0" step="0.01" placeholder="2.40" inputmode="decimal"></label>
+        <label class="m2f">Priority<select id="sPrio"><option value="">Normal</option><option value="contract">Contract</option><option value="mail">Mail</option><option value="standby">Standby</option></select></label>
         <label class="span2">Load on<select id="sPin"></select></label>
         <div class="span2" style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><button class="btn link" id="moreBtn" type="button" aria-expanded="false">+ More</button><span style="display:flex;gap:6px"><button class="btn" id="editCancel" type="button" hidden>Cancel</button><button class="btn pri" type="submit" id="fSubmit">Add</button></span></div>
         <span class="err full" id="sErr" role="alert"></span>
@@ -442,6 +453,16 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
     <label class="fbq"><b>Anything we should fix or add? (optional)</b><textarea id="fbC" maxlength="150" placeholder="For example: AKE builds look lighter than ours"></textarea></label>
     <span class="err" id="fbErr" role="alert"></span>
     <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="fbLater">Not now</button><button class="btn pri" type="submit" id="fbSend">Send feedback</button></div>
+  </form>
+</dialog>
+<dialog id="m2Dlg" aria-labelledby="m2T">
+  <form id="m2Form" method="dialog" novalidate>
+    <div class="addhd"><h2 id="m2T">Module 2 · Optimize revenue</h2><button class="x" type="button" id="m2X" aria-label="Close">×</button></div>
+    <p class="note" style="margin:-6px 0 0">Add what each booking pays, so that when a flight is full AdeyIQ leaves behind the cargo that earns the least. Module 2 is open to people with an access code.</p>
+    <label class="fbq"><b>Access code</b><input id="m2Code" autocomplete="off" spellcheck="false" placeholder="ADQ-XXXX-XXXX" maxlength="40"></label>
+    <span class="err" id="m2Err" role="alert"></span>
+    <p class="note" style="margin:0">No code? <a href="/#access">Ask for one on the home page</a>.</p>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" type="button" id="m2Later">Not now</button><button class="btn pri" type="submit" id="m2Go">Unlock</button></div>
   </form>
 </dialog>
 <dialog id="dgDlg" aria-labelledby="dgT">
@@ -587,6 +608,8 @@ function headerField(txt){const t=htok(txt),j=' '+t.join(' ')+' ',any=ws=>ws.spl
   if(any('sub subrisk subsidiary secondary'))set('sub',8);
   if(any('exclusive excl')||/ own uld /.test(j))set('excl',7);
   if(any('ohg overhang'))set('ohg',7);
+  if(any('rate rates tariff price pricing yield usd eur etb kes aed'))set('rate',12);
+  if(any('priority prio'))set('prio',8);
   /* "Piece ID", "Pcs no.", "Item code", "Ref": a label for each line, never a piece count */
   const idw=any('id ids ref refs reference code serial sn tag barcode')||(/^(no|nr|num|number)$/.test(t[t.length-1]||'')&&t.length>1&&!any('of'));
   if(idw&&(k==='pcs'||(k==='nat'&&s<=4)||(!k&&t.length===1))){k='ref';s=4}
@@ -652,7 +675,7 @@ function guessCols(rows,start,m,used,blank){const smp=rows.slice(start,start+300
   if(!m.wt&&!m.wpp){const c=rest.filter(c=>!used.has(c.i)).sort((a,b)=>b.med-a.med)[0];if(c){m.wt={i:c.i,label:'',guessed:true};used.add(c.i);g.push('wt')}}
   take('nat',c=>c.blank&&c.txt>=0.6,c=>c.len);
   return g}
-const FNAME={awb:'AWB',pcs:'Pieces',wt:'Weight',wpp:'Weight per piece',dims:'Dimensions',l:'Length',w:'Width',h:'Height',nat:'Goods',shc:'SHC',dg:'DG class',un:'UN number',sub:'Sub risk',excl:'Exclusive',ohg:'Overhang',ref:'Reference'};
+const FNAME={awb:'AWB',pcs:'Pieces',wt:'Weight',wpp:'Weight per piece',dims:'Dimensions',l:'Length',w:'Width',h:'Height',nat:'Goods',shc:'SHC',dg:'DG class',un:'UN number',sub:'Sub risk',excl:'Exclusive',ohg:'Overhang',ref:'Reference',rate:'Rate per kg',prio:'Priority'};
 const FERR={'enter the weight in kg':'no weight','enter length, width and height':'no dimensions'};
 function rowsToShips(rows){rows=(Array.isArray(rows)?rows:[]).map(r=>Array.isArray(r)?r.map(c=>c==null?'':String(c)):[]);
   const list=[],errs=[],notes=[],info={hdr:-1,cols:[],ignored:[],guessed:[],skip:{},title:0,split:0,rule:IMP_RULE};
@@ -691,13 +714,13 @@ function rowsToShips(rows){rows=(Array.isArray(rows)?rows:[]).map(r=>Array.isArr
     if(!lines&&m.l&&m.w&&m.h){const l=lenOf(r,'l'),w=lenOf(r,'w'),h=lenOf(r,'h');if(l||w||h)lines=[{p:null,l,w,h}]}
     if(!lines&&cell(r,'nat')){lines=parseDims(raw(r,'nat'),du,true);fromNat=!!lines}
     const o={at,awb,nat:cell(r,'nat'),pcs:parsePcs(cell(r,'pcs')),wt:parseWt(cell(r,'wt'),m.wt&&m.wt.wunit),wpp:parseWt(cell(r,'wpp'),m.wpp&&m.wpp.wunit),
-      shc:cell(r,'shc'),dg:cell(r,'dg'),sub:cell(r,'sub'),un:cell(r,'un'),excl:cell(r,'excl'),ohg:cell(r,'ohg'),lines:(lines||[]).map(d=>({...d,at}))};
+      shc:cell(r,'shc'),dg:cell(r,'dg'),sub:cell(r,'sub'),un:cell(r,'un'),excl:cell(r,'excl'),ohg:cell(r,'ohg'),rate:cell(r,'rate'),prio:cell(r,'prio'),lines:(lines||[]).map(d=>({...d,at}))};
     if(fromNat)notes.push(`line ${at}: sizes read from the goods text`);
     if(m.awb&&!awb&&!o.nat&&prev&&(o.lines.length||o.pcs||o.wt)){
       if(!(o.wt>0)&&!(o.wpp>0)&&(prev.wt>0||prev.wpp>0)&&o.lines.length){if(o.lines.length===1&&o.lines[0].p==null&&o.pcs)o.lines[0].p=o.pcs;
         /* pieces on every row = pieces per row, not the AWB total */
         if(o.pcs!=null&&!prev.more&&prev.lines.length===1&&prev.lines[0].p==null&&prev.pcs)prev.lines[0].p=prev.pcs;prev.lines.push(...o.lines);prev.more=true;continue}
-      for(const k of ['awb','nat','shc','dg','sub','un','excl','ohg'])if(!o[k])o[k]=prev[k]}
+      for(const k of ['awb','nat','shc','dg','sub','un','excl','ohg','rate','prio'])if(!o[k])o[k]=prev[k]}
     groups.push(o);prev=o}
   if(!groups.length&&!Object.keys(info.skip).length)errs.push('no cargo lines under the header: fill one line per AWB (weight and sizes are required)');
   /* groups -> shipments: piece count per size, weight shared by volume */
@@ -710,7 +733,7 @@ function rowsToShips(rows){rows=(Array.isArray(rows)?rows:[]).map(r=>Array.isArr
     if(L.length>1){info.split++;notes.push(`${g.awb||'line '+g.at}: ${L.length} sizes${g.wt>0?`, ${g.wt} kg shared by volume`:''}`)}
     const dgRaw=String(g.dg||'').trim();
     L.forEach((d,j)=>{let wt;if(g.wt>0){wt=j===L.length-1?Math.round(left*10)/10:Math.round((V?g.wt*vol[j]/V:g.wt/L.length)*10)/10;left-=wt}else wt=g.wpp>0?g.wpp*d.p:0;
-      const s=mk({awb:g.awb,pcs:d.p,l:d.l,w:d.w,h:d.h,wt,nat:g.nat,shc:g.shc,dg:dgRaw,sub:g.sub,un:g.un,excl:/^(y|yes|true|1|x)$/i.test(g.excl),ohg:num(g.ohg)||0});
+      const s=mk({awb:g.awb,pcs:d.p,l:d.l,w:d.w,h:d.h,wt,nat:g.nat,shc:g.shc,dg:dgRaw,sub:g.sub,un:g.un,excl:/^(y|yes|true|1|x)$/i.test(g.excl),ohg:num(g.ohg)||0,rate:num(g.rate)||0,prio:g.prio});
       /* no DG class in the file = not dangerous goods */
       if(j===0&&!s.dg&&dgRaw&&!/^(no|n|none|nil|non[\s-]?dg|gen|general|-|0|na|n\/a)$/i.test(dgRaw))notes.push(`line ${g.at}: DG "${dgRaw}" has no class, loaded as non-DG, check it`);
       const e=validate(s,true);if(e){errs.push(`line ${d.at}: ${FERR[e]||e}`);skip(FERR[e]||'out of limits');return}
@@ -727,7 +750,7 @@ function parseCSV(t){t=String(t).replace(/^\uFEFF/,'');const head=t.split('\n').
 function mk(o){let dg=String(o.dg||'').trim().replace(/^class\s*/i,'').toUpperCase();if(/^1\.[1-6][A-L]?$/.test(dg))dg=dg==='1.4S'?'1.4S':'1';const known=DG.map(d=>d[0]);dg=known.includes(dg)?dg:'';
   const cap=(v,n)=>String(v==null?'':v).slice(0,n);
   const sub=dg?[...new Set((Array.isArray(o.sub)?o.sub:String(o.sub||'').split(/[,;/\s]+/)).map(v=>{v=String(v).trim().replace(/^class/i,'').toUpperCase();return/^1\.[1-6][A-L]?$/.test(v)&&v!=='1.4S'?'1':v}).filter(v=>v&&v!==dg&&known.includes(v)))].slice(0,4):[];
-  return{id:o.id||uid(),awb:cap(o.awb,40),pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:cap(o.nat,200),shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>cap(x,8).trim().toUpperCase()).filter(Boolean).slice(0,12),dg,sub,un:cap(o.un,12).toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,at:o.at||new Date().toISOString()}}
+  return{id:o.id||uid(),awb:cap(o.awb,40),pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:cap(o.nat,200),shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>cap(x,8).trim().toUpperCase()).filter(Boolean).slice(0,12),dg,sub,un:cap(o.un,12).toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,rate:Math.round(Math.max(0,Math.min(100000,Number(String(o.rate==null?'':o.rate).replace(',','.'))||0))*100)/100,prio:(p=>/^(mail|mal|post)/.test(p)?'mail':/^(contract|allot|alt|bsa|guarant|block)/.test(p)?'contract':/^(standby|stand-by|stand by|sby|stb)/.test(p)?'standby':'')(String(o.prio||'').trim().toLowerCase()),at:o.at||new Date().toISOString()}}
 /* manual placement: "Load on" choices */
 function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boolean))].sort();const next=k=>k+':'+(1+Math.max(0,...used.filter(p=>p.startsWith(k)).map(p=>+p.split(':')[1])));
   const label=p=>{const[k,n]=p.split(':');return k==='PMC'?`Manual pallet ${n}`:`Manual container ${n}`};
@@ -757,6 +780,10 @@ async function initStore(){
   if(!db){loadLocal();refresh();return}
   db.collection('shipments').onSnapshot(snap=>{ships=snap.docs.map(d=>mk(Object.assign({id:d.id},d.data()))).sort((a,b)=>String(a.at).localeCompare(String(b.at)));storeOk=true;refresh()},()=>{loadLocal();refresh()});
 }
+/* Module 2 (Optimize revenue): unlocked in this browser after a valid access code; one currency per flight */
+const CURS=['USD','EUR','GBP','ETB','KES','AED','ZAR','NGN','EGP','INR','CNY'],PRION={contract:'Contract',mail:'Mail',standby:'Standby'},M2K='adeyiq-m2';
+let M2={on:false,cur:'USD'};try{const o=JSON.parse(localStorage.getItem(M2K)||'{}');M2={on:o.on===true,cur:CURS.includes(o.cur)?o.cur:'USD'}}catch(e){}
+function m2Save(){try{localStorage.setItem(M2K,JSON.stringify(M2))}catch(e){}}
 function loadLocal(){try{ships=JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').map(mk)}catch(e){}}
 /* several tabs share this browser's storage: saving merges with what another tab stored (deleted ids stay deleted),
    and a change made in another tab is picked up here at once */
@@ -1060,7 +1087,7 @@ function render(){
   const ac=acNow();$("specAc").textContent=ac.id;
   $('cargoN').textContent=ships.length?`${ships.length} · ${fmt(ships.reduce((s,x)=>s+x.wt,0))} kg`:'';
   $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);
-    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
+    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}${M2.on&&s.rate?` · ${esc(M2.cur)} ${fmt(s.rate,2)}/kg`:''}${M2.on&&s.prio?` · ${PRION[s.prio]}`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
     <select data-pin="${s.id}" aria-label="Load ${esc(s.awb)} on">${pinOptions(s.pin)}</select>
     <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:(build&&build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s))?'Bulk':'—')}</span></div><button class="x" type="button" data-edit="${s.id}" aria-label="Edit ${esc(s.awb)}" title="Edit">✎</button><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(b.dataset.del===editId)endEdit();delShip(b.dataset.del)});
@@ -1627,7 +1654,7 @@ $('listToggle').onclick=()=>panel('listPanel',$('listPanel').hidden);
 $('engToggle').onclick=()=>panel('engPanel',$('engPanel').hidden);
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>panel(b.dataset.close,false));
 $('moreBtn').onclick=()=>{const m=$('more'),o=m.hidden;m.hidden=!o;$('moreBtn').setAttribute('aria-expanded',String(o));$('moreBtn').textContent=o?'− Less':'+ More'};
-$('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:wtFromForm(),nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,sub:$('sSub').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value});
+$('f').addEventListener('submit',e=>{e.preventDefault();const s=mk({awb:$('sAwb').value.trim(),pcs:+$('sPcs').value,l:+$('sL').value,w:+$('sW').value,h:+$('sH').value,wt:wtFromForm(),nat:$('sNat').value.trim(),shc:$('sShc').value,dg:$('sDg').value,sub:$('sSub').value,un:$('sUn').value.trim(),excl:$('sExcl').checked,ohg:+$('sOhg').value,pin:$('sPin').value,rate:$('sRate').value,prio:$('sPrio').value});
   const er=validate(s);if(er){$('sErr').textContent=er.charAt(0).toUpperCase()+er.slice(1);return}$('sErr').textContent='';
   if(editId){const old=ships.find(x=>x.id===editId);if(old){if(!s.awb)s.awb=/^No AWB \d+$/.test(old.awb)?old.awb:nextNoAwb();const{id:_i,at:_a,...patch}=s;updateShip(old.id,patch);report('Shipments!A1',[shipRow(old,'edited')]);toast(`${s.awb} updated`)}endEdit();panel('addPanel',false);return}
   if(!s.awb)s.awb=nextNoAwb();const pin=$('sPin').value;addShips([s]);$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sPin').innerHTML=pinOptions(pin);wtHint();$('sAwb').focus();toast(`${s.awb} added${pin?' · placed by hand':''}`)});
@@ -1642,7 +1669,7 @@ function startEdit(id){const s=ships.find(x=>x.id===id);if(!s)return;editId=id;p
   $('addTitle').textContent='Edit cargo · '+s.awb;$('fSubmit').textContent='Save changes';$('editCancel').hidden=false;$('sErr').textContent='';
   $('sAwb').value=/^No AWB \d+$/.test(s.awb)?'':s.awb;$('sNat').value=s.nat;$('sPcs').value=s.pcs;$('sWtMode').value='t';$('sWt').value=s.wt;
   $('sL').value=s.l;$('sW').value=s.w;$('sH').value=s.h;$('sDg').value=s.dg;$('sSub').value=(s.sub||[]).join(', ');$('sUn').value=s.un;$('sShc').value=s.shc.join(', ');$('sOhg').value=s.ohg;$('sExcl').checked=s.excl;
-  $('sPin').innerHTML=pinOptions(s.pin);$('sPin').value=s.pin;
+  $('sPin').innerHTML=pinOptions(s.pin);$('sPin').value=s.pin;$('sRate').value=s.rate||'';$('sPrio').value=s.prio||'';
   if(s.shc.length||s.ohg||s.excl){$('more').hidden=false;$('moreBtn').setAttribute('aria-expanded','true');$('moreBtn').textContent='− Less'}
   wtHint();setTimeout(()=>{$('sNat').focus();$('addPanel').scrollIntoView({block:'nearest',behavior:RM?'auto':'smooth'})},80)}
 function endEdit(){editId=null;$('addTitle').textContent='Add cargo';$('fSubmit').textContent='Add';$('editCancel').hidden=true;$('f').reset();$('sPcs').value=1;$('sOhg').value=0;$('sWtMode').value='t';wtHint()}
@@ -1856,6 +1883,23 @@ function dgAdd(i){const h=dgHits[+i];if(!h)return;const[name,cls,,labels,pax]=h.
   toast(`${h.id} filled in. Add pieces, weight and size, then press Add`)}
 $('dgBtn').onclick=()=>{$('dgAc').textContent=acNow().name+(acNow().g==='freighter'?' (freighter)':' (passenger aircraft)');if(dgLast&&UNL)dgShow(dgLast);else{dgLast='';$('dgOut').innerHTML=''}const d=$('dgDlg');if(d.showModal)d.showModal();else d.setAttribute('open','');setTimeout(()=>$('dgQ').focus(),5);unList().catch(()=>{})};
 $('dgX').onclick=()=>{const d=$('dgDlg');if(d.close)d.close();else d.removeAttribute('open')};
+/* ---------- Module 2: unlock, currency ---------- */
+$('m2Cur').innerHTML=CURS.map(c=>`<option>${c}</option>`).join('');
+function m2Apply(){document.body.classList.toggle('m2on',M2.on);$('m2Cur').value=M2.cur;document.querySelectorAll('.m2cur').forEach(e=>e.textContent=M2.cur);
+  $('m2Btn').textContent=M2.on?'💲 Module 2 · Revenue ✓':'💲 Module 2 · Revenue'}
+const m2Dlg=$('m2Dlg'),m2Close=()=>{if(m2Dlg.close)m2Dlg.close();else m2Dlg.removeAttribute('open')};
+$('m2Btn').onclick=()=>{if(M2.on){$('m2Bar').scrollIntoView({block:'center',behavior:'smooth'});return}$('m2Err').textContent='';$('m2Code').value='';if(m2Dlg.showModal)m2Dlg.showModal();else m2Dlg.setAttribute('open','');setTimeout(()=>$('m2Code').focus(),5)};
+$('m2X').onclick=m2Close;$('m2Later').onclick=m2Close;
+$('m2Form').addEventListener('submit',async e=>{e.preventDefault();const code=$('m2Code').value.trim();if(!code){$('m2Err').textContent='Enter the code you were given.';return}
+  $('m2Go').disabled=true;$('m2Err').textContent='';
+  try{const r=await fetch('/api/access',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({code,visitor:fbVid()})});
+    if(r.ok){M2.on=true;m2Save();m2Apply();render();m2Close();toast('Module 2 unlocked in this browser');$('m2Bar').scrollIntoView({block:'center'})}
+    else $('m2Err').textContent=r.status===401?'That code is not valid. Check it and try again.':r.status===429?'Too many tries. Please wait an hour.':r.status===503?'Module 2 is not open yet. Ask for a code on the home page.':'Could not check the code. Try again.'}
+  catch(err){$('m2Err').textContent='No connection. Try again when you are online.'}
+  finally{$('m2Go').disabled=false}});
+$('m2Cur').onchange=()=>{M2.cur=CURS.includes($('m2Cur').value)?$('m2Cur').value:'USD';m2Save();m2Apply();render()};
+$('m2Lock').onclick=()=>{M2.on=false;m2Save();m2Apply();render();toast('Module 2 locked in this browser. Your rates are kept')};
+m2Apply();
 $('dgForm').addEventListener('submit',e=>{e.preventDefault();dgCheck()});
 $('dgOut').addEventListener('click',e=>{const a=e.target.closest('[data-dgadd]'),p=e.target.closest('[data-dgid]');if(a)dgAdd(a.dataset.dgadd);if(p){$('dgQ').value=p.dataset.dgid;dgShow(p.dataset.dgid)}});
 $('fbForm').addEventListener('submit',e=>{e.preventDefault();const miss=FBQ.filter(q=>fbA[q.k]===undefined);if(miss.length){$('fbErr').textContent='Please answer question '+miss.map(q=>q.k.slice(1)).join(', ')+'.';return}

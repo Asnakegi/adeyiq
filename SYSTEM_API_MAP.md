@@ -86,12 +86,13 @@ graph TD
 
 | Model | Storage key | Fields and types | Validation | Relationships |
 |---|---|---|---|---|
-| **Shipment** | `adeyiq-ships` (array) | `id`, `awb` ≤40, `pcs` int ≥1, `l` `w` `h` cm, `wt` kg (total), `nat` ≤200, `shc` string[] ≤12 × ≤8, `dg` class from the DG list, `sub` string[] ≤4, `un` `UN####`, `excl` bool, `ohg` 0–100 %, `pin` `PMC:n`/`AKE:n`/'' , `eng` bool, `at` ISO time | `mk()` cleans every field; `validate()`: weight >0, sizes >0, typed AWB `ddd-dddddddd`; limits `LIM`: file 10 MB, 5,000 rows/shipments, 10,000 pieces, 250,000 kg, 2,000 cm | `pin` → a manual ULD; one shipment can be split over several ULDs |
+| **Shipment** | `adeyiq-ships` (array) | `id`, `awb` ≤40, `pcs` int ≥1, `rate` per chargeable kg 0–100,000 (Module 2), `prio` ''/contract/mail/standby (Module 2), `l` `w` `h` cm, `wt` kg (total), `nat` ≤200, `shc` string[] ≤12 × ≤8, `dg` class from the DG list, `sub` string[] ≤4, `un` `UN####`, `excl` bool, `ohg` 0–100 %, `pin` `PMC:n`/`AKE:n`/'' , `eng` bool, `at` ISO time | `mk()` cleans every field; `validate()`: weight >0, sizes >0, typed AWB `ddd-dddddddd`; limits `LIM`: file 10 MB, 5,000 rows/shipments, 10,000 pieces, 250,000 kg, 2,000 cm | `pin` → a manual ULD; one shipment can be split over several ULDs |
 | **ULD** (computed, not stored) | — | `id`, `type` (AKE, AKH, PMCL, PMC6, PAGN, PMC7, PGA), `items` [{shipment, pieces}], `kg`, `m3`, `max`, `cap`, `h`, `flags` (DG…), `pos`, `side`, `excl`, `ohg`, `manual` | contour, weight, DG segregation (IATA DGR 9.3.A), CAO | many Shipments; one aircraft position |
 | **Load plan** (computed) | — | holds `C`, `index`, `total`, `issues`, `pay`, `onBoard`, offloaded list with reasons | balance limits and payload are placeholders | ULDs → positions of one Aircraft |
 | **Hand changes** | `adeyiq-hand` | per aircraft `{off[], on[], max[{t, from[]}]}` (ULD signatures) | — | refers to ULDs by signature |
 | **Own payload** | `adeyiq-payload` | `{aircraftId: kg}` | number >0 | Aircraft |
 | **Visitor / owner** | `adeyiq-vid`, `adeyiq-owner` | random id; owner flag from `?owner=1` | — | UsageEvent.visitor |
+| **Module 2 state** | `adeyiq-m2` | `{on, cur}`: unlocked in this browser, currency for the flight | currency from a fixed list | — |
 | **Feedback flags** | `adeyiq-fb-asked`, `adeyiq-fb-done` | timestamps | — | — |
 | **Hold view aircraft** | `adeyiq-ac` | aircraft id | — | — |
 
@@ -107,6 +108,7 @@ cargo templates (`/adeyiq/adeyiq-cargo-template.xlsx|csv`).
 |---|---|---|---|
 | `GET /api/health` | uptime check | `200 {ok:true, sheetConfigured, time}` | `405` for other methods |
 | `POST /api/track` | one usage or feedback event | `204` (also for bots, which are dropped) | `400` bad JSON / not an object / unknown or missing event · `403` other site or no Origin · `413` >4 KB · `429` >60/min · `405` GET |
+| `POST /api/access` | Module 2 access code (codes kept as SHA-256 hashes in `ADEYIQ_ACCESS_CODES`) | `200 {ok:true,modules:["revenue"]}` + a usage row "module 2 unlocked" (no code) | `400` empty code or bad JSON · `401` wrong code · `403` · `413` >1 KB · `429` >10/hour · `503 {ok:false,error:"not set up"}` no codes configured · `405` GET |
 | `POST /api/request` | access request from the home page | `200 {ok:true}` | `400 {ok:false,error}` name/email or bad JSON · `403` · `413` >8 KB · `429` >5/hour · `502 {ok:false}` sheet failed after retries · `503 {ok:false,error:"not set up"}` sheet not configured · `405` GET |
 | `GET /`, `/build`, `/hold-view`, `/aircraft-data`, `/privacy` | product pages (rewrites to `public/adeyiq/*.html`) | `200` + CSP with script hashes | `404` unknown path |
 | `GET /dashboard`, `/flights`, `/shipments`, `/uld`, `/3dview`, `/planning`, `/dg`, `/reports`, `/settings`, `/optimizer` | demo prototype pages (invented data) | `200` | — |
@@ -121,6 +123,7 @@ cargo templates (`/adeyiq/adeyiq-cargo-template.xlsx|csv`).
 | Feedback | is a UsageEvent | **C** `POST /api/track` (`event: feedback`) | none | PASS |
 | AccessRequest | none | **C** `POST /api/request`; R/U/D: none (owner works in the Sheet) | none | PASS (9 checks with sheet, 2 without) |
 | SignedEnvelope | wraps the two above | **C** Apps Script `doPost` | none | PASS in unit tests (`test/gs.test.mjs`, `test/sheet.test.ts`) and in this run through the stand-in sheet |
+| Module 2 access | codes as hashes in a server setting | **R** `POST /api/access` (check only) | none | PASS (unit, e2e, endpoint check) |
 | Health status | — | **R** `GET /api/health` | none | PASS (3 checks; live too) |
 | Shipment, ULD, Load plan, Hand changes, Payload | browser only | none: created, edited and deleted in the browser; no server copy exists | none | covered by `npm test` (engine) and `npm run test:e2e` (138 checks) |
 | Reference data (UN list, templates) | — | **R** static GET | none | PASS (live too) |

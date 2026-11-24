@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import vm from "node:vm";
+import { createHash } from "node:crypto";
 import { loadGs } from "./gs-harness.mjs";
 
 const APP = 5300, SHEET = 5301, CDP = 9340;
@@ -41,7 +42,7 @@ const waitRow = async (pred, ms = 8000) => { const t = Date.now(); while (Date.n
 /* ---------- app ---------- */
 const next = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(APP)], {
   // all test browsers share one address, so allow more usage events per minute than a real visitor gets (60)
-  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_SHEET_KEY: SHEET_KEY, ADEYIQ_TRACK_PER_MIN: "600" }, stdio: ["ignore", "pipe", "pipe"],
+  env: { ...process.env, ADEYIQ_SHEET_URL: `http://127.0.0.1:${SHEET}/exec`, ADEYIQ_SHEET_KEY: SHEET_KEY, ADEYIQ_TRACK_PER_MIN: "600", ADEYIQ_ACCESS_CODES: createHash("sha256").update("E2ETESTCODE").digest("hex") }, stdio: ["ignore", "pipe", "pipe"],
 });
 let serverLog = "";
 next.stdout.on("data", (d) => (serverLog += d));
@@ -134,6 +135,40 @@ await send("Runtime.enable"); await send("Page.enable"); await send("Log.enable"
 // headless Chrome names itself "HeadlessChrome", which the server drops as a bot (checked separately below); present as normal Chrome
 const realUA = (await send("Browser.getVersion")).result.userAgent.replace("HeadlessChrome", "Chrome");
 await send("Emulation.setUserAgentOverride", { userAgent: realUA });
+
+console.log("\nModule 2: access code, rate, priority, currency");
+{
+  await go("/build");
+  await js("localStorage.removeItem('adeyiq-m2');localStorage.removeItem('adeyiq-ships')");
+  await go("/build");
+  const shown = (id) => js("(()=>{const e=document.getElementById('" + id + "');return !!e&&e.getBoundingClientRect().height>0})()");
+  await js("document.getElementById('addPanel').hidden&&document.getElementById('addToggle').click()");
+  check(!(await shown("sRate")) && !(await shown("m2Bar")), "Module 2 fields are hidden until it is unlocked");
+  const tryCode = async (c) => { await js("(()=>{document.getElementById('m2Btn').click();document.getElementById('m2Code').value=" + JSON.stringify(c) + ";document.getElementById('m2Form').requestSubmit()})()"); await sleep(700); return js("({open:document.getElementById('m2Dlg').open,err:document.getElementById('m2Err').textContent})"); };
+  const bad = await tryCode("WRONG-CODE-1");
+  check(bad.open && /not valid/.test(bad.err) && !(await shown("sRate")), "a wrong code is refused with a clear message");
+  await js("document.getElementById('m2X').click()");
+  const rows0 = rows.length;
+  const good = await tryCode("e2e-test code");
+  check(!good.open && (await shown("sRate")) && (await shown("m2Bar")), "the right code (any case, spaces or dashes) unlocks Module 2");
+  const unl = await waitRow((r) => r.event === "module 2 unlocked");
+  check(!!unl && !JSON.stringify(rows.slice(rows0)).toUpperCase().includes("E2ETESTCODE"), "the sheet gets a 'module 2 unlocked' row, never the code");
+  await js("(()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('input'));e.dispatchEvent(new Event('change'))};s('sAwb','000-12345675');s('sNat','Flowers');s('sPcs','4');s('sWt','200');s('sL','100');s('sW','40');s('sH','30');s('sRate','2.6');s('sPrio','contract');document.getElementById('fSubmit').click()})()");
+  await sleep(600);
+  const saved = await js("JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').map(s=>[s.rate,s.prio])");
+  check(JSON.stringify(saved) === JSON.stringify([[2.6, "contract"]]), "a typed rate and priority are saved on this device");
+  await js("(()=>{const c=document.getElementById('m2Cur');c.value='KES';c.dispatchEvent(new Event('change'))})()");
+  await js("document.getElementById('listPanel').hidden&&document.getElementById('listToggle').click()");
+  check(await js("document.getElementById('cargo').innerText.includes('KES 2.60/kg')&&document.getElementById('cargo').innerText.includes('Contract')"), "the cargo list shows the rate in the flight's currency and the priority");
+  await go("/build");
+  check(await js("JSON.parse(localStorage.getItem('adeyiq-m2')).cur==='KES'&&!!document.querySelector('body.m2on')"), "unlock and currency survive a reload");
+  const csv = "AWB,Goods,Pieces,Weight kg,L,W,H,Rate per kg,Priority\n000-10079193,Mail bags,2,40,60,40,40,\"3,10\",MAL\n";
+  await js("(async()=>{const dt=new DataTransfer();dt.items.add(new File([" + JSON.stringify(csv) + "],'m2.csv'));const f=document.getElementById('file');f.files=dt.files;f.dispatchEvent(new Event('change'));await new Promise(r=>setTimeout(r,1500))})()");
+  check(await js("JSON.parse(localStorage.getItem('adeyiq-ships')).some(s=>s.awb==='000-10079193'&&s.rate===3.1&&s.prio==='mail')"), "Rate and Priority columns are imported from a file");
+  await js("document.getElementById('m2Lock').click()");
+  check(!(await shown("sRate")) && (await js("JSON.parse(localStorage.getItem('adeyiq-ships')).some(s=>s.rate>0)")), "Lock hides Module 2 again and keeps the rates");
+  await js("localStorage.removeItem('adeyiq-m2');localStorage.removeItem('adeyiq-ships')");
+}
 
 console.log("\nHelp and glossary");
 {
@@ -410,7 +445,7 @@ check(t100 < 6000, `100-shipment upload builds in ${t100} ms`);
 
 console.log("\nPage errors and CSP");
 // expected locally: Vercel Analytics exists only on Vercel; the 502 is the deliberate sheet-down test above
-const expected = (e) => /favicon|_vercel\/insights|\/api\/request/.test(e);
+const expected = (e) => /favicon|_vercel\/insights|\/api\/request|401 \(Unauthorized\) \S*\/api\/access/.test(e);
 console.log("  (ignored, expected locally: " + pageErrors.filter(expected).length + " Vercel Analytics / deliberate 502 entries)");
 const relevant = pageErrors.filter((e) => !expected(e));
 check(!relevant.some((e) => /Content Security Policy|Refused to/.test(e)), "no Content-Security-Policy violations" + (relevant.length ? "" : ""));
