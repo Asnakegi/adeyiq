@@ -1,7 +1,7 @@
 // Unit tests for the public API handlers (lib/api.ts). Run: npm test
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { handleTrack, handleRequest, resetRateLimits, rateLimited, sameOrigin, TRACK_LIMIT, REQUEST_LIMIT } from "../lib/api.ts";
+import { handleTrack, handleRequest, handleAccess, hashCode, accessHashes, resetRateLimits, rateLimited, sameOrigin, TRACK_LIMIT, REQUEST_LIMIT, ACCESS_LIMIT } from "../lib/api.ts";
 
 const HOST = "adeyiq.example";
 let ipSeq = 0;
@@ -139,4 +139,45 @@ test("request: 5 per hour per client", async () => {
   for (let i = 0; i < REQUEST_LIMIT.perHour; i++) assert.equal((await handleRequest(post("/api/request", goodReq, { ip: "7.7.7.7" }), d)).status, 200);
   assert.equal((await handleRequest(post("/api/request", goodReq, { ip: "7.7.7.7" }), d)).status, 429);
   assert.equal(w.rows.length, REQUEST_LIMIT.perHour);
+});
+
+/* ---------- POST /api/access (Module 2 access codes) ---------- */
+const CODE = "ADQ-TEST-2026";
+const accessDeps = () => ({ hashes: accessHashes(`${hashCode("OTHER-CODE-1")}, ${hashCode(CODE)}`) });
+
+test("access: a valid code unlocks Module 2 and returns a usage row without the code", async () => {
+  const r = await handleAccess(post("/api/access", { code: CODE, visitor: "v1" }, { "x-vercel-ip-country": "KE" }), accessDeps());
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body, { ok: true, modules: ["revenue"] });
+  assert.equal(r.row?.event, "module 2 unlocked");
+  assert.equal(r.row?.country, "KE");
+  assert.ok(!JSON.stringify(r).includes("TEST"), "the code is never echoed or stored");
+});
+
+test("access: codes are read without case, spaces or dashes", async () => {
+  for (const c of ["adq-test-2026", "ADQ TEST 2026", "ADQTEST2026"]) assert.equal((await handleAccess(post("/api/access", { code: c }), accessDeps())).status, 200, c);
+});
+
+test("access: wrong, empty and malformed requests are refused without a row", async () => {
+  const d = accessDeps();
+  const wrong = await handleAccess(post("/api/access", { code: "ADQ-TEST-2027" }), d);
+  assert.equal(wrong.status, 401);
+  assert.equal(wrong.row, undefined);
+  assert.equal((await handleAccess(post("/api/access", { code: "  " }), d)).status, 400);
+  assert.equal((await handleAccess(post("/api/access", "not json"), d)).status, 400);
+  assert.equal((await handleAccess(post("/api/access", { code: "x".repeat(ACCESS_LIMIT.maxBody) }), d)).status, 413);
+  assert.equal((await handleAccess(post("/api/access", { code: CODE }, { origin: "https://evil.example" }), d)).status, 403);
+});
+
+test("access: not set up answers 503, and tries are limited per hour", async () => {
+  assert.equal((await handleAccess(post("/api/access", { code: CODE }), { hashes: [] })).status, 503);
+  const d = accessDeps();
+  for (let i = 0; i < ACCESS_LIMIT.perHour; i++) assert.equal((await handleAccess(post("/api/access", { code: "WRONG-" + i }, { ip: "9.9.9.9" }), d)).status, 401);
+  assert.equal((await handleAccess(post("/api/access", { code: CODE }, { ip: "9.9.9.9" }), d)).status, 429, "even the right code waits");
+});
+
+test("access: the setting accepts only real hashes", () => {
+  const h = hashCode(CODE);
+  assert.deepEqual(accessHashes(`${h.toUpperCase()}\n  not-a-hash, ,${"a".repeat(63)}`), [h]);
+  assert.deepEqual(accessHashes(undefined), []);
 });

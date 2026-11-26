@@ -514,3 +514,32 @@ test("by hand: maximize fills a ULD from the not-loaded ULDs inside its contour,
   const ntd = md.b.ulds.find((u) => u.id === td.id), cls = new Set(ntd.items.map((i) => i.s.dg));
   assert.ok(!(cls.has("3") && cls.has("5.1")), "maximize never mixes class 3 with 5.1");
 });
+
+// ---------- Module 2 step 1: rate per chargeable kg and priority on each shipment ----------
+test("Module 2: rate and priority are read, cleaned and kept", () => {
+  const s = mk({ awb: "x", pcs: 1, l: 10, w: 10, h: 10, wt: 5, rate: "2,45", prio: "MAL" });
+  assert.equal(s.rate, 2.45);
+  assert.equal(s.prio, "mail");
+  for (const [p, want] of [["Contract", "contract"], ["allotment", "contract"], ["SBY", "standby"], ["Stand-by", "standby"], ["normal", ""], ["<script>", ""]])
+    assert.equal(mk({ prio: p }).prio, want, p);
+  assert.equal(mk({ rate: -3 }).rate, 0, "no negative rates");
+  assert.equal(mk({ rate: "abc" }).rate, 0);
+  assert.equal(mk({ rate: 1e9 }).rate, 100000, "capped");
+  assert.equal(mk({}).rate, 0, "no rate = 0");
+  const again = mk(JSON.parse(JSON.stringify(s)));
+  assert.equal(again.rate, 2.45, "kept when saved and loaded again");
+  assert.equal(again.prio, "mail");
+});
+
+test("Module 2: Rate and Priority columns are found in a manifest, without hurting weight", () => {
+  const k = (h) => imp.headerField(h).k;
+  for (const h of ["Rate", "Rate per kg", "Rate USD/kg", "Tariff", "Price per kg", "USD/kg"]) assert.equal(k(h), "rate", h);
+  for (const h of ["Priority", "Prio"]) assert.equal(k(h), "prio", h);
+  assert.equal(k("Weight kg (total) *"), "wt");
+  assert.equal(k("Weight per piece kg"), "wpp");
+  const r = imp.rowsToShips([["AWB", "Goods", "Pieces", "Weight kg", "L", "W", "H", "Rate per kg", "Priority"],
+    ["000-10079193", "Flowers", "4", "200", "100", "40", "30", "2.60", "Contract"], ["000-10158386", "Mail bags", "2", "40", "60", "40", "40", "3,10", "Mail"]]);
+  assert.equal(r.list.length, 2);
+  assert.equal(JSON.stringify(r.list.map((s) => [s.rate, s.prio])), JSON.stringify([[2.6, "contract"], [3.1, "mail"]]));
+  assert.ok(r.info.cols.some((c) => c.k === "rate") && r.info.cols.some((c) => c.k === "prio"), "shown in the import summary");
+});

@@ -9,6 +9,8 @@
  *   requests over instances, but casual flooding of the sheet and the owner's email quota is stopped)
  */
 
+import { createHash, timingSafeEqual } from "node:crypto";
+
 export type SheetWriter = (body: Record<string, unknown>) => Promise<boolean>;
 export type Deps = { write: SheetWriter; configured: boolean; log?: (msg: string) => void; now?: () => number };
 
@@ -160,4 +162,37 @@ export async function handleRequest(req: Request, deps: Deps): Promise<{ status:
   });
   if (!ok) deps.log?.("access request could not be written to the sheet after retries");
   return { status: ok ? 200 : 502, body: { ok } };
+}
+
+/* ---------- POST /api/access ---------- */
+/* Access codes for modules that are open only to people who ask (Module 2, Optimize revenue). The owner gives a code out;
+   the server keeps only SHA-256 hashes of the codes (ADEYIQ_ACCESS_CODES), so the codes are never in the page or the repo.
+   This is a soft lock for demos, not security: there are no accounts and the page code is public. */
+export const ACCESS_LIMIT = { perHour: 10, maxBody: 1000 };
+/** Codes are compared without spaces or dashes and in capitals, so "adq-7k3p 9xq2" equals "ADQ-7K3P-9XQ2". */
+export const normCode = (c: unknown) => String(c ?? "").toUpperCase().replace(/[\s-]+/g, "");
+export const hashCode = (c: unknown) => createHash("sha256").update(normCode(c), "utf8").digest("hex");
+/** Hashes from the setting: 64 hex characters each, separated by commas, spaces or new lines; anything else is ignored. */
+export const accessHashes = (setting: string | undefined) =>
+  String(setting || "").toLowerCase().split(/[\s,;]+/).filter((h) => /^[0-9a-f]{64}$/.test(h));
+export type AccessDeps = { hashes: string[]; log?: (msg: string) => void; now?: () => number };
+export async function handleAccess(req: Request, deps: AccessDeps): Promise<{ status: number; body: Record<string, unknown>; row?: Record<string, unknown> }> {
+  if (!deps.hashes.length) return { status: 503, body: { ok: false, error: "not set up" } };
+  if (!sameOrigin(req)) return { status: 403, body: { ok: false, error: "forbidden" } };
+  if (rateLimited("a:" + clientKey(req), ACCESS_LIMIT.perHour, 3_600_000, deps.now?.()))
+    return { status: 429, body: { ok: false, error: "too many tries, wait an hour" } };
+  const b = await readBody(req, ACCESS_LIMIT.maxBody);
+  if (!b.ok) return { status: b.status, body: { ok: false } };
+  const code = normCode(clip(b.data.code, 100));
+  if (!code) return { status: 400, body: { ok: false, error: "enter the code" } };
+  const mine = Buffer.from(hashCode(code), "hex");
+  let hit = false;
+  for (const h of deps.hashes) if (timingSafeEqual(mine, Buffer.from(h, "hex"))) hit = true; // every hash is compared
+  if (!hit) {
+    deps.log?.("access code refused");
+    return { status: 401, body: { ok: false, error: "code not valid" } };
+  }
+  /* a usage row so the owner sees who unlocked it: never the code */
+  const row = { type: "usage", event: "module 2 unlocked", page: "/build", visitor: clip(b.data.visitor, 20), session: "", aircraft: "", detail: "", device: "", ref: "", ...locationOf(req.headers) };
+  return { status: 200, body: { ok: true, modules: ["revenue"] }, row };
 }
