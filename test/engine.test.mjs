@@ -367,7 +367,7 @@ test("the downloadable cargo template: every column is understood, examples impo
 const inputDefaults = {};
 for (const m of html.matchAll(/<input id="(\w+)" type="number" value="([^"]*)"/g)) inputDefaults[m[1]] = m[2];
 const planSrc =
-  "var SEL,ships;\n" +
+  "var SEL,ships,M2={on:false,cur:'USD',rev:true};\n" +
   slice("const DG=[", "\n") + "\n" + slice("const CAO_UN=", "\n") + "\n" +
   slice("const ULD={", "\n};") + "\n};\n" + slice("const AC=[", "\n];") + "\n];\n" +
   "const R=k=>Number($(k).value)||0;\nconst acNow=()=>AC.find(a=>a.id===SEL);\n" +
@@ -382,8 +382,8 @@ const pctx = { Math, Map, Set, Array, Number, String, JSON, Object, performance,
   $: (id) => ({ value: inputDefaults[id] ?? "" }), fmt: (n, d = 0) => Number(n || 0).toFixed(d), BULKN: null,
   localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) } };
 vm.createContext(pctx);
-vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;this.P.recommend=list=>recommend(list.map(mk));this.P.uSig=uSig;this.P.setHand=setHand;", pctx);
-const { run: planRun, R: setting, setPayOwn, payMax, AC, recommend, uSig, setHand } = pctx.P;
+vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;this.P.recommend=list=>recommend(list.map(mk));this.P.uSig=uSig;this.P.setHand=setHand;this.P.M2=M2;", pctx);
+const { run: planRun, R: setting, setPayOwn, payMax, AC, recommend, uSig, setHand, M2 } = pctx.P;
 const withPayload = (id, kg, fn) => { setPayOwn(id, kg); try { return fn(); } finally { setPayOwn(id, 0); } };
 const onBoardKg = (b) => b.ulds.reduce((s, u) => s + (u.pos ? u.kg : 0), 0);
 
@@ -567,4 +567,41 @@ test("Module 2: a shipment split over ULDs shares its revenue by pieces", () => 
   const a = { items: [{ s, p: 4 }] }, b = { items: [{ s, p: 6 }] };
   assert.equal(Math.round(rv.uldRev(a, 6000) + rv.uldRev(b, 6000)), Math.round(rv.revOf(s, 6000)));
   assert.equal(Math.round(rv.uldChg(a, 6000)), Math.round((1666.666 * 4) / 10));
+});
+
+// ---------- Module 2 step 3: revenue-first offloading (Contract and Mail kept, then highest revenue; Standby first off) ----------
+function m2Charter() {
+  // 777F charter over the 102 t payload; every 10th piece is Contract, every 7th Standby, rates 0.8 to 4.0 per kg
+  return lowCharter(11, 300, (i) => ({ rate: Math.round((0.8 + ((i * 37) % 33) / 10) * 100) / 100, prio: i % 10 === 0 ? "contract" : i % 7 === 0 ? "standby" : "" }));
+}
+const rank = (u) => Math.min(...u.items.map((i) => (i.s.prio === "contract" || i.s.prio === "mail" ? 0 : i.s.prio === "standby" ? 2 : 1)));
+function withM2(on, rev, fn) { M2.on = on; M2.rev = rev; try { return fn(); } finally { M2.on = false; M2.rev = true; } }
+test("Module 2: revenue first keeps Contract on board, flies more revenue than heaviest first, within payload and balance", () => {
+  const { b, p } = withM2(true, true, () => planRun("B777F", m2Charter()));
+  const c = b.m2cmp, kg = onBoardKg(b), off = b.offload.filter((o) => o.uld);
+  assert.ok(c && c.used === "rev" && c.w.offN > 0, "both plans made and compared");
+  assert.ok(off.length > 0, "cargo is left behind (payload reached)");
+  assert.equal(c.r.prot, 0, "no ULD with Contract or Mail left behind");
+  assert.ok(c.r.rev > c.w.rev, `revenue first flies more: ${Math.round(c.r.rev)} vs ${Math.round(c.w.rev)}`);
+  assert.equal(JSON.stringify(off.map((o) => o.uld.id).sort()), JSON.stringify([...c.r.ids].sort()), "the reported plan is the one in use");
+  assert.ok(kg <= 102000, `on board ${Math.round(kg)} kg within the max payload`);
+  for (const x of p.C) assert.ok(x.kg <= x.maxKg, `${x.name} within its limit`);
+  assert.ok(p.index >= setting("rIdxF") && p.index <= setting("rIdxA"), `balance index ${p.index.toFixed(1)} inside the limits`);
+  assert.equal(p.issues.filter((i) => i.k === "bad").length, 0, "no limit exceeded");
+  const flyRank = Math.max(...b.ulds.filter((u) => u.pos).map(rank)), offRank = Math.min(...off.map((o) => rank(o.uld)));
+  assert.ok(off.some((o) => rank(o.uld) === 2) || flyRank < 2, "Standby is left behind before other cargo");
+  assert.ok(offRank >= 1, "only Normal or Standby ULDs are left behind");
+});
+test("Module 2: with revenue first switched off the plan is the normal heaviest-first one", () => {
+  const plain = planRun("B777F", m2Charter()).b.offload.filter((o) => o.uld).map((o) => o.uld.kg).sort((a, b) => a - b);
+  const { b } = withM2(true, false, () => planRun("B777F", m2Charter()));
+  assert.equal(b.m2cmp.used, "kg");
+  assert.equal(JSON.stringify(b.offload.filter((o) => o.uld).map((o) => o.uld.kg).sort((a, b) => a - b)), JSON.stringify(plain), "same ULDs left behind as without Module 2");
+  assert.ok(b.m2cmp.r.rev > b.m2cmp.w.rev, "the comparison still shows what revenue first would fly");
+});
+test("Module 2: nothing changes when everything flies", () => {
+  const small = m2Charter().slice(0, 40);
+  const { b } = withM2(true, true, () => planRun("B777F", small));
+  assert.equal(b.m2cmp, null, "no comparison when nothing is left behind");
+  assert.equal(b.offload.filter((o) => o.uld).length, 0);
 });
