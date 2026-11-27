@@ -274,6 +274,7 @@ await js(`localStorage.clear()`);
 await go("/build");
 await js(`document.getElementById('sampleBtn').click()`);
 check(await until(`/ULD/.test(document.getElementById('st1s').textContent)`), "sample cargo builds ULDs");
+check(await js("(()=>{const s=JSON.parse(localStorage.getItem('adeyiq-ships'));return s.length===16&&s.every(x=>x.rate>0&&/^000-/.test(x.awb))&&s.filter(x=>x.prio==='contract').length===2&&s.filter(x=>x.prio==='standby').length===2})()"), "sample cargo has invented 000- AWBs, a rate on every line and Contract and Standby priorities");
 check(await until(`document.querySelectorAll('#iso g[data-i], #iso polygon, #iso path').length>0`), "3D view draws the build");
 const nShips = () => js(`JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').length`);
 const before = await nShips();
@@ -625,7 +626,8 @@ console.log("\nMessy real-world manifests (synthetic samples in test/fixtures/ma
   const filled = SHEETJS.utils.sheet_to_json(tb.Sheets.Cargo, { header: 1, raw: false, defval: "" }).concat(exRows.slice(2));
   const t = await up("my-cargo.xlsx", xlsxB64(filled), true);
   const st = await shipsNow();
-  check(st.length === 5 && /5 shipments added/.test(t.toast) && JSON.stringify(st[1]) === JSON.stringify(["071-12345686", 10, 180, "40x30x30"]), `a filled-in cargo template imports every line (${st.length} lines, "${t.toast}")`);
+  check(st.length === 5 && /5 shipments added/.test(t.toast) && JSON.stringify(st[1]) === JSON.stringify(["000-12345686", 10, 180, "40x30x30"]), `a filled-in cargo template imports every line (${st.length} lines, "${t.toast}")`);
+  check(await js("JSON.parse(localStorage.getItem('adeyiq-ships')).some(s=>s.nat==='Lithium ion batteries'&&s.rate===3.5&&s.prio==='standby')"), "the template's Rate per kg and Priority columns import");
   await up("hostile-header.csv",`AWB,"<img src=x onerror=window.__xss=9> Weight",Dims,"<b>Goods</b>"\n071-70000022,10,50x40x30,Box\n`);
   check((await js(`window.__xss===undefined&&!document.querySelector('#upSum img')&&![...document.querySelectorAll('#upSum b')].some(b=>b.textContent==='Goods')&&document.getElementById('upSum').textContent.includes('<img src=x')`)), "header text from the file is shown as text in the import summary, never as HTML");
 }

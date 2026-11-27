@@ -75,7 +75,7 @@
   /* ---------- glossary: group, term, also searched as, meaning ---------- */
   var G = "Shipment and weight", U = "ULDs and build-up", A = "Aircraft and loading", D = "Dangerous goods", S = "Handling codes (SHC)", B = "Business and people";
   var TERMS = [
-    [G, "AWB", "air waybill", "Air waybill: the transport document of a shipment. Its number has 11 digits: a 3-digit airline prefix and 8 more, like 071-12345675."],
+    [G, "AWB", "air waybill", "Air waybill: the transport document of a shipment. Its number has 11 digits: a 3-digit airline prefix and 8 more, like 000-12345675."],
     [G, "Shipment", "consignment", "Cargo moving under one AWB. It can have one piece or many."],
     [G, "Piece", "pcs pieces package", "One box, crate or item that is handled on its own."],
     [G, "Manifest", "cargo manifest", "The list of shipments on a flight. You can import it as Excel or CSV."],

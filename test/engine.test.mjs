@@ -344,7 +344,7 @@ test("the downloadable cargo template: every column is understood, examples impo
   assert.equal(wb.SheetNames[0], "Cargo", "the sheet people fill is the first one (the only one imported)");
   const rows = (n) => sheetjs.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: "" });
   const head = rows("Cargo")[1];
-  const want = ["awb", "nat", "pcs", "wt", "wpp", "l", "w", "h", "dg", "un", "sub", "shc", "excl", "ohg"];
+  const want = ["awb", "nat", "pcs", "wt", "wpp", "l", "w", "h", "dg", "un", "sub", "shc", "excl", "ohg", "rate", "prio"];
   assert.deepEqual(plain(head.map((h) => imp.headerField(h).k)), want);
   const csvHead = imp.parseCSV(fs.readFileSync(new URL("../public/adeyiq/adeyiq-cargo-template.csv", import.meta.url), "utf8"))[0];
   assert.deepEqual(plain(csvHead), plain(head), "the CSV template has the same columns");
@@ -353,9 +353,10 @@ test("the downloadable cargo template: every column is understood, examples impo
   const r = imp.rowsToShips(rows("Example"));
   assert.equal(r.errs.length, 0, r.errs.join("; "));
   assert.deepEqual(plain(brief(r)), [
-    ["071-12345675", 4, 480, "120x80x60"], ["071-12345686", 10, 180, "40x30x30"], ["071-12345690", 2, 300, "100x80x90"],
-    ["071-12345701", 30, 450, "100x50x40"], ["No AWB 1", 1, 2400, "300x200x150"],
+    ["000-12345675", 4, 480, "120x80x60"], ["000-12345686", 10, 180, "40x30x30"], ["000-12345690", 2, 300, "100x80x90"],
+    ["000-12345701", 30, 450, "100x50x40"], ["No AWB 1", 1, 2400, "300x200x150"],
   ]);
+  assert.equal(JSON.stringify(r.list.map((s) => [s.rate, s.prio])), JSON.stringify([[2.4, ""], [2.2, ""], [3.5, "standby"], [2.6, "contract"], [1.3, ""]]), "example rates and priorities import");
   assert.deepEqual([r.list[1].dg, r.list[1].un, r.list[4].excl, r.list[4].ohg, plain(r.list[3].shc)], ["3", "UN1263", true, 10, ["PER", "COL"]]);
   const empty = imp.rowsToShips(rows("Cargo"));
   assert.equal(empty.list.length, 0);
