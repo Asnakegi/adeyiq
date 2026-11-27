@@ -185,6 +185,13 @@ console.log("\nModule 2: access code, rate, priority, currency");
   check(await js("document.getElementById('m2Rev').checked") && c1.includes("Revenue first: KES 16,000 flies instead of KES 15,600 with heaviest first (+KES 400)") && c1.includes("no Contract or Mail left behind (heaviest first: 1 ULD)"), "revenue first keeps Contract on board and shows before/after: " + c1);
   check((await offAwbs()) === "Machine parts", "revenue first leaves the low-revenue Normal pallet behind, not the Contract one");
   check(await js("document.getElementById('stats').innerText.replace(/\\s+/g,' ').includes('+KES 400 vs heaviest first')"), "step 2 shows the revenue gained against heaviest first");
+  // step 4: the revenue report prints on its own; the ramp load plan never shows money
+  const printed = (btn) => js("(()=>{const w={h:'',document:{open(){},write(x){w.h+=x},close(){}},focus(){},print(){}};const o=window.open;window.open=()=>w;document.getElementById('" + btn + "').click();window.open=o;return w.h})()");
+  const rep = await printed("m2Prt");
+  check(rep.includes("Revenue report · Module 2") && rep.includes("Revenue by position") && rep.includes("Revenue by shipment") && rep.includes("Contract cargo") && rep.includes("Left behind")
+    && rep.includes("Used: <b>revenue first</b>. Revenue first flies KES 16,000, heaviest first KES 15,600 (difference +KES 400)") && rep.includes("not an invoice"), "the revenue report has positions, shipments, status and the before/after of the offload order");
+  const lp = await printed("prtFlight");
+  check(lp.includes("Flight load plan") && !lp.includes("KES") && !/revenue/i.test(lp), "the load plan for the ramp shows no revenue");
   await js("(()=>{const r=document.getElementById('m2Rev');r.checked=false;r.dispatchEvent(new Event('change'))})()"); await sleep(800);
   const c2 = await cmp();
   check(c2.startsWith("Heaviest first is used. Revenue first would fly KES 16,000") && (await offAwbs()) === "Contract cargo" && JSON.parse(await js("localStorage.getItem('adeyiq-m2')")).rev === false, "switched off: the normal heaviest-first plan, the comparison stays and the choice is saved");
