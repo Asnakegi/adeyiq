@@ -265,12 +265,12 @@ html:has(#aboutDlg[open]){overflow:hidden}
     </article>
     <article class="mod">
       <span class="num">Module 2</span>
-      <span class="badge lock">🔒 ENTERPRISE ADD-ON</span>
+      <span class="badge lock">🔑 EARLY ACCESS · BY CODE</span>
       <h3>Optimize revenue</h3>
       <div class="art ld7"><svg id="rev" viewBox="0 0 300 180" role="img" aria-label="Tonight's bookings re-rank by yield per kilo: the lowest-yield booking is offloaded, a higher-yield one takes its place, and revenue rises."></svg></div>
       <p>Load the bookings that pay best first, without breaking the build.</p>
-      <ul><li>Ranks bookings by yield per chargeable kg and per m³</li><li>Suggests what to offload when a flight is full</li><li>Checks every suggestion still fits the contour</li><li>Report of revenue gained per flight</li></ul>
-      <button class="btn sec" type="button" data-req="Optimize revenue">Request yield demo</button>
+      <ul><li>Rate per chargeable kg and priority for every shipment</li><li>Revenue per shipment, ULD and flight, in the flight’s currency</li><li>When a flight is full, keeps Contract and Mail and loads the best-paying ULDs, inside the same contour, balance and DG checks</li><li>Revenue report with before and after, to print or save</li></ul>
+      <button class="btn sec" type="button" data-req="Optimize revenue">Request an access code</button>
     </article>
     <article class="mod">
       <span class="num">Module 3</span>
@@ -296,7 +296,7 @@ html:has(#aboutDlg[open]){overflow:hidden}
     <h2 id="briefT">AdeyIQ in short</h2>
     <ol>
       <li><i aria-hidden="true">1</i><div><b>Build your cargo virtually</b><span class="st on">Free now</span><p>Add or upload your shipments. AdeyIQ builds the ULDs in 3D, checks contour, weight and DG rules, and loads them into the aircraft.</p></div></li>
-      <li><i aria-hidden="true">2</i><div><b>Optimize revenue</b><span class="st">Planned</span><p>Shows which bookings pay best for the space they use, and what to offload first when a flight is full.</p></div></li>
+      <li><i aria-hidden="true">2</i><div><b>Optimize revenue</b><span class="st on">Early access</span><p>Shows what each shipment, ULD and flight earns. When a flight is full, it keeps Contract and Mail and loads the cargo that pays best. Opens with an access code.</p></div></li>
       <li><i aria-hidden="true">3</i><div><b>Bid your space with AdeyIQ</b><span class="st">Planned</span><p>Publish the open capacity on a flight, let forwarders bid for it, and accept the bids that fit the build.</p></div></li>
     </ol>
   </div>
@@ -511,7 +511,7 @@ function tick(now){const dt=now-(tick.l||now);tick.l=now;if(!vis||dt>250){t0+=dt
 start('b777');requestAnimationFrame(tick);
 })();
 </script>
-<footer>Forecast and market figures come from the publishers linked on each post. AdeyIQ is not affiliated with Boeing, Airbus or IATA. Module 2 and Module 3 descriptions describe planned capabilities. To improve AdeyIQ we count page visits and tool use with an anonymous id and the country and city of the visitor's network; we don't store IP addresses or the cargo you enter. <a href="/privacy">Privacy</a></footer>
+<footer>Forecast and market figures come from the publishers linked on each post. AdeyIQ is not affiliated with Boeing, Airbus or IATA. Module 3 describes planned capabilities; Module 2 is in early access and its revenue figures are planning figures, not invoices. To improve AdeyIQ we count page visits and tool use with an anonymous id and the country and city of the visitor's network; we don't store IP addresses or the cargo you enter. <a href="/privacy">Privacy</a></footer>
 </div>
 
 <script>
@@ -567,7 +567,7 @@ start('b777');requestAnimationFrame(tick);
 })();
 </script>
 <script>
-/* Module 2 and 3 cards: small looping stories for Optimize revenue and Bid your space, both on flight ET600. */
+/* Module 2 and 3 cards: small looping stories for Optimize revenue and Bid your space, both on flight ADIQ600. */
 (function(){
   const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ease=q=>q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2,cl=v=>Math.max(0,Math.min(1,v)),seg=(t,a,b)=>ease(cl((t-a)/(b-a)));
@@ -600,7 +600,7 @@ start('b777');requestAnimationFrame(tick);
     o+=`<text x="8" y="174" ${sans} font-size="11" font-weight="500" fill="${gainP>0?'var(--free)':'var(--muted)'}">${gainP>0?'Revenue +$'+gain.toLocaleString('en-US')+' · still fits the contour':(t<3.4?'Ranking by yield…':'Weakest booking found')}</text>`;
     o+='</g>';rev.innerHTML=o;
   },8.6);
-  /* Module 3: forwarders bid for ET600 spare space */
+  /* Module 3: forwarders bid for ADIQ600 spare space */
   const bid=document.getElementById('bid');
   const BIDS=[{f:'Forwarder A',p:1.80,w:2.0},{f:'Forwarder B',p:2.10,w:3.5},{f:'Forwarder C',p:1.55,w:1.2},{f:'Forwarder D',p:1.95,w:2.2}];
   const FLOOR=1.60,CAP=6.2,ord=BIDS.slice().sort((a,b)=>b.p-a.p);BIDS.forEach(b=>b.r=ord.indexOf(b));
