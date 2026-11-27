@@ -300,7 +300,7 @@ body:not(.m2on) .m2f{display:none!important}
     <button class="btn ghost" id="m2Btn" type="button" title="Optimize revenue: rate per kg, priority and currency. Open to people with an access code">💲 Module 2 · Revenue</button>
   </span>
 </div>
-<div class="card m2bar m2f" id="m2Bar" aria-label="Module 2 · Optimize revenue"><b>Module 2 · Optimize revenue</b><span class="badge">Beta</span><label class="note" style="display:flex;gap:6px;align-items:center">Currency for this flight<select id="m2Cur" aria-label="Currency for this flight"></select></label><span class="note" id="m2Sum" style="flex:1;min-width:220px" aria-live="polite">Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.</span><button class="btn link" id="m2Lock" type="button">Lock</button></div>
+<div class="card m2bar m2f" id="m2Bar" aria-label="Module 2 · Optimize revenue"><b>Module 2 · Optimize revenue</b><span class="badge">Beta</span><label class="note" style="display:flex;gap:6px;align-items:center">Currency for this flight<select id="m2Cur" aria-label="Currency for this flight"></select></label><label class="note" style="display:flex;gap:6px;align-items:center" title="When cargo must stay behind: keep Contract and Mail, then load the highest-revenue ULDs; Standby is left behind first"><input type="checkbox" id="m2Rev"> Offload by revenue first</label><span class="note" id="m2Sum" style="flex:1;min-width:220px" aria-live="polite">Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.</span><button class="btn link" id="m2Lock" type="button">Lock</button></div>
 <div class="card upsum" id="upSum" hidden><div class="addhd"><b id="upSumT">Import</b><button class="x" type="button" id="upSumX" aria-label="Close">×</button></div><div id="upSumB"></div></div>
 <div class="drawers" id="drawers" hidden>
     <div class="card" id="addPanel" hidden>
@@ -785,7 +785,7 @@ async function initStore(){
 }
 /* Module 2 (Optimize revenue): unlocked in this browser after a valid access code; one currency per flight */
 const CURS=['USD','EUR','GBP','ETB','KES','AED','ZAR','NGN','EGP','INR','CNY'],PRION={contract:'Contract',mail:'Mail',standby:'Standby'},M2K='adeyiq-m2';
-let M2={on:false,cur:'USD'};try{const o=JSON.parse(localStorage.getItem(M2K)||'{}');M2={on:o.on===true,cur:CURS.includes(o.cur)?o.cur:'USD'}}catch(e){}
+let M2={on:false,cur:'USD',rev:true};try{const o=JSON.parse(localStorage.getItem(M2K)||'{}');M2={on:o.on===true,cur:CURS.includes(o.cur)?o.cur:'USD',rev:o.rev!==false}}catch(e){}
 function m2Save(){try{localStorage.setItem(M2K,JSON.stringify(M2))}catch(e){}}
 function loadLocal(){try{ships=JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').map(mk)}catch(e){}}
 /* several tabs share this browser's storage: saving merges with what another tab stored (deleted ids stay deleted),
@@ -907,7 +907,19 @@ function buildUlds(){
   return{ac,ulds,offload,apart,bulk,manualWarn,merged};
 }
 /* ---------- load plan + balance ---------- */
-function planLoad(b){
+/* Module 2 step 3: when cargo must stay behind, revenue first keeps Contract and Mail, then loads the highest-revenue ULDs
+   (Standby goes last). The plan is made both ways and the two are compared; nothing changes when everything flies. */
+const PRANK=s=>s.prio==='contract'||s.prio==='mail'?0:s.prio==='standby'?2:1;
+function m2Fly(b,p){const div=R('rDiv')||6000,fly=u=>!p.C.length||!!u.pos,off=b.offload.filter(o=>o.uld);let rev=0,kg=0;
+  b.ulds.forEach(u=>{if(fly(u)){rev+=uldRev(u,div);kg+=u.kg}});(b.bulk||[]).forEach(h=>h.items.forEach(x=>{rev+=revOf(x,div);kg+=x.wt}));
+  return{rev,kg,offN:off.length,prot:off.filter(o=>o.uld.items.some(i=>PRANK(i.s)===0)).length,ids:off.map(o=>o.uld.id)}}
+function planLoad(b){b.m2cmp=null;if(typeof M2==='undefined'||!M2.on||!b.ulds.length)return planCore(b,'kg');
+  const snap={ulds:b.ulds.slice(),off:b.offload.slice(),bulk:(b.bulk||[]).map(h=>[h.items.slice(),h.used,h.usedKg])},
+    back=()=>{b.ulds.splice(0,b.ulds.length,...snap.ulds);b.offload=snap.off.slice();(b.bulk||[]).forEach((h,i)=>{h.items=snap.bulk[i][0].slice();h.used=snap.bulk[i][1];h.usedKg=snap.bulk[i][2]})};
+  let p=planCore(b,'kg');const w=m2Fly(b,p);if(!w.offN||!p.C.length)return p;
+  back();p=planCore(b,'rev');const r=m2Fly(b,p);if(!M2.rev){back();p=planCore(b,'kg')}
+  b.m2cmp={w,r,used:M2.rev?'rev':'kg'};return p}
+function planCore(b,ord){
   const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-18,18]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
   const lower=ac.low||ac.akh;if(lower)for(const k of['fwd','aft']){const r=lower[k].rows;C.push({key:k,name:k==='fwd'?'Forward hold':'Aft hold',len:r*156,used:0,blocks:[],a:arm[k],maxKg:r*2*R(ac.akh?'rAkh':'rAke')*(ac.akh?1:.9)})}
   if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:(()=>{const n=ac.main.rows;let s=0,k=0;for(let r=0;r<n;r++){const p=ac.main.single||(ac.main.lastSingle&&r===n-1)?1:2;s+=p*(arm.main[0]+(arm.main[1]-arm.main[0])*(r+.5)/n);k+=p}return[arm.main[0]-s/k,arm.main[1]-s/k]})(),maxKg:mainPos(ac)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
@@ -918,7 +930,9 @@ function planLoad(b){
   const pairs=[];b.ulds.filter(u=>ULD[u.type].half).sort((x,y)=>y.kg-x.kg).forEach(u=>{const p=pairs.find(p=>p.length===1&&!clash(p[0],u));if(p)p.push(u);else pairs.push([u])});
   /* main-deck pallets go two abreast (left and right), a PGA pairs with another PGA over two rows */
   const mains=[];b.ulds.filter(u=>ULD[u.type].main).sort((x,y)=>y.kg-x.kg).forEach(u=>{const pga=u.type==='PGA',p=!ac.main.single&&mains.find(p=>p.length===1&&(p[0].type==='PGA')===pga&&!clash(p[0],u));if(p)p.push(u);else mains.push([u])});
-  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).sort((x,y)=>((y.kind==='main'&&y.len>MP(ac))-(x.kind==='main'&&x.len>MP(ac)))||(hOnU(y)-hOnU(x))||y.w-x.w);
+  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).map(x=>(ord==='rev'&&(x.rv=x.ulds.reduce((s,u)=>s+uldRev(u,R('rDiv')||6000),0),x.rk=Math.min(...x.ulds.flatMap(u=>u.items.map(i=>PRANK(i.s))))),x));
+  const pgaU=x=>x.kind==='main'&&x.len>MP(ac)?1:0;
+  units.sort(ord==='rev'?(x,y)=>(hOnU(y)-hOnU(x))||(x.rk-y.rk)||(pgaU(y)-pgaU(x))||(y.rv-x.rv)||y.w-x.w:(x,y)=>(pgaU(y)-pgaU(x))||(hOnU(y)-hOnU(x))||y.w-x.w);
   const posArm=(c,st,len)=>{const f=(st+len/2)/c.len;return c.key==='fwd'?c.a[1]-(c.a[1]-c.a[0])*f:c.a[0]+(c.a[1]-c.a[0])*f};
   const noPos=[];
   const lowC=C.filter(c=>c.key!=='main'),mainC=C.filter(c=>c.key==='main');
@@ -980,7 +994,7 @@ function planLoad(b){
   C.forEach(c=>{c.fill=c.blocks.reduce((s,x)=>s+x.len,0);c.kg=c.blocks.reduce((s,x)=>s+(x.w||0),0);if(c.kg>c.maxKg)issues.push({k:'bad',t:`${c.name} is over its ${fmt(c.maxKg)} kg limit (${fmt(c.kg)} kg)`})});
   b.ulds.forEach(u=>{if(u.kg>u.max)issues.push({k:'bad',t:`${u.id} is over its ${fmt(u.max)} kg limit`})});
   const ob=onBoard();if(ob>pay+1e-6)issues.push({k:'bad',t:`Over the ${fmt(pay)} kg max payload of the ${ac.name} (${fmt(ob)} kg loaded)`});
-  else if(noPos.some(o=>o.pay))issues.push({k:'info',t:`Max payload ${fmt(pay)} kg of the ${ac.name} reached: ${fmt(ob)} kg loaded, heaviest ULDs first`});
+  else if(noPos.some(o=>o.pay))issues.push({k:'info',t:`Max payload ${fmt(pay)} kg of the ${ac.name} reached: ${fmt(ob)} kg loaded, ${ord==='rev'?'Contract and Mail first, then the highest-revenue ULDs':'heaviest ULDs first'}`});
   return{C,index:mom/1000,total:C.reduce((s,c)=>s+c.kg,0),issues,pay,onBoard:ob};
 }
 
@@ -1092,10 +1106,16 @@ function m2Sum(){const div=R('rDiv')||6000,all=ships.reduce((t,s)=>t+revOf(s,div
   if(build){build.ulds.forEach(u=>{if(flies(u)){fRev+=uldRev(u,div);fChg+=uldChg(u,div)}});(build.bulk||[]).forEach(h=>h.items.forEach(x=>{fRev+=revOf(x,div);fChg+=chgOf(x,div)}))}
   return{div,all,allChg,fRev,fChg,left:Math.max(0,all-fRev),rated:ships.filter(s=>s.rate>0).length,n:ships.length}}
 const money=v=>`${esc(M2.cur)} ${fmt(v)}`;
-const m2Stat=()=>{if(!M2.on)return'';const m=m2Sum();return m.rated?`<div class="stat m2f" style="grid-column:1/-1"><b class="mono">${money(m.fRev)}</b><span>revenue on board${m.left>0.5?` · ${money(m.left)} left behind`:''}</span></div>`:''};
+/* before/after of the offload order: heaviest first (the normal plan) against revenue first */
+function m2Cmp(){const c=build&&build.m2cmp;if(!c)return'';const d=c.r.rev-c.w.rev,dm=`${d<0?'−':'+'}${money(Math.abs(d))}`,ul=n=>`${n} ULD${n===1?'':'s'}`,
+    prot=x=>x.prot?`${ul(x.prot)} with Contract or Mail left behind`:'no Contract or Mail left behind';
+  if(Math.abs(d)<0.5&&c.r.prot===c.w.prot&&c.r.ids.join()===c.w.ids.join())return'Offload order: revenue first leaves the same ULDs behind as heaviest first.';
+  return c.used==='rev'?`Revenue first: <b>${money(c.r.rev)}</b> flies instead of ${money(c.w.rev)} with heaviest first (<b>${dm}</b>) · ${prot(c.r)}${c.w.prot!==c.r.prot?` (heaviest first: ${c.w.prot?ul(c.w.prot):'none'})`:''}.`
+    :`Heaviest first is used. Revenue first would fly ${money(c.r.rev)} instead of ${money(c.w.rev)} (${dm}) with ${prot(c.r)}: tick “Offload by revenue first” to use it.`}
+const m2Stat=()=>{if(!M2.on)return'';const m=m2Sum(),c=build&&build.m2cmp,d=c&&c.used==='rev'?c.r.rev-c.w.rev:0;return m.rated?`<div class="stat m2f" style="grid-column:1/-1"><b class="mono">${money(m.fRev)}</b><span>revenue on board${m.left>0.5?` · ${money(m.left)} left behind`:''}${Math.abs(d)>=0.5?` · ${d<0?'−':'+'}${money(Math.abs(d))} vs heaviest first`:''}</span></div>`:''};
 function m2Draw(){const el=$('m2Sum');if(!el)return;if(!M2.on||!ships.length){el.innerHTML='Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.';return}
   const m=m2Sum();
-  el.innerHTML=m.rated?`Revenue planned to fly <b>${money(m.fRev)}</b>${m.left>0.5?` · left behind <b>${money(m.left)}</b>`:''} · yield <b>${esc(M2.cur)} ${fmt(m.fChg?m.fRev/m.fChg:0,2)}</b> per chargeable kg · ${m.rated} of ${m.n} shipments have a rate${m.rated<m.n?' (the others count as 0)':''}.`
+  el.innerHTML=m.rated?`Revenue planned to fly <b>${money(m.fRev)}</b>${m.left>0.5?` · left behind <b>${money(m.left)}</b>`:''} · yield <b>${esc(M2.cur)} ${fmt(m.fChg?m.fRev/m.fChg:0,2)}</b> per chargeable kg · ${m.rated} of ${m.n} shipments have a rate${m.rated<m.n?' (the others count as 0)':''}.${m2Cmp()?`<br><span id="m2Cmp">${m2Cmp()}</span>`:''}`
     :'No rates yet: add a rate per chargeable kg to your shipments to see the revenue.'}
 function render(){
   const ac=acNow();$("specAc").textContent=ac.id;
@@ -1901,7 +1921,7 @@ $('dgBtn').onclick=()=>{$('dgAc').textContent=acNow().name+(acNow().g==='freight
 $('dgX').onclick=()=>{const d=$('dgDlg');if(d.close)d.close();else d.removeAttribute('open')};
 /* ---------- Module 2: unlock, currency ---------- */
 $('m2Cur').innerHTML=CURS.map(c=>`<option>${c}</option>`).join('');
-function m2Apply(){document.body.classList.toggle('m2on',M2.on);$('m2Cur').value=M2.cur;document.querySelectorAll('.m2cur').forEach(e=>e.textContent=M2.cur);
+function m2Apply(){document.body.classList.toggle('m2on',M2.on);$('m2Cur').value=M2.cur;$('m2Rev').checked=M2.rev;document.querySelectorAll('.m2cur').forEach(e=>e.textContent=M2.cur);
   $('m2Btn').textContent=M2.on?'💲 Module 2 · Revenue ✓':'💲 Module 2 · Revenue'}
 const m2Dlg=$('m2Dlg'),m2Close=()=>{if(m2Dlg.close)m2Dlg.close();else m2Dlg.removeAttribute('open')};
 $('m2Btn').onclick=()=>{if(M2.on){$('m2Bar').scrollIntoView({block:'center',behavior:'smooth'});return}$('m2Err').textContent='';$('m2Code').value='';if(m2Dlg.showModal)m2Dlg.showModal();else m2Dlg.setAttribute('open','');setTimeout(()=>$('m2Code').focus(),5)};
@@ -1909,12 +1929,15 @@ $('m2X').onclick=m2Close;$('m2Later').onclick=m2Close;
 $('m2Form').addEventListener('submit',async e=>{e.preventDefault();const code=$('m2Code').value.trim();if(!code){$('m2Err').textContent='Enter the code you were given.';return}
   $('m2Go').disabled=true;$('m2Err').textContent='';
   try{const r=await fetch('/api/access',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({code,visitor:fbVid()})});
-    if(r.ok){M2.on=true;m2Save();m2Apply();render();m2Close();toast('Module 2 unlocked in this browser');$('m2Bar').scrollIntoView({block:'center'})}
+    if(r.ok){M2.on=true;m2Save();m2Apply();m2Replan();m2Close();toast('Module 2 unlocked in this browser');$('m2Bar').scrollIntoView({block:'center'})}
     else $('m2Err').textContent=r.status===401?'That code is not valid. Check it and try again.':r.status===429?'Too many tries. Please wait an hour.':r.status===503?'Module 2 is not open yet. Ask for a code on the home page.':'Could not check the code. Try again.'}
   catch(err){$('m2Err').textContent='No connection. Try again when you are online.'}
   finally{$('m2Go').disabled=false}});
 $('m2Cur').onchange=()=>{M2.cur=CURS.includes($('m2Cur').value)?$('m2Cur').value:'USD';m2Save();m2Apply();render()};
-$('m2Lock').onclick=()=>{M2.on=false;m2Save();m2Apply();render();toast('Module 2 locked in this browser. Your rates are kept')};
+/* the offload order only matters when Module 2 is on: unlocking, locking or the switch makes the plan again */
+function m2Replan(){if(build){plan=planLoad(build);savePlan()}render()}
+$('m2Rev').onchange=()=>{M2.rev=$('m2Rev').checked;m2Save();m2Replan();toast(M2.rev?'Offload by revenue first: Contract and Mail kept, Standby goes first':'Offload heaviest first (the normal plan)')};
+$('m2Lock').onclick=()=>{M2.on=false;m2Save();m2Apply();m2Replan();toast('Module 2 locked in this browser. Your rates are kept')};
 m2Apply();
 $('dgForm').addEventListener('submit',e=>{e.preventDefault();dgCheck()});
 $('dgOut').addEventListener('click',e=>{const a=e.target.closest('[data-dgadd]'),p=e.target.closest('[data-dgid]');if(a)dgAdd(a.dataset.dgadd);if(p){$('dgQ').value=p.dataset.dgid;dgShow(p.dataset.dgid)}});
