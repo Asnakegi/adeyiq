@@ -11,7 +11,7 @@ const XLSX = ctx.XLSX;
 
 // [header in the template, required?, what to write, example]
 export const FIELDS = [
-  ["AWB", "Optional", "Air waybill number, like 071-12345675. Lines without one are named No AWB 1, 2 …", "071-12345675"],
+  ["AWB", "Optional", "Air waybill number, like 000-12345675. Lines without one are named No AWB 1, 2 …", "000-12345675"],
   ["Goods", "Optional", "Nature of goods, shown on the ULD and the build sheet", "Spare parts"],
   ["Pieces", "Recommended", "Number of pieces with these sizes. Empty = 1", "4"],
   ["Weight kg (total) *", "Required (or weight per piece)", "Gross weight of all pieces on this line, in kg. Not chargeable weight", "480"],
@@ -25,14 +25,16 @@ export const FIELDS = [
   ["SHC", "Optional", "Special handling codes separated by spaces, like PER COL or HEA", ""],
   ["Exclusive ULD (yes/no)", "Optional", "yes = this AWB gets its own ULD", ""],
   ["Overhang %", "Optional", "Overhang percentage for charging, 0 to 100", ""],
+  ["Rate per kg", "Optional (Module 2)", "Price per chargeable kg in the flight's currency, like 2.40. Used for the revenue view; empty = no rate", "2.40"],
+  ["Priority", "Optional (Module 2)", "Contract, Mail or Standby. Empty = Normal. Contract and Mail are kept when cargo must stay behind; Standby goes first", "Contract"],
 ];
 const HEAD = FIELDS.map((f) => f[0]);
 export const EXAMPLES = [
-  ["071-12345675", "Spare parts", 4, 480, "", 120, 80, 60, "", "", "", "", "", ""],
-  ["071-12345686", "Paint", 10, "", 18, 40, 30, 30, "3", "UN1263", "", "", "", ""],
-  ["071-12345690", "Lithium ion batteries", 2, 300, "", 100, 80, 90, "9", "UN3480", "", "", "", ""],
-  ["071-12345701", "Fresh flowers", 30, 450, "", 100, 50, 40, "", "", "", "PER COL", "", ""],
-  ["", "Machine on skid", 1, 2400, "", 300, 200, 150, "", "", "", "HEA", "yes", "10"],
+  ["000-12345675", "Spare parts", 4, 480, "", 120, 80, 60, "", "", "", "", "", "", "2.40", ""],
+  ["000-12345686", "Paint", 10, "", 18, 40, 30, 30, "3", "UN1263", "", "", "", "", "2.20", ""],
+  ["000-12345690", "Lithium ion batteries", 2, 300, "", 100, 80, 90, "9", "UN3480", "", "", "", "", "3.50", "Standby"],
+  ["000-12345701", "Fresh flowers", 30, 450, "", 100, 50, 40, "", "", "", "PER COL", "", "", "2.60", "Contract"],
+  ["", "Machine on skid", 1, 2400, "", 300, 200, 150, "", "", "", "HEA", "yes", "10", "1.30", ""],
 ];
 
 function build() {

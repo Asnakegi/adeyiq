@@ -519,7 +519,7 @@ start('b777');requestAnimationFrame(tick);
 (function(){
   const svg=document.getElementById('ld7'),leg=document.getElementById('ld7leg');if(!svg)return;
   const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const AW=[{c:'#8CC152',a:'071-18402213',s:'GEN'},{c:'#6FB1F0',a:'071-18405526',s:'PER'},{c:'#E58FA6',a:'071-18410031',s:'EAT'},{c:'#B39DF0',a:'071-55201184',s:'ECC'},{c:'#F5A623',a:'071-18417745',s:'VUN'}];
+  const AW=[{c:'#8CC152',a:'000-18402213',s:'GEN'},{c:'#6FB1F0',a:'000-18405526',s:'PER'},{c:'#E58FA6',a:'000-18410031',s:'EAT'},{c:'#B39DF0',a:'000-55201184',s:'ECC'},{c:'#F5A623',a:'000-18417745',s:'VUN'}];
   leg.innerHTML=AW.map(w=>`<span><i style="background:${w.c}"></i>${w.a} ${w.s}</span>`).join('');
   const W=318,Dp=224,H=163,CH=100,CI=28;
   const prof=[[0,0],[W,0],[W,CH],[W-CI,H],[CI,H],[0,CH]];
@@ -581,8 +581,8 @@ start('b777');requestAnimationFrame(tick);
   }
   /* Module 2: rank by yield, offload the weakest, add a better booking */
   const rev=document.getElementById('rev');
-  const B=[{a:'071-18402213',y:1.45,c:'#8CC152'},{a:'071-18405526',y:2.10,c:'#6FB1F0'},{a:'071-18410031',y:1.20,c:'#E58FA6'},{a:'071-55201184',y:2.65,c:'#B39DF0'},{a:'071-18417745',y:1.80,c:'#F5A623'},{a:'071-18420962',y:0.95,c:'#5CC8BE'}];
-  const NEW={a:'071-18433310',y:3.10,c:'#FFD21F'};
+  const B=[{a:'000-18402213',y:1.45,c:'#8CC152'},{a:'000-18405526',y:2.10,c:'#6FB1F0'},{a:'000-18410031',y:1.20,c:'#E58FA6'},{a:'000-55201184',y:2.65,c:'#B39DF0'},{a:'000-18417745',y:1.80,c:'#F5A623'},{a:'000-18420962',y:0.95,c:'#5CC8BE'}];
+  const NEW={a:'000-18433310',y:3.10,c:'#FFD21F'};
   const rank=B.slice().sort((p,q)=>q.y-p.y);B.forEach(b=>b.r=rank.indexOf(b));
   const low=rank[rank.length-1],RY=i=>36+i*21,BX=100,K=56;
   run(rev,10,t=>{
