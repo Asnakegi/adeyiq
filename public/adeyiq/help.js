@@ -52,6 +52,7 @@
     ["print", "Step 2 · Load aircraft", "Print / PDF and HTML", "The load plan with a build sheet for every ULD: print it, save it as PDF, or save one HTML file.", "#prtFlight", "2"],
     ["m2", "Module 2 · Optimize revenue", "💲 Module 2 · Revenue", "In More tools. Opens with an access code (ask for one on the home page). Then each shipment gets a rate per chargeable kg and a priority (Contract, Mail or Standby), and you choose one currency for the flight. Rates stay in this browser.", "#m2Btn", "1 more"],
     ["m2plan", "Module 2 · Optimize revenue", "Revenue view and report", "The Module 2 bar shows the revenue planned to fly, what is left behind and the yield. When cargo must stay behind, “Offload by revenue first” keeps Contract and Mail, then loads the highest-revenue ULDs, and shows the difference against heaviest first. 🖨 Revenue report prints it (or Save as PDF); ⬇ HTML saves one file.", "#m2Btn", "1 more"],
+    ["m2set", "Module 2 · Optimize revenue", "Floor rate, charges and rate sheet", "In the Module 2 bar. Floor rate: the lowest rate per kg you accept; shipments below it are flagged and go off as early as Standby. Minimum charge, fuel and security surcharges per kg and a fee per DG shipment are added apart from freight. ⬆ Rate sheet reads an Excel or CSV with a Rate per kg column (and any of AWB, Goods, SHC, Priority) and fills shipments that have no rate. Below the bar, “Still sellable” lists the payload, ULD space and positions left; 📋 Copy puts it on the clipboard for sales or a GSA.", "#m2Btn", "1 more"],
     ["rules", "Settings and feedback", "Rules and limits", "Divisor, pivot weights, ULD weights and balance limits. Replace the placeholders with your airline’s figures.", ".settings", "rules"],
     ["rate", "Settings and feedback", "Rate AdeyIQ", "Five quick questions that help us make the build match real ramp work.", "#rateBtn", ""]
   ];
@@ -67,7 +68,8 @@
     ["How do I start again?", "Open ☰ Cargo and press Clear all. This deletes the cargo saved in this browser."],
     ["Does it work on a phone?", "Yes, for checking and small changes. A computer is easier for big loads, 3D and printing."],
     ["Are modules 2 and 3 ready?", "Module 2, Optimize revenue, is open in early access to people with an access code: ask for one from the home page. Module 3, Bid your space, is planned. Module 1, the Cargo Builder, is free now."],
-    ["How is revenue worked out in Module 2?", "Chargeable kg × the rate per kg you type. Chargeable kg is the higher of gross weight and volumetric weight. A shipment split over ULDs is shared by pieces. Surcharges, pivot and overhang charges are not added, so it is a planning figure, not an invoice."],
+    ["How is revenue worked out in Module 2?", "Freight is chargeable kg × the rate per kg, and at least the minimum charge if you set one. Fuel and security surcharges per chargeable kg and a fee per DG shipment are added and shown apart. Chargeable kg is the higher of gross weight and volumetric weight. A shipment split over ULDs is shared by pieces. Pivot and overhang charges are not added, so it is a planning figure, not an invoice."],
+    ["Which shipments go off first when the flight is full?", "With “Offload by revenue first”: Contract and Mail stay; Standby and shipments below your floor rate go first; then the ULDs that earn least for the limit the flight runs into. If the max payload is reached they are ranked by revenue per kg, if no position is left by revenue per position. The bar says which limit was reached."],
     ["What does “Offload by revenue first” do?", "It only matters when not everything fits. ULDs with Contract or Mail go on first, then the ones that earn the most; Standby is left behind first. Balance, payload and DG checks stay the same. The Module 2 bar compares the result with the normal heaviest-first plan, and you can switch back."],
     ["Does the load plan printout show revenue?", "No. The load plan and build sheets go to the ramp, so they never show money. Print the revenue report from the Module 2 bar instead."]
   ];
@@ -177,7 +179,12 @@
     [B, "Priority", "booking priority", "How important it is that a shipment flies: Contract, Mail, Normal or Standby. Module 2 keeps Contract and Mail and leaves Standby behind first."],
     [B, "Contract cargo", "allotment bsa guaranteed block space", "Cargo under an agreement that guarantees space, such as an allotment or block space agreement."],
     [B, "Standby", "sby", "Cargo that may fly if there is room. It is the first to be left behind."],
-    [B, "Revenue first", "offload order", "A Module 2 choice for when cargo must stay behind: Contract and Mail first, then the highest-revenue ULDs, instead of the heaviest first."],
+    [B, "Revenue first", "offload order", "A Module 2 choice for when cargo must stay behind: Contract and Mail first, then the ULDs that earn most for the limit reached (per kg or per position), instead of the heaviest first."],
+    [B, "Floor rate", "minimum rate hurdle bid price", "The lowest rate per kg an airline accepts on a flight. In Module 2, shipments below it are flagged and offloaded as early as Standby."],
+    [B, "Minimum charge", "min charge", "The least a shipment is charged, however small it is."],
+    [B, "Surcharge", "fuel security fsc ssc", "A charge added to the freight rate, such as fuel or security per chargeable kg."],
+    [B, "Rate sheet", "tariff rate card", "A list of rates by customer, goods or handling code. Module 2 can read one from Excel or CSV."],
+    [B, "Still sellable", "spare capacity open space", "Payload, ULD space and positions left after the build: what sales can still offer on the flight."],
     [B, "Access code", "unlock", "A code that opens Module 2 in your browser. Ask for one from the home page."],
     [B, "Bid", "floor price", "A price offered for open space on a flight. The floor price is the lowest one accepted."]
   ];

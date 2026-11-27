@@ -234,9 +234,11 @@ details.settings summary{cursor:pointer;font-weight:600;color:var(--muted);font-
 /* feedback questionnaire */
 body:not(.m2on) .m2f{display:none!important}
 .m2bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-color:var(--accent)}
-.m2bar b{font-family:var(--display);font-size:18px;font-weight:600}
+.m2bar>b{font-family:var(--display);font-size:18px;font-weight:600}
 .m2bar .badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--info-bg);color:var(--link)}
 .m2bar select{width:auto}
+.m2set label{display:flex;flex-direction:column;gap:4px}.m2set input[type=number]{width:130px}#m2Sum b{font-weight:700}
+.chip.flo{background:var(--info-bg);color:var(--link)}
 #m2Dlg form{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
 #m2Dlg input{font:inherit;font-size:16px;letter-spacing:.06em;text-transform:uppercase}
 #fbDlg,#dgDlg,#m2Dlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);width:min(600px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;box-shadow:0 24px 60px -12px rgba(10,37,64,.5)}
@@ -300,7 +302,15 @@ body:not(.m2on) .m2f{display:none!important}
     <button class="btn ghost" id="m2Btn" type="button" title="Optimize revenue: rate per kg, priority and currency. Open to people with an access code">💲 Module 2 · Revenue</button>
   </span>
 </div>
-<div class="card m2bar m2f" id="m2Bar" aria-label="Module 2 · Optimize revenue"><b>Module 2 · Optimize revenue</b><span class="badge">Beta</span><label class="note" style="display:flex;gap:6px;align-items:center">Currency for this flight<select id="m2Cur" aria-label="Currency for this flight"></select></label><label class="note" style="display:flex;gap:6px;align-items:center" title="When cargo must stay behind: keep Contract and Mail, then load the highest-revenue ULDs; Standby is left behind first"><input type="checkbox" id="m2Rev"> Offload by revenue first</label><span class="note" id="m2Sum" style="flex:1;min-width:220px" aria-live="polite">Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.</span><button class="btn sm" id="m2Prt" type="button" title="Revenue by position and shipment, before/after of the offload order. Choose Save as PDF in the print window to keep a file">🖨 Revenue report</button><button class="btn sm ghost" id="m2Dl" type="button" title="Save the revenue report as one HTML file">⬇ HTML</button><button class="btn link" id="m2Lock" type="button">Lock</button></div>
+<div class="card m2bar m2f" id="m2Bar" aria-label="Module 2 · Optimize revenue"><b>Module 2 · Optimize revenue</b><span class="badge">Beta</span><label class="note" style="display:flex;gap:6px;align-items:center">Currency for this flight<select id="m2Cur" aria-label="Currency for this flight"></select></label><label class="note" style="display:flex;gap:6px;align-items:center" title="When cargo must stay behind: keep Contract and Mail, then load the highest-revenue ULDs; Standby is left behind first"><input type="checkbox" id="m2Rev"> Offload by revenue first</label><span class="note" id="m2Sum" style="flex:1;min-width:220px" aria-live="polite">Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.</span><details class="m2set" id="m2Set" style="flex-basis:100%"><summary class="note" style="cursor:pointer">Floor rate, charges and rate sheet</summary><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-top:8px">
+<label class="note">Floor rate per kg · <span class="m2cur">USD</span><input id="m2Floor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="none" title="Lowest rate per chargeable kg you accept on this flight. Shipments below it are flagged and, when cargo must stay behind, go off as early as Standby (Contract and Mail are still kept)"></label>
+<label class="note">Minimum charge per shipment<input id="m2Min" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
+<label class="note">Fuel surcharge per kg<input id="m2Fuel" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+<label class="note">Security surcharge per kg<input id="m2Sec" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+<label class="note">Fee per DG shipment<input id="m2Dg" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
+<button class="btn sm ghost" id="m2RsBtn" type="button" title="Excel or CSV with a Rate per kg column and any of AWB, Goods, SHC, Priority. Shipments without a rate get the most specific matching line">⬆ Rate sheet</button><input id="m2RsFile" type="file" accept=".csv,.txt,.tsv,.xlsx,.xls" hidden>
+</div><p class="note" style="margin:6px 0 0">Charges apply to shipments with a rate and are shown apart from freight. Surcharges are per chargeable kg in the flight's currency. Planning figures, not an invoice.</p></details>
+<div class="note" id="m2Free" style="flex-basis:100%" aria-live="polite"></div><button class="btn sm" id="m2Prt" type="button" title="Revenue by position and shipment, before/after of the offload order. Choose Save as PDF in the print window to keep a file">🖨 Revenue report</button><button class="btn sm ghost" id="m2Dl" type="button" title="Save the revenue report as one HTML file">⬇ HTML</button><button class="btn link" id="m2Lock" type="button">Lock</button></div>
 <div class="card upsum" id="upSum" hidden><div class="addhd"><b id="upSumT">Import</b><button class="x" type="button" id="upSumX" aria-label="Close">×</button></div><div id="upSumB"></div></div>
 <div class="drawers" id="drawers" hidden>
     <div class="card" id="addPanel" hidden>
@@ -559,9 +569,11 @@ const mainPos=ac=>ac.main?ac.main.rows*(ac.main.single?1:2)-(ac.main.lastSingle?
 const pitchOf=(ac,key)=>key==='main'?MP(ac):156;
 function fitsDoor(s,wh){const d=[s.l,s.w,s.h].sort((a,b)=>a-b);return d[0]<=Math.min(...wh)&&d[1]<=Math.max(...wh)}
 const volM3=s=>s.pcs*s.l*s.w*s.h/1e6,volKg=s=>volM3(s)*1e6/R('rDiv'),chg=s=>Math.max(s.wt,volKg(s));
-const chgOf=(s,div)=>Math.max(s.wt,s.pcs*s.l*s.w*s.h/(div||6000)),revOf=(s,div)=>s.rate>0?chgOf(s,div)*s.rate:0;
-/* Module 2: revenue of the pieces on one ULD (a shipment split over ULDs is shared by pieces) */
-const uldRev=(u,div)=>u.items.reduce((t,i)=>t+revOf(i.s,div)*i.p/i.s.pcs,0),uldChg=(u,div)=>u.items.reduce((t,i)=>t+chgOf(i.s,div)*i.p/i.s.pcs,0);
+/* Module 2: a shipment with a rate earns freight (chargeable kg × rate, at least the minimum charge) plus surcharges
+   (fuel and security per chargeable kg, a fee per DG shipment). Charges are set per flight in the Module 2 bar. */
+const chgOf=(s,div)=>Math.max(s.wt,s.pcs*s.l*s.w*s.h/(div||6000)),m2c=()=>(typeof M2!=='undefined'&&M2.chg)||{},frOf=(s,div)=>s.rate>0?Math.max(chgOf(s,div)*s.rate,+m2c().min||0):0,surOf=(s,div)=>s.rate>0?chgOf(s,div)*((+m2c().fuel||0)+(+m2c().sec||0))+(s.dg?+m2c().dg||0:0):0,revOf=(s,div)=>frOf(s,div)+surOf(s,div);
+/* Module 2: revenue of the pieces on one ULD (a shipment split over ULDs is shared by pieces); partRev: loose pieces of a split shipment */
+const uldRev=(u,div)=>u.items.reduce((t,i)=>t+revOf(i.s,div)*i.p/i.s.pcs,0),uldChg=(u,div)=>u.items.reduce((t,i)=>t+chgOf(i.s,div)*i.p/i.s.pcs,0),partRev=(x,div)=>x._of?revOf(x._of,div)*x.pcs/x._of.pcs:revOf(x,div);
 const isCAO=s=>CAO_UN.includes((s.un||'').toUpperCase().replace(/\s/g,''))||s.shc.includes('CAO');
 const FOOD=['EAT','PEM','PES','PER','PEF'];
 /* subsidiary hazards (e.g. UN2031: class 8, subsidiary 5.1) are segregated like a primary class */
@@ -754,6 +766,21 @@ function mk(o){let dg=String(o.dg||'').trim().replace(/^class\s*/i,'').toUpperCa
   const cap=(v,n)=>String(v==null?'':v).slice(0,n);
   const sub=dg?[...new Set((Array.isArray(o.sub)?o.sub:String(o.sub||'').split(/[,;/\s]+/)).map(v=>{v=String(v).trim().replace(/^class/i,'').toUpperCase();return/^1\.[1-6][A-L]?$/.test(v)&&v!=='1.4S'?'1':v}).filter(v=>v&&v!==dg&&known.includes(v)))].slice(0,4):[];
   return{id:o.id||uid(),awb:cap(o.awb,40),pcs:Math.max(1,Math.round(o.pcs||1)),l:+o.l||0,w:+o.w||0,h:+o.h||0,wt:+o.wt||0,nat:cap(o.nat,200),shc:(Array.isArray(o.shc)?o.shc:String(o.shc||'').split(/[,\s;/]+/)).map(x=>cap(x,8).trim().toUpperCase()).filter(Boolean).slice(0,12),dg,sub,un:cap(o.un,12).toUpperCase().replace(/^(\d{4})$/,'UN$1'),excl:!!o.excl,ohg:Math.max(0,Math.min(100,+o.ohg||0)),pin:/^(PMC|AKE):\d+$/.test(o.pin||'')?o.pin:'',eng:!!o.eng,rate:Math.round(Math.max(0,Math.min(100000,Number(String(o.rate==null?'':o.rate).replace(',','.'))||0))*100)/100,prio:(p=>/^(mail|mal|post)/.test(p)?'mail':/^(contract|allot|alt|bsa|guarant|block)/.test(p)?'contract':/^(standby|stand-by|stand by|sby|stb)/.test(p)?'standby':'')(String(o.prio||'').trim().toLowerCase()),at:o.at||new Date().toISOString()}}
+/* Module 2 rate sheet: one line per rate with a Rate per kg column and any of AWB, SHC, Goods and Priority. A line matches a
+   shipment when every filled match column fits (AWB exact, all SHC codes present, the goods words inside the goods text);
+   the most specific line wins (AWB, then SHC, then goods); a line with no match columns is the default rate. */
+function rsParse(rows){const hi=rows.slice(0,10).findIndex(r=>(r||[]).filter(c=>String(c==null?'':c).trim()).length>=2&&r.some(c=>/rate|tariff|price/i.test(String(c==null?'':c))));
+  if(hi<0)return{lines:[],bad:0,err:'No rate column found. Name one column Rate per kg.'};
+  const h=rows[hi].map(c=>String(c==null?'':c).toLowerCase()),col=re=>h.findIndex(c=>re.test(c));
+  const c={rate:col(/rate|tariff|price/),awb:col(/awb|waybill/),shc:col(/\bshc\b|handling/),nat:col(/goods|commodity|nature|description|product/),prio:col(/prio/)};
+  const lines=[];let bad=0;for(const r of rows.slice(hi+1,hi+5001)){if(!r||!r.some(x=>String(x==null?'':x).trim()))continue;
+    const g=k=>c[k]>=0?String(r[c[k]]==null?'':r[c[k]]).trim().slice(0,200):'',rate=num(g('rate'));
+    if(!(rate>0&&rate<=100000)){bad++;continue}
+    lines.push({rate:Math.round(rate*100)/100,awb:g('awb').replace(/\D/g,''),shc:g('shc').toUpperCase().split(/[,\s;/]+/).filter(Boolean),nat:g('nat').toLowerCase(),prio:g('prio')})}
+  return{lines,bad,err:lines.length?'':'No line with a rate above 0 under the header.'}}
+function rsMatch(lines,s){let best=null,bs=-1;const awb=String(s.awb||'').replace(/\D/g,''),shc=(s.shc||[]).map(x=>String(x).toUpperCase()),nat=String(s.nat||'').toLowerCase();
+  for(const l of lines){if(l.awb&&l.awb!==awb)continue;if(l.shc.length&&!l.shc.every(x=>shc.includes(x)))continue;if(l.nat&&!nat.includes(l.nat))continue;
+    const sc=(l.awb?100:0)+(l.shc.length?10:0)+(l.nat?1:0);if(sc>bs){best=l;bs=sc}}return best}
 /* manual placement: "Load on" choices */
 function pinOptions(cur){const used=[...new Set(ships.map(s=>s.pin).filter(Boolean))].sort();const next=k=>k+':'+(1+Math.max(0,...used.filter(p=>p.startsWith(k)).map(p=>+p.split(':')[1])));
   const label=p=>{const[k,n]=p.split(':');return k==='PMC'?`Manual pallet ${n}`:`Manual container ${n}`};
@@ -785,7 +812,10 @@ async function initStore(){
 }
 /* Module 2 (Optimize revenue): unlocked in this browser after a valid access code; one currency per flight */
 const CURS=['USD','EUR','GBP','ETB','KES','AED','ZAR','NGN','EGP','INR','CNY'],PRION={contract:'Contract',mail:'Mail',standby:'Standby'},M2K='adeyiq-m2';
-let M2={on:false,cur:'USD',rev:true};try{const o=JSON.parse(localStorage.getItem(M2K)||'{}');M2={on:o.on===true,cur:CURS.includes(o.cur)?o.cur:'USD',rev:o.rev!==false}}catch(e){}
+/* floor: lowest acceptable rate per kg for the flight; chg: minimum charge, fuel and security surcharge per chargeable kg, fee per DG shipment */
+const m2Num=(v,max)=>{const n=Number(String(v==null?'':v).replace(',','.'));return n>0&&n<=max?Math.round(n*100)/100:0};
+const M2CHG=['min','fuel','sec','dg'],m2Clean=o=>({on:o.on===true,cur:CURS.includes(o.cur)?o.cur:'USD',rev:o.rev!==false,floor:m2Num(o.floor,100000),chg:Object.fromEntries(M2CHG.map(k=>[k,m2Num((o.chg||{})[k],1e6)]))});
+let M2=m2Clean({});try{M2=m2Clean(JSON.parse(localStorage.getItem(M2K)||'{}'))}catch(e){}
 function m2Save(){try{localStorage.setItem(M2K,JSON.stringify(M2))}catch(e){}}
 function loadLocal(){try{ships=JSON.parse(localStorage.getItem('adeyiq-ships')||'[]').map(mk)}catch(e){}}
 /* several tabs share this browser's storage: saving merges with what another tab stored (deleted ids stay deleted),
@@ -909,17 +939,21 @@ function buildUlds(){
 /* ---------- load plan + balance ---------- */
 /* Module 2 step 3: when cargo must stay behind, revenue first keeps Contract and Mail, then loads the highest-revenue ULDs
    (Standby goes last). The plan is made both ways and the two are compared; nothing changes when everything flies. */
-const PRANK=s=>s.prio==='contract'||s.prio==='mail'?0:s.prio==='standby'?2:1;
+/* below the flight's floor rate (and not Contract or Mail): offloaded as early as Standby */
+const belowFloor=s=>typeof M2!=='undefined'&&M2.floor>0&&s.rate>0&&s.rate<M2.floor;
+const PRANK=s=>s.prio==='contract'||s.prio==='mail'?0:s.prio==='standby'||belowFloor(s)?2:1;
 function m2Fly(b,p){const div=R('rDiv')||6000,fly=u=>!p.C.length||!!u.pos,off=b.offload.filter(o=>o.uld);let rev=0,kg=0;
-  b.ulds.forEach(u=>{if(fly(u)){rev+=uldRev(u,div);kg+=u.kg}});(b.bulk||[]).forEach(h=>h.items.forEach(x=>{rev+=revOf(x,div);kg+=x.wt}));
+  b.ulds.forEach(u=>{if(fly(u)){rev+=uldRev(u,div);kg+=u.kg}});(b.bulk||[]).forEach(h=>h.items.forEach(x=>{rev+=partRev(x,div);kg+=x.wt}));
   return{rev,kg,offN:off.length,prot:off.filter(o=>o.uld.items.some(i=>PRANK(i.s)===0)).length,ids:off.map(o=>o.uld.id)}}
 function planLoad(b){b.m2cmp=null;if(typeof M2==='undefined'||!M2.on||!b.ulds.length)return planCore(b,'kg');
   const snap={ulds:b.ulds.slice(),off:b.offload.slice(),bulk:(b.bulk||[]).map(h=>[h.items.slice(),h.used,h.usedKg])},
     back=()=>{b.ulds.splice(0,b.ulds.length,...snap.ulds);b.offload=snap.off.slice();(b.bulk||[]).forEach((h,i)=>{h.items=snap.bulk[i][0].slice();h.used=snap.bulk[i][1];h.usedKg=snap.bulk[i][2]})};
   let p=planCore(b,'kg');const w=m2Fly(b,p);if(!w.offN||!p.C.length)return p;
-  back();p=planCore(b,'rev');const r=m2Fly(b,p);if(!M2.rev){back();p=planCore(b,'kg')}
-  b.m2cmp={w,r,used:M2.rev?'rev':'kg'};return p}
-function planCore(b,ord){
+  /* the limit the flight runs into decides the ranking: payload → revenue per kg, positions → revenue per position */
+  const bind=b.offload.some(o=>o.uld&&o.pay)?'kg':'pos';
+  back();p=planCore(b,'rev',bind);const r=m2Fly(b,p);if(!M2.rev){back();p=planCore(b,'kg')}
+  b.m2cmp={w,r,bind,used:M2.rev?'rev':'kg'};return p}
+function planCore(b,ord,bind){
   const ac=b.ac,C=[],arm={fwd:[-14,-3],aft:[3,13],main:[-18,18]};b.ulds.forEach(u=>{u.pos=null;u.side=null;u.blk=null});b.offload=b.offload.filter(o=>!o.uld);
   const lower=ac.low||ac.akh;if(lower)for(const k of['fwd','aft']){const r=lower[k].rows;C.push({key:k,name:k==='fwd'?'Forward hold':'Aft hold',len:r*156,used:0,blocks:[],a:arm[k],maxKg:r*2*R(ac.akh?'rAkh':'rAke')*(ac.akh?1:.9)})}
   if(ac.main)C.push({key:'main',name:'Main deck',len:ac.main.rows*MP(ac),used:0,blocks:[],a:(()=>{const n=ac.main.rows;let s=0,k=0;for(let r=0;r<n;r++){const p=ac.main.single||(ac.main.lastSingle&&r===n-1)?1:2;s+=p*(arm.main[0]+(arm.main[1]-arm.main[0])*(r+.5)/n);k+=p}return[arm.main[0]-s/k,arm.main[1]-s/k]})(),maxKg:mainPos(ac)*R(ULD[mainTypes(ac)[0]].maxKey)*.85});
@@ -930,9 +964,9 @@ function planCore(b,ord){
   const pairs=[];b.ulds.filter(u=>ULD[u.type].half).sort((x,y)=>y.kg-x.kg).forEach(u=>{const p=pairs.find(p=>p.length===1&&!clash(p[0],u));if(p)p.push(u);else pairs.push([u])});
   /* main-deck pallets go two abreast (left and right), a PGA pairs with another PGA over two rows */
   const mains=[];b.ulds.filter(u=>ULD[u.type].main).sort((x,y)=>y.kg-x.kg).forEach(u=>{const pga=u.type==='PGA',p=!ac.main.single&&mains.find(p=>p.length===1&&(p[0].type==='PGA')===pga&&!clash(p[0],u));if(p)p.push(u);else mains.push([u])});
-  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).map(x=>(ord==='rev'&&(x.rv=x.ulds.reduce((s,u)=>s+uldRev(u,R('rDiv')||6000),0),x.rk=Math.min(...x.ulds.flatMap(u=>u.items.map(i=>PRANK(i.s))))),x));
+  const units=[...b.ulds.filter(u=>!ULD[u.type].half&&!ULD[u.type].main).map(u=>({ulds:[u],len:ULD[u.type].len,kind:'pal'})),...mains.map(p=>({ulds:p,len:p[0].type==='PGA'?2*MP(ac):MP(ac),kind:'main'})),...pairs.map(p=>({ulds:p,len:156,kind:'ake'}))].map(x=>(x.w=x.ulds.reduce((s,u)=>s+u.kg,0),x)).map(x=>(ord==='rev'&&(x.rv=x.ulds.reduce((s,u)=>s+uldRev(u,R('rDiv')||6000),0),x.rk=Math.min(...x.ulds.flatMap(u=>u.items.map(i=>PRANK(i.s)))),x.dens=x.rv/Math.max(1,bind==='kg'?x.w:x.len)),x));
   const pgaU=x=>x.kind==='main'&&x.len>MP(ac)?1:0;
-  units.sort(ord==='rev'?(x,y)=>(hOnU(y)-hOnU(x))||(x.rk-y.rk)||(pgaU(y)-pgaU(x))||(y.rv-x.rv)||y.w-x.w:(x,y)=>(pgaU(y)-pgaU(x))||(hOnU(y)-hOnU(x))||y.w-x.w);
+  units.sort(ord==='rev'?(x,y)=>(hOnU(y)-hOnU(x))||(x.rk-y.rk)||(pgaU(y)-pgaU(x))||(y.dens-x.dens)||(y.rv-x.rv)||y.w-x.w:(x,y)=>(pgaU(y)-pgaU(x))||(hOnU(y)-hOnU(x))||y.w-x.w);
   const posArm=(c,st,len)=>{const f=(st+len/2)/c.len;return c.key==='fwd'?c.a[1]-(c.a[1]-c.a[0])*f:c.a[0]+(c.a[1]-c.a[0])*f};
   const noPos=[];
   const lowC=C.filter(c=>c.key!=='main'),mainC=C.filter(c=>c.key==='main');
@@ -1101,28 +1135,44 @@ const PAL=['#8CC152','#6FB1F0','#E58FA6','#B39DF0','#F5A623','#5CC8BE','#FFD21F'
 const awbColor={};function colorOf(awb){if(!awbColor[awb])awbColor[awb]=PAL[Object.keys(awbColor).length%PAL.length];return awbColor[awb]}
 function refresh(){build=ships.length?buildUlds():null;plan=build?planLoad(build):null;if(build&&!build.ulds.some(u=>u.id===selU))selU=build.ulds[0]?build.ulds[0].id:null;if(!build)selU=null;render()}
 /* Module 2: revenue of all cargo, of what flies and of what stays behind */
-function m2Sum(){const div=R('rDiv')||6000,all=ships.reduce((t,s)=>t+revOf(s,div),0),allChg=ships.reduce((t,s)=>t+chgOf(s,div),0);
-  let fRev=0,fChg=0;const flies=u=>!(plan&&plan.C.length)||!!u.pos;
-  if(build){build.ulds.forEach(u=>{if(flies(u)){fRev+=uldRev(u,div);fChg+=uldChg(u,div)}});(build.bulk||[]).forEach(h=>h.items.forEach(x=>{fRev+=revOf(x,div);fChg+=chgOf(x,div)}))}
-  return{div,all,allChg,fRev,fChg,left:Math.max(0,all-fRev),rated:ships.filter(s=>s.rate>0).length,n:ships.length}}
+/* pieces that fly: ULDs with a position (or all ULDs when there is no plan) and loose pieces in the bulk holds */
+function m2Pieces(){const out=[],flies=u=>!(plan&&plan.C.length)||!!u.pos;if(!build)return out;
+  build.ulds.forEach(u=>{if(flies(u))u.items.forEach(i=>out.push({s:i.s,p:i.p}))});(build.bulk||[]).forEach(h=>h.items.forEach(x=>out.push({s:x._of||x,p:x.pcs})));return out}
+function m2Sum(){const div=R('rDiv')||6000,all=ships.reduce((t,s)=>t+revOf(s,div),0),allChg=ships.reduce((t,s)=>t+chgOf(s,div),0),sh=(f,x)=>f(x.s,div)*x.p/x.s.pcs,fl=m2Pieces();
+  const fRev=fl.reduce((t,x)=>t+sh(revOf,x),0),fFr=fl.reduce((t,x)=>t+sh(frOf,x),0),fSur=fl.reduce((t,x)=>t+sh(surOf,x),0),fChg=fl.reduce((t,x)=>t+sh(chgOf,x),0);
+  return{div,all,allChg,fRev,fFr,fSur,fChg,left:Math.max(0,all-fRev),rated:ships.filter(s=>s.rate>0).length,n:ships.length,below:ships.filter(belowFloor).length}}
 const money=v=>`${esc(M2.cur)} ${fmt(v)}`;
+/* still sellable after the build: payload left, free space inside loaded ULDs, free rows per hold, free bulk */
+function m2Free(){if(!build||!plan)return null;const ac=build.ac,fl=build.ulds.filter(u=>!plan.C.length||u.pos);
+  const kg=Math.max(0,plan.pay-(plan.C.length?plan.onBoard:(build.bulk||[]).reduce((t,h)=>t+h.usedKg,0)));
+  const m3=fl.reduce((t,u)=>t+Math.max(0,(u.cap||0)-(u.m3||0)),0),ukg=fl.reduce((t,u)=>t+Math.max(0,(u.max||0)-u.kg),0);
+  const holds=plan.C.map(c=>{const p=pitchOf(ac,c.key),rows=Math.round(c.len/p);let free,half=0;
+    if(c.occ){free=c.occ.filter(x=>!x).length;half=new Set(c.occ.filter(x=>x&&x.half&&x.ulds.length===1)).size}else free=Math.max(0,Math.floor((c.len-c.used)/p+1e-6));
+    return{name:c.name,free,half,rows}}).filter(h=>h.free||h.half);
+  const bulk=(build.bulk||[]).map(h=>({name:BULKN[h.k]||h.k,m3:Math.max(0,h.m3-h.used),kg:Math.max(0,h.kg-h.usedKg)})).filter(h=>h.m3>0.05&&h.kg>1);
+  return{ac,kg,m3,ukg,holds,bulk}}
+function m2FreeText(f){if(!f)return'';const rows=f.holds.map(h=>`${h.name.toLowerCase()} ${h.free} of ${h.rows} row${h.rows===1?'':'s'}${h.half?` and ${h.half} half row${h.half>1?'s':''}`:''}`).join(', ');
+  return `Still sellable on the ${f.ac.name}: ${fmt(f.kg)} kg of payload left`+(f.m3>0.05?` · ${fmt(f.m3,1)} m³ free inside loaded ULDs`:'')+(rows?` · free positions: ${rows}`:'')
+    +f.bulk.map(h=>` · ${h.name.toLowerCase()} ${fmt(h.m3,1)} m³ / ${fmt(h.kg)} kg free`).join('')+'. Planning aid: weights, contours and limits are placeholders until your airline figures are entered.'}
 /* before/after of the offload order: heaviest first (the normal plan) against revenue first */
 function m2Cmp(){const c=build&&build.m2cmp;if(!c)return'';const d=c.r.rev-c.w.rev,dm=`${d<0?'−':'+'}${money(Math.abs(d))}`,ul=n=>`${n} ULD${n===1?'':'s'}`,
     prot=x=>x.prot?`${ul(x.prot)} with Contract or Mail left behind`:'no Contract or Mail left behind';
-  if(Math.abs(d)<0.5&&c.r.prot===c.w.prot&&c.r.ids.join()===c.w.ids.join())return'Offload order: revenue first leaves the same ULDs behind as heaviest first.';
-  return c.used==='rev'?`Revenue first: <b>${money(c.r.rev)}</b> flies instead of ${money(c.w.rev)} with heaviest first (<b>${dm}</b>) · ${prot(c.r)}${c.w.prot!==c.r.prot?` (heaviest first: ${c.w.prot?ul(c.w.prot):'none'})`:''}.`
-    :`Heaviest first is used. Revenue first would fly ${money(c.r.rev)} instead of ${money(c.w.rev)} (${dm}) with ${prot(c.r)}: tick “Offload by revenue first” to use it.`}
+  const lim=c.bind==='kg'?'Max payload reached: ranked by revenue per kg. ':'No free position left: ranked by revenue per position. ';
+  if(Math.abs(d)<0.5&&c.r.prot===c.w.prot&&c.r.ids.join()===c.w.ids.join())return lim+'Revenue first leaves the same ULDs behind as heaviest first.';
+  return lim+(c.used==='rev'?`Revenue first: <b>${money(c.r.rev)}</b> flies instead of ${money(c.w.rev)} with heaviest first (<b>${dm}</b>) · ${prot(c.r)}${c.w.prot!==c.r.prot?` (heaviest first: ${c.w.prot?ul(c.w.prot):'none'})`:''}.`
+    :`Heaviest first is used. Revenue first would fly ${money(c.r.rev)} instead of ${money(c.w.rev)} (${dm}) with ${prot(c.r)}: tick “Offload by revenue first” to use it.`)}
 const m2Stat=()=>{if(!M2.on)return'';const m=m2Sum(),c=build&&build.m2cmp,d=c&&c.used==='rev'?c.r.rev-c.w.rev:0;return m.rated?`<div class="stat m2f" style="grid-column:1/-1"><b class="mono">${money(m.fRev)}</b><span>revenue on board${m.left>0.5?` · ${money(m.left)} left behind`:''}${Math.abs(d)>=0.5?` · ${d<0?'−':'+'}${money(Math.abs(d))} vs heaviest first`:''}</span></div>`:''};
-function m2Draw(){const el=$('m2Sum');if(!el)return;if(!M2.on||!ships.length){el.innerHTML='Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.';return}
-  const m=m2Sum();
-  el.innerHTML=m.rated?`Revenue planned to fly <b>${money(m.fRev)}</b>${m.left>0.5?` · left behind <b>${money(m.left)}</b>`:''} · yield <b>${esc(M2.cur)} ${fmt(m.fChg?m.fRev/m.fChg:0,2)}</b> per chargeable kg · ${m.rated} of ${m.n} shipments have a rate${m.rated<m.n?' (the others count as 0)':''}.${m2Cmp()?`<br><span id="m2Cmp">${m2Cmp()}</span>`:''}`
+function m2Draw(){const el=$('m2Sum');if(!el)return;const fe=$('m2Free');if(fe)fe.innerHTML='';if(!M2.on||!ships.length){el.innerHTML='Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.';return}
+  const m=m2Sum(),fr=m2Free();
+  if(fe&&fr)fe.innerHTML=`<span id="m2FreeT">${esc(m2FreeText(fr))}</span> <button class="btn link" id="m2Copy" type="button" title="Copy this line to send it to sales or a GSA">📋 Copy</button>`;
+  el.innerHTML=m.rated?`Revenue planned to fly <b>${money(m.fRev)}</b>${m.fSur>0.5?` (freight ${money(m.fFr)} + surcharges ${money(m.fSur)})`:''}${m.left>0.5?` · left behind <b>${money(m.left)}</b>`:''}${m.below?` · <b>${m.below}</b> shipment${m.below>1?'s':''} below the ${esc(M2.cur)} ${fmt(M2.floor,2)} floor`:''} · yield <b>${esc(M2.cur)} ${fmt(m.fChg?m.fRev/m.fChg:0,2)}</b> per chargeable kg · ${m.rated} of ${m.n} shipments have a rate${m.rated<m.n?' (the others count as 0)':''}.${m2Cmp()?`<br><span id="m2Cmp">${m2Cmp()}</span>`:''}`
     :'No rates yet: add a rate per chargeable kg to your shipments to see the revenue.'}
 function render(){
   const ac=acNow();$("specAc").textContent=ac.id;
   m2Draw();
   $('cargoN').textContent=ships.length?`${ships.length} · ${fmt(ships.reduce((s,x)=>s+x.wt,0))} kg`:'';
   $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);
-    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}${M2.on?(s.rate?` · ${esc(M2.cur)} ${fmt(s.rate,2)}/kg × ${fmt(chgOf(s,R('rDiv')))} kg = <b>${money(revOf(s,R('rDiv')))}</b>`:' · no rate'):''}${M2.on&&s.prio?` · ${PRION[s.prio]}`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
+    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}${M2.on&&belowFloor(s)?'<span class="chip flo">below floor</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}${M2.on?(s.rate?` · ${esc(M2.cur)} ${fmt(s.rate,2)}/kg × ${fmt(chgOf(s,R('rDiv')))} kg = <b>${money(revOf(s,R('rDiv')))}</b>${surOf(s,R('rDiv'))>0.005||frOf(s,R('rDiv'))>chgOf(s,R('rDiv'))*s.rate+0.005?' incl. charges':''}`:' · no rate'):''}${M2.on&&s.prio?` · ${PRION[s.prio]}`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
     <select data-pin="${s.id}" aria-label="Load ${esc(s.awb)} on">${pinOptions(s.pin)}</select>
     <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:(build&&build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s))?'Bulk':'—')}</span></div><button class="x" type="button" data-edit="${s.id}" aria-label="Edit ${esc(s.awb)}" title="Edit">✎</button><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(b.dataset.del===editId)endEdit();delShip(b.dataset.del)});
@@ -1867,17 +1917,18 @@ function revSheet(ac,when){const m=m2Sum(),d=m.div,cur=esc(M2.cur),yl=(r,c)=>c?f
   const fly=plan&&plan.C.length?placedSorted():build.ulds,bulkH=(build.bulk||[]).filter(h=>h.items.length);
   const onP=new Map(),addP=(s,p)=>onP.set(s,(onP.get(s)||0)+p);fly.forEach(u=>u.items.forEach(i=>addP(i.s,i.p)));bulkH.forEach(h=>h.items.forEach(x=>addP(x._of||x,x.pcs)));
   const uRows=fly.map(u=>{const r=uldRev(u,d),k=uldChg(u,d);return`<tr><td class="mono">${esc(u.pos||'–')}</td><td class="mono">${esc(u.id)}</td><td class="mono">${consign(u).map(e=>esc(e.awb)).join(', ')}</td><td class="n">${fmt(k)}</td><td class="n">${fmt(r)}</td><td class="n">${yl(r,k)}</td></tr>`}).join('')+
-    bulkH.map(h=>{const r=h.items.reduce((t,x)=>t+revOf(x,d),0),k=h.items.reduce((t,x)=>t+chgOf(x,d),0);return`<tr><td>${esc(BULKN[h.k]||h.k)}</td><td>Loose</td><td class="mono">${h.items.map(x=>esc(x.awb)).join(', ')}</td><td class="n">${fmt(k)}</td><td class="n">${fmt(r)}</td><td class="n">${yl(r,k)}</td></tr>`}).join('');
-  const sRows=ships.map(s=>{const p=Math.min(s.pcs,onP.get(s)||0),k=chgOf(s,d),r=revOf(s,d),st=p>=s.pcs?'On board':p>0?`Part: ${p} of ${s.pcs} pcs`:'Left behind';
-    return`<tr><td class="mono">${esc(s.awb)}</td><td>${esc(s.nat||'')}</td><td>${esc(PRION[s.prio]||'Normal')}</td><td class="n">${s.pcs}</td><td class="n">${fmt(s.wt)}</td><td class="n">${fmt(k)}</td><td class="n">${s.rate>0?fmt(s.rate,2):'–'}</td><td class="n">${fmt(r)}</td><td${p<s.pcs?' style="color:#DF1B41;font-weight:600"':''}>${st}</td></tr>`}).join('');
+    bulkH.map(h=>{const r=h.items.reduce((t,x)=>t+partRev(x,d),0),k=h.items.reduce((t,x)=>t+chgOf(x,d),0);return`<tr><td>${esc(BULKN[h.k]||h.k)}</td><td>Loose</td><td class="mono">${h.items.map(x=>esc(x.awb)).join(', ')}</td><td class="n">${fmt(k)}</td><td class="n">${fmt(r)}</td><td class="n">${yl(r,k)}</td></tr>`}).join('');
+  const sRows=ships.map(s=>{const p=Math.min(s.pcs,onP.get(s)||0),k=chgOf(s,d),r=revOf(s,d),st=(p>=s.pcs?'On board':p>0?`Part: ${p} of ${s.pcs} pcs`:'Left behind')+(belowFloor(s)?' · below floor':'');
+    return`<tr><td class="mono">${esc(s.awb)}</td><td>${esc(s.nat||'')}</td><td>${esc(PRION[s.prio]||'Normal')}</td><td class="n">${s.pcs}</td><td class="n">${fmt(k)}</td><td class="n">${s.rate>0?fmt(s.rate,2):'–'}</td><td class="n">${fmt(frOf(s,d))}</td><td class="n">${fmt(surOf(s,d))}</td><td class="n">${fmt(r)}</td><td${p<s.pcs||belowFloor(s)?' style="color:#DF1B41;font-weight:600"':''}>${st}</td></tr>`}).join('');
   const dm=c?c.r.rev-c.w.rev:0,ul=n=>n?`${n} ULD${n===1?'':'s'}`:'none';
   return `<section class="sheet"><div class="top"><div><div class="brand"><b>AdeyIQ</b>Revenue report · Module 2</div><h1>${esc(ac.name)}</h1></div><div><div class="pos">${esc(when)}</div></div></div>
   <div class="fill"><span>Flight</span><span>Date</span><span>From</span><span>To</span><span>Prepared by</span></div>
-  <div class="chips"><b>Revenue on board ${cur} ${fmt(m.fRev)}</b><b>Left behind ${cur} ${fmt(m.left)}</b><b>Yield ${cur} ${yl(m.fRev,m.fChg)} per chargeable kg</b><b>${fmt(m.fChg)} chargeable kg on board</b><b>${m.rated} of ${m.n} shipments have a rate</b></div>
-  ${c?`<h2>Offload order</h2><p>Used: <b>${c.used==='rev'?'revenue first':'heaviest first'}</b>. Revenue first flies ${cur} ${fmt(c.r.rev)}, heaviest first ${cur} ${fmt(c.w.rev)} (difference ${dm<0?'−':'+'}${cur} ${fmt(Math.abs(dm))}). ULDs with Contract or Mail left behind: revenue first ${ul(c.r.prot)}, heaviest first ${ul(c.w.prot)}.</p>`:''}
+  <div class="chips"><b>Revenue on board ${cur} ${fmt(m.fRev)}</b>${m.fSur>0.5?`<b>Freight ${cur} ${fmt(m.fFr)} · surcharges ${cur} ${fmt(m.fSur)}</b>`:''}${M2.floor>0?`<b>Floor ${cur} ${fmt(M2.floor,2)} per kg · ${m.below} below</b>`:''}<b>Left behind ${cur} ${fmt(m.left)}</b><b>Yield ${cur} ${yl(m.fRev,m.fChg)} per chargeable kg</b><b>${fmt(m.fChg)} chargeable kg on board</b><b>${m.rated} of ${m.n} shipments have a rate</b></div>
+  ${c?`<h2>Offload order</h2><p>${c.bind==='kg'?'Max payload reached: ranked by revenue per kg.':'No free position left: ranked by revenue per position.'} Used: <b>${c.used==='rev'?'revenue first':'heaviest first'}</b>. Revenue first flies ${cur} ${fmt(c.r.rev)}, heaviest first ${cur} ${fmt(c.w.rev)} (difference ${dm<0?'−':'+'}${cur} ${fmt(Math.abs(dm))}). ULDs with Contract or Mail left behind: revenue first ${ul(c.r.prot)}, heaviest first ${ul(c.w.prot)}.</p>`:''}
   ${uRows?`<h2>Revenue by position</h2><table><thead><tr><th>Pos</th><th>ULD</th><th>AWBs</th><th class="n">Chargeable kg</th><th class="n">Revenue ${cur}</th><th class="n">${cur} per kg</th></tr></thead><tbody>${uRows}<tr class="tot"><td colspan="3">Total on board</td><td class="n">${fmt(m.fChg)}</td><td class="n">${fmt(m.fRev)}</td><td class="n">${yl(m.fRev,m.fChg)}</td></tr></tbody></table>`:''}
-  <h2>Revenue by shipment</h2><table><thead><tr><th>AWB</th><th>Goods</th><th>Priority</th><th class="n">Pcs</th><th class="n">Gross kg</th><th class="n">Chargeable kg</th><th class="n">Rate ${cur}/kg</th><th class="n">Revenue ${cur}</th><th>Status</th></tr></thead><tbody>${sRows}<tr class="tot"><td colspan="3">All cargo</td><td class="n">${ships.reduce((t,s)=>t+s.pcs,0)}</td><td class="n">${fmt(ships.reduce((t,s)=>t+s.wt,0))}</td><td class="n">${fmt(m.allChg)}</td><td></td><td class="n">${fmt(m.all)}</td><td></td></tr></tbody></table>
-  <div class="foot">Generated by AdeyIQ (adeyiq.vercel.app) on ${esc(when)}. Revenue = chargeable kg (the higher of gross weight and volume weight at ${fmt(d)} cm³ per kg) × the rate per kg typed in AdeyIQ, in ${cur}. A shipment split over ULDs is shared by pieces. No surcharges, other charges, pivot or overhang charges. Planning aid, not an invoice or a revenue accounting figure.</div></section>`}
+  <h2>Revenue by shipment</h2><table><thead><tr><th>AWB</th><th>Goods</th><th>Priority</th><th class="n">Pcs</th><th class="n">Chargeable kg</th><th class="n">Rate ${cur}/kg</th><th class="n">Freight ${cur}</th><th class="n">Surcharges ${cur}</th><th class="n">Total ${cur}</th><th>Status</th></tr></thead><tbody>${sRows}<tr class="tot"><td colspan="3">All cargo</td><td class="n">${ships.reduce((t,s)=>t+s.pcs,0)}</td><td class="n">${fmt(m.allChg)}</td><td></td><td class="n">${fmt(ships.reduce((t,s)=>t+frOf(s,d),0))}</td><td class="n">${fmt(ships.reduce((t,s)=>t+surOf(s,d),0))}</td><td class="n">${fmt(m.all)}</td><td></td></tr></tbody></table>
+  ${(()=>{const fr=m2Free();return fr?`<h2>Still sellable</h2><p>${esc(m2FreeText(fr))}</p>`:''})()}
+  <div class="foot">Generated by AdeyIQ (adeyiq.vercel.app) on ${esc(when)}. Revenue = chargeable kg (the higher of gross weight and volume weight at ${fmt(d)} cm³ per kg) × the rate per kg typed in AdeyIQ, in ${cur}, at least the minimum charge${M2.chg.min>0?` (${cur} ${fmt(M2.chg.min)})`:''}, plus the surcharges set for this flight (fuel ${fmt(M2.chg.fuel,2)} and security ${fmt(M2.chg.sec,2)} per chargeable kg, ${fmt(M2.chg.dg)} per DG shipment). A shipment split over ULDs is shared by pieces. No pivot, overhang or other charges. Planning aid, not an invoice or a revenue accounting figure.</div></section>`}
 function revDoc(){const ac=acNow();if(!plan)plan=planLoad(build);return printDoc(`AdeyIQ revenue report · ${ac.name}`,revSheet(ac,fmtWhen(new Date())))}
 function printDoc(title,body){return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${prtRootVars()}${PRINT_CSS}</style></head><body>${body}</body></html>`}
 function flightDoc(){const ac=acNow(),when=fmtWhen(new Date());if(!plan)plan=planLoad(build);const placed=placedSorted();return printDoc(`AdeyIQ load plan · ${ac.name}`,flightSheet(ac,when)+placed.map(u=>uldSheet(u,ac,when)).join(''))}
@@ -1941,7 +1992,9 @@ $('dgBtn').onclick=()=>{$('dgAc').textContent=acNow().name+(acNow().g==='freight
 $('dgX').onclick=()=>{const d=$('dgDlg');if(d.close)d.close();else d.removeAttribute('open')};
 /* ---------- Module 2: unlock, currency ---------- */
 $('m2Cur').innerHTML=CURS.map(c=>`<option>${c}</option>`).join('');
-function m2Apply(){document.body.classList.toggle('m2on',M2.on);$('m2Cur').value=M2.cur;$('m2Rev').checked=M2.rev;document.querySelectorAll('.m2cur').forEach(e=>e.textContent=M2.cur);
+const M2IN={m2Floor:null,m2Min:'min',m2Fuel:'fuel',m2Sec:'sec',m2Dg:'dg'};
+function m2Apply(){document.body.classList.toggle('m2on',M2.on);$('m2Cur').value=M2.cur;$('m2Rev').checked=M2.rev;
+  for(const[id,k]of Object.entries(M2IN)){const v=k?M2.chg[k]:M2.floor;$(id).value=v>0?v:''}document.querySelectorAll('.m2cur').forEach(e=>e.textContent=M2.cur);
   $('m2Btn').textContent=M2.on?'💲 Module 2 · Revenue ✓':'💲 Module 2 · Revenue'}
 const m2Dlg=$('m2Dlg'),m2Close=()=>{if(m2Dlg.close)m2Dlg.close();else m2Dlg.removeAttribute('open')};
 $('m2Btn').onclick=()=>{if(M2.on){$('m2Bar').scrollIntoView({block:'center',behavior:'smooth'});return}$('m2Err').textContent='';$('m2Code').value='';if(m2Dlg.showModal)m2Dlg.showModal();else m2Dlg.setAttribute('open','');setTimeout(()=>$('m2Code').focus(),5)};
@@ -1958,6 +2011,23 @@ $('m2Cur').onchange=()=>{M2.cur=CURS.includes($('m2Cur').value)?$('m2Cur').value
 function m2Replan(){if(build){plan=planLoad(build);savePlan()}render()}
 $('m2Rev').onchange=()=>{M2.rev=$('m2Rev').checked;m2Save();m2Replan();toast(M2.rev?'Offload by revenue first: Contract and Mail kept, Standby goes first':'Offload heaviest first (the normal plan)')};
 $('m2Lock').onclick=()=>{M2.on=false;m2Save();m2Apply();m2Replan();toast('Module 2 locked in this browser. Your rates are kept')};
+/* floor rate and charges: saved in this browser; the plan is made again because the floor changes the offload order */
+for(const[id,k]of Object.entries(M2IN))$(id).addEventListener('change',()=>{const v=m2Num($(id).value,k?1e6:100000);if(k)M2.chg[k]=v;else M2.floor=v;$(id).value=v>0?v:'';m2Save();m2Replan()});
+document.addEventListener('click',e=>{if(!e.target.closest||!e.target.closest('#m2Copy'))return;const t=($('m2FreeT')||{}).textContent||'';
+  const ok=()=>toast('Still-sellable space copied'),no=()=>toast('Copy did not work: select the line and copy it');try{navigator.clipboard.writeText(t).then(ok,no)}catch(x){no()}});
+/* rate sheet: shipments without a rate get the most specific matching line; rates already typed are kept */
+$('m2RsBtn').onclick=()=>$('m2RsFile').click();
+$('m2RsFile').onchange=()=>{const f=$('m2RsFile').files[0];$('m2RsFile').value='';if(!f)return;
+  if(f.size>LIM.fileMB*1024*1024){toast(`The file is larger than ${LIM.fileMB} MB`);return}
+  if(!/\.(csv|txt|tsv|xlsx|xls)$/i.test(f.name)){toast('Upload a CSV or Excel rate sheet (.csv, .xlsx, .xls)');return}
+  const done=rows=>{const{lines,bad,err}=rsParse(rows);if(!lines.length){toast(err);return}
+    let got=0,kept=0,none=0;for(const s of ships){if(s.rate>0){kept++;continue}const m=rsMatch(lines,s);if(!m){none++;continue}
+      const x=mk({...s,rate:m.rate,prio:s.prio||m.prio});s.rate=x.rate;s.prio=x.prio;got++}
+    if(got){saveLocal();refresh()}
+    toast(`Rate sheet ${f.name}: ${got} shipment${got===1?'':'s'} got a rate${kept?`, ${kept} kept their own rate`:''}${none?`, ${none} had no matching line`:''}${bad?` · ${bad} line${bad===1?'':'s'} without a valid rate skipped`:''}`)};
+  const r=new FileReader();
+  if(/\.xlsx?$/i.test(f.name)){r.onload=()=>readXlsx(r.result,done);r.readAsArrayBuffer(f)}
+  else{r.onload=()=>{const t=String(r.result);if(/\u0000/.test(t.slice(0,4096))){toast('This is not a text CSV file');return}done(parseCSV(t))};r.readAsText(f)}};
 m2Apply();
 $('dgForm').addEventListener('submit',e=>{e.preventDefault();dgCheck()});
 $('dgOut').addEventListener('click',e=>{const a=e.target.closest('[data-dgadd]'),p=e.target.closest('[data-dgid]');if(a)dgAdd(a.dataset.dgadd);if(p){$('dgQ').value=p.dataset.dgid;dgShow(p.dataset.dgid)}});

@@ -177,7 +177,7 @@ const imp = (() => {
     slice("const DG=[", "\n") + "\n" + slice("const uid=", "\n") + "\n" +
     slice("/* ---------- reading files ---------- */", "/* manual placement") +
     slice("const LIM=", "\n\n/* ---------- saving") +
-    "\nthis.I={rowsToShips,parseCSV,parseDims,num,parseWt,parsePcs,headerField};";
+    "\nthis.I={rowsToShips,parseCSV,parseDims,num,parseWt,parsePcs,headerField,rsParse,rsMatch};";
   const c = { Math, Set, Array, Number, String, JSON, RegExp, Object, Date, ships: [] };
   vm.createContext(c);
   vm.runInContext(src2, c);
@@ -383,8 +383,8 @@ const pctx = { Math, Map, Set, Array, Number, String, JSON, Object, performance,
   $: (id) => ({ value: inputDefaults[id] ?? "" }), fmt: (n, d = 0) => Number(n || 0).toFixed(d), BULKN: null,
   localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) } };
 vm.createContext(pctx);
-vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;this.P.recommend=list=>recommend(list.map(mk));this.P.uSig=uSig;this.P.setHand=setHand;this.P.M2=M2;", pctx);
-const { run: planRun, R: setting, setPayOwn, payMax, AC, recommend, uSig, setHand, M2 } = pctx.P;
+vm.runInContext(planSrc + "\nthis.P.setPayOwn=setPayOwn;this.P.payMax=payMax;this.P.AC=AC;this.P.recommend=list=>recommend(list.map(mk));this.P.uSig=uSig;this.P.setHand=setHand;this.P.M2=M2;this.P.PRANK=PRANK;", pctx);
+const { run: planRun, R: setting, setPayOwn, payMax, AC, recommend, uSig, setHand, M2, PRANK } = pctx.P;
 const withPayload = (id, kg, fn) => { setPayOwn(id, kg); try { return fn(); } finally { setPayOwn(id, 0); } };
 const onBoardKg = (b) => b.ulds.reduce((s, u) => s + (u.pos ? u.kg : 0), 0);
 
@@ -581,6 +581,7 @@ test("Module 2: revenue first keeps Contract on board, flies more revenue than h
   const { b, p } = withM2(true, true, () => planRun("B777F", m2Charter()));
   const c = b.m2cmp, kg = onBoardKg(b), off = b.offload.filter((o) => o.uld);
   assert.ok(c && c.used === "rev" && c.w.offN > 0, "both plans made and compared");
+  assert.equal(c.bind, "kg", "the charter runs out of payload, so ULDs are ranked by revenue per kg");
   assert.ok(off.length > 0, "cargo is left behind (payload reached)");
   assert.equal(c.r.prot, 0, "no ULD with Contract or Mail left behind");
   assert.ok(c.r.rev > c.w.rev, `revenue first flies more: ${Math.round(c.r.rev)} vs ${Math.round(c.w.rev)}`);
@@ -605,4 +606,41 @@ test("Module 2: nothing changes when everything flies", () => {
   const { b } = withM2(true, true, () => planRun("B777F", small));
   assert.equal(b.m2cmp, null, "no comparison when nothing is left behind");
   assert.equal(b.offload.filter((o) => o.uld).length, 0);
+});
+
+// ---------- Module 2 P1: minimum charge and surcharges, floor rate, rate sheet ----------
+test("Module 2: freight has a minimum charge; fuel and security per chargeable kg and a DG fee are surcharges", () => {
+  const c = vm.createContext({ Math, M2: { chg: { min: 50, fuel: 0.5, sec: 0.1, dg: 20 } } });
+  vm.runInContext(slice("const chgOf=", "\n") + "\n" + slice("const uldRev=", "\n") + "\nthis.R={frOf,surOf,revOf,partRev};", c);
+  const small = { pcs: 1, wt: 10, l: 40, w: 30, h: 30, rate: 2 }, big = { pcs: 2, wt: 300, l: 100, w: 80, h: 60, rate: 2, dg: "3" };
+  assert.equal(c.R.frOf(small, 6000), 50, "10 kg × 2 = 20 is below the 50 minimum charge");
+  assert.equal(Math.round(c.R.surOf(small, 6000) * 100) / 100, 6, "10 chargeable kg × (0.5 + 0.1)");
+  assert.equal(c.R.frOf(big, 6000), 600, "300 chargeable kg (gross beats 160 kg volume) × 2");
+  assert.equal(Math.round(c.R.surOf(big, 6000) * 100) / 100, 200, "300 kg × 0.6 per kg plus the 20 DG fee");
+  assert.equal(c.R.revOf({ ...big, rate: 0 }, 6000), 0, "no rate: no freight and no surcharges");
+  const part = { ...big, pcs: 1, wt: 150, _of: big };
+  assert.equal(c.R.partRev(part, 6000), c.R.revOf(big, 6000) / 2, "loose pieces of a split shipment share the minimum charge and fees by pieces");
+});
+test("Module 2: a shipment below the floor rate is offloaded as early as Standby; Contract and Mail stay protected", () => {
+  M2.floor = 2;
+  try {
+    assert.equal(PRANK({ rate: 1.5, prio: "" }), 2, "below the floor");
+    assert.equal(PRANK({ rate: 2.5, prio: "" }), 1, "above the floor");
+    assert.equal(PRANK({ rate: 1.5, prio: "contract" }), 0, "Contract stays protected below the floor");
+    assert.equal(PRANK({ rate: 0, prio: "" }), 1, "no rate is not flagged");
+  } finally { M2.floor = 0; }
+  assert.equal(PRANK({ rate: 1.5, prio: "" }), 1, "no floor set: Normal");
+});
+test("Module 2: a rate sheet matches the most specific line (AWB, then SHC, then goods, then the default)", () => {
+  const rows = [["Rates for this flight"], ["AWB", "Goods", "SHC", "Rate per kg", "Priority"], ["", "", "", "1.50", ""], ["", "flowers", "", "2,60", "Contract"],
+    ["", "", "PIL", "4.00", ""], ["000-12345675", "", "", "3.10", "Mail"], ["", "bad line", "", "n/a", ""]];
+  const { lines, bad } = imp.rsParse(rows);
+  assert.equal(lines.length, 4); assert.equal(bad, 1, "a line without a valid rate is skipped and counted");
+  const m = (s) => imp.rsMatch(lines, { awb: "", shc: [], nat: "", ...s });
+  assert.equal(m({ nat: "Fresh Flowers" }).rate, 2.6, "goods words, comma decimal");
+  assert.equal(m({ nat: "Fresh flowers", shc: ["PIL", "COL"] }).rate, 4, "SHC beats goods");
+  assert.equal(m({ awb: "000-12345675", nat: "Fresh flowers", shc: ["PIL"] }).rate, 3.1, "AWB beats everything");
+  assert.equal(m({ nat: "Machinery" }).rate, 1.5, "the default line");
+  assert.equal(imp.rsMatch(imp.rsParse([["Rate"], ["", ""]]).lines, { nat: "x", shc: [] }), null);
+  assert.match(imp.rsParse([["AWB", "Goods"], ["1", "x"]]).err, /No rate column/);
 });
