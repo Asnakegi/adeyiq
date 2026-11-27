@@ -300,7 +300,7 @@ body:not(.m2on) .m2f{display:none!important}
     <button class="btn ghost" id="m2Btn" type="button" title="Optimize revenue: rate per kg, priority and currency. Open to people with an access code">💲 Module 2 · Revenue</button>
   </span>
 </div>
-<div class="card m2bar m2f" id="m2Bar" aria-label="Module 2 · Optimize revenue"><b>Module 2 · Optimize revenue</b><span class="badge">Beta</span><label class="note" style="display:flex;gap:6px;align-items:center">Currency for this flight<select id="m2Cur" aria-label="Currency for this flight"></select></label><span class="note" style="flex:1;min-width:220px">Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser. The revenue view comes next.</span><button class="btn link" id="m2Lock" type="button">Lock</button></div>
+<div class="card m2bar m2f" id="m2Bar" aria-label="Module 2 · Optimize revenue"><b>Module 2 · Optimize revenue</b><span class="badge">Beta</span><label class="note" style="display:flex;gap:6px;align-items:center">Currency for this flight<select id="m2Cur" aria-label="Currency for this flight"></select></label><span class="note" id="m2Sum" style="flex:1;min-width:220px" aria-live="polite">Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.</span><button class="btn link" id="m2Lock" type="button">Lock</button></div>
 <div class="card upsum" id="upSum" hidden><div class="addhd"><b id="upSumT">Import</b><button class="x" type="button" id="upSumX" aria-label="Close">×</button></div><div id="upSumB"></div></div>
 <div class="drawers" id="drawers" hidden>
     <div class="card" id="addPanel" hidden>
@@ -559,6 +559,9 @@ const mainPos=ac=>ac.main?ac.main.rows*(ac.main.single?1:2)-(ac.main.lastSingle?
 const pitchOf=(ac,key)=>key==='main'?MP(ac):156;
 function fitsDoor(s,wh){const d=[s.l,s.w,s.h].sort((a,b)=>a-b);return d[0]<=Math.min(...wh)&&d[1]<=Math.max(...wh)}
 const volM3=s=>s.pcs*s.l*s.w*s.h/1e6,volKg=s=>volM3(s)*1e6/R('rDiv'),chg=s=>Math.max(s.wt,volKg(s));
+const chgOf=(s,div)=>Math.max(s.wt,s.pcs*s.l*s.w*s.h/(div||6000)),revOf=(s,div)=>s.rate>0?chgOf(s,div)*s.rate:0;
+/* Module 2: revenue of the pieces on one ULD (a shipment split over ULDs is shared by pieces) */
+const uldRev=(u,div)=>u.items.reduce((t,i)=>t+revOf(i.s,div)*i.p/i.s.pcs,0),uldChg=(u,div)=>u.items.reduce((t,i)=>t+chgOf(i.s,div)*i.p/i.s.pcs,0);
 const isCAO=s=>CAO_UN.includes((s.un||'').toUpperCase().replace(/\s/g,''))||s.shc.includes('CAO');
 const FOOD=['EAT','PEM','PES','PER','PEF'];
 /* subsidiary hazards (e.g. UN2031: class 8, subsidiary 5.1) are segregated like a primary class */
@@ -1083,11 +1086,23 @@ function spinTick(){if(spinOn&&hoverI===null&&!drag&&!$('p1').hidden){yaw+=.004;
 const PAL=['#8CC152','#6FB1F0','#E58FA6','#B39DF0','#F5A623','#5CC8BE','#FFD21F','#F08A5D','#9FB4C7','#7FD1AE','#D49BE0'];
 const awbColor={};function colorOf(awb){if(!awbColor[awb])awbColor[awb]=PAL[Object.keys(awbColor).length%PAL.length];return awbColor[awb]}
 function refresh(){build=ships.length?buildUlds():null;plan=build?planLoad(build):null;if(build&&!build.ulds.some(u=>u.id===selU))selU=build.ulds[0]?build.ulds[0].id:null;if(!build)selU=null;render()}
+/* Module 2: revenue of all cargo, of what flies and of what stays behind */
+function m2Sum(){const div=R('rDiv')||6000,all=ships.reduce((t,s)=>t+revOf(s,div),0),allChg=ships.reduce((t,s)=>t+chgOf(s,div),0);
+  let fRev=0,fChg=0;const flies=u=>!(plan&&plan.C.length)||!!u.pos;
+  if(build){build.ulds.forEach(u=>{if(flies(u)){fRev+=uldRev(u,div);fChg+=uldChg(u,div)}});(build.bulk||[]).forEach(h=>h.items.forEach(x=>{fRev+=revOf(x,div);fChg+=chgOf(x,div)}))}
+  return{div,all,allChg,fRev,fChg,left:Math.max(0,all-fRev),rated:ships.filter(s=>s.rate>0).length,n:ships.length}}
+const money=v=>`${esc(M2.cur)} ${fmt(v)}`;
+const m2Stat=()=>{if(!M2.on)return'';const m=m2Sum();return m.rated?`<div class="stat m2f" style="grid-column:1/-1"><b class="mono">${money(m.fRev)}</b><span>revenue on board${m.left>0.5?` · ${money(m.left)} left behind`:''}</span></div>`:''};
+function m2Draw(){const el=$('m2Sum');if(!el)return;if(!M2.on||!ships.length){el.innerHTML='Add a rate per chargeable kg and a priority to each shipment (Add Cargo, or Rate and Priority columns in Excel). Rates stay in this browser.';return}
+  const m=m2Sum();
+  el.innerHTML=m.rated?`Revenue planned to fly <b>${money(m.fRev)}</b>${m.left>0.5?` · left behind <b>${money(m.left)}</b>`:''} · yield <b>${esc(M2.cur)} ${fmt(m.fChg?m.fRev/m.fChg:0,2)}</b> per chargeable kg · ${m.rated} of ${m.n} shipments have a rate${m.rated<m.n?' (the others count as 0)':''}.`
+    :'No rates yet: add a rate per chargeable kg to your shipments to see the revenue.'}
 function render(){
   const ac=acNow();$("specAc").textContent=ac.id;
+  m2Draw();
   $('cargoN').textContent=ships.length?`${ships.length} · ${fmt(ships.reduce((s,x)=>s+x.wt,0))} kg`:'';
   $('cargo').innerHTML=ships.length?ships.map(s=>{const c=category(s),u=uldOf(s),off=build&&build.offload.find(o=>o.uld?o.uld.items.some(i=>i.s===s):o.s===s);
-    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}${M2.on&&s.rate?` · ${esc(M2.cur)} ${fmt(s.rate,2)}/kg`:''}${M2.on&&s.prio?` · ${PRION[s.prio]}`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
+    return `<div class="ship" title="${esc(CATTXT[c])}${off?' · not loaded: '+esc(off.why):''}"><span class="dot" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><div class="t">${esc(s.nat||'Cargo')} ${off?'<span class="chip dg">not loaded</span>':''}</div><div class="m">${esc(s.awb)} · ${s.pcs}× ${s.l}×${s.w}×${s.h}${s.dg?` · <span style="color:var(--bad)">DG ${esc(s.dg)}</span>`:''}${M2.on?(s.rate?` · ${esc(M2.cur)} ${fmt(s.rate,2)}/kg × ${fmt(chgOf(s,R('rDiv')))} kg = <b>${money(revOf(s,R('rDiv')))}</b>`:' · no rate'):''}${M2.on&&s.prio?` · ${PRION[s.prio]}`:''}</div>${off?`<div class="m" style="color:var(--bad);font-family:var(--body);white-space:normal">Not loaded: ${esc(off.why)}</div>`:''}</div>
     <select data-pin="${s.id}" aria-label="Load ${esc(s.awb)} on">${pinOptions(s.pin)}</select>
     <div class="kg">${fmt(s.wt)} kg<br><span class="note">${u?u.id:(build&&build.bulk&&build.bulk.some(h=>h.items.some(x=>x===s||x._of===s))?'Bulk':'—')}</span></div><button class="x" type="button" data-edit="${s.id}" aria-label="Edit ${esc(s.awb)}" title="Edit">✎</button><button class="x" type="button" data-del="${s.id}" aria-label="Remove ${esc(s.awb)}">×</button></div>`}).join(''):'<div class="empty" style="padding:16px">No cargo yet.</div>';
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(b.dataset.del===editId)endEdit();delShip(b.dataset.del)});
@@ -1163,6 +1178,7 @@ function renderInfo(){
    <div class="kv"><span>Max weight</span><span><b>${pw<1&&pw>0?pw.toFixed(1):fmt(pw)}%</b> (${fmt(u.kg)} / ${fmt(u.max)} kg)</span></div><div class="bar" role="img" aria-label="Weight ${fmt(pw)}% of maximum"><i class="${pw>100?'over':pw>90?'hi':''}" style="width:${Math.min(100,pw)}%"></i></div>
    <div class="${hOk?'okline':'err'}">${hOk?'✓':'⚠'} ${pk.notDrawn>0?`Fits the ${esc(T.contour)} by usable volume (3D height shown for the first ${pk.boxes.length} pieces)`:`Height ${fmt(pk.top)} cm within ${esc(T.contour)}`}</div>
    ${u.type==='PGA'?'<div class="note" style="margin-top:4px">Long cargo on a 20 ft pallet (or two connected pallets) on the main deck.</div>':''}
+   ${M2.on?(()=>{const d=R('rDiv'),rv=uldRev(u,d),c=uldChg(u,d);return `<div class="kv m2f"><span>Revenue (Module 2)</span><span><b>${money(rv)}</b> · ${esc(M2.cur)} ${fmt(c?rv/c:0,2)} per chargeable kg</span></div>`})():''}
    <div style="margin-top:12px">${awbs.map(s=>{const it=u.items.find(i=>i.s===s),ch=charge(s,u);return `<div class="awb"><span class="sw" style="background:${colorOf(s.awb)}"></span><div style="min-width:0"><b style="font-family:var(--mono);font-size:12px">${esc(s.awb)}</b> · ${esc(s.nat)}<br><span class="note">${it.p}/${s.pcs} pcs · ${fmt(s.wt/s.pcs*it.p)} kg${s.shc.length?' · '+s.shc.map(c=>`<span class="chip">${esc(c)}</span>`).join(''):''}${s.dg?`<span class="chip dg">DG ${esc(s.dg)} ${esc(s.un)}</span>`:''}</span></div><span class="note" title="Charge basis: ${esc(ch.why)}" style="text-align:right">charge<br><b>${fmt(ch.kg)}</b></span></div>`}).join('')}</div>
    ${mergeLine(u)}
    ${apart.length?`<div class="warnline">Kept apart: ${apart.map(x=>`${esc(x.a.awb.slice(-4))} / ${esc(x.b.awb.slice(-4))}, ${esc(x.c)}`).join('; ')}.</div>`:''}
@@ -1340,9 +1356,9 @@ function buildList(){
   const box=$('ulds'),st=$('stats'),bulk=build.bulk||[],bkg=bulk.reduce((s,h)=>s+h.usedKg,0);
   const bulkRows=bulk.map(h=>`<button type="button" class="ulrow" data-k="B:${h.k}" ${sel2==='B:'+h.k?'aria-current="true"':''}><i class="sw" style="background:#8CC152;width:14px;height:30px"></i><span style="min-width:0">${BULKN[h.k]}<br><span class="mono mut" style="font-size:12px">${awbN(h)} shipments loose · ${kgF(h.usedKg)}</span></span><span class="tag" style="background:var(--panel2)">${Math.round(h.usedKg/h.kg*100)}%</span></button>`).join('');
   if(!plan.C.length){const n=bulk.reduce((s,h)=>s+h.items.length,0);
-    st.innerHTML=`<div class="stat"><b class="mono">0</b><span>ULDs (bulk only)</span></div><div class="stat"><b class="mono">${n}</b><span>shipments loose</span></div><div class="stat"><b class="mono">${kgF(bkg)}</b><span>loaded</span></div>`;box.innerHTML=bulkRows}
+    st.innerHTML=`<div class="stat"><b class="mono">0</b><span>ULDs (bulk only)</span></div><div class="stat"><b class="mono">${n}</b><span>shipments loose</span></div><div class="stat"><b class="mono">${kgF(bkg)}</b><span>loaded</span></div>${m2Stat()}`;box.innerHTML=bulkRows}
   else{const list=SL.flatMap(sl=>sl.ulds.map(u=>({sl,u}))),kg=list.reduce((s,x)=>s+x.u.kg,0)+bkg,slots=plan.C.reduce((s,c)=>{const lw=build.ac.low&&build.ac.low[c.key];return s+(c.key==='main'?mainPos(build.ac):lw&&lw.pal&&c.blocks.some(b=>b.ulds&&b.ulds.some(u=>!ULD[u.type].half))?lw.pal:Math.round(c.len/pitchOf(build.ac,c.key))*2)},0),awbs=new Set(list.flatMap(x=>x.u.items.map(i=>i.s.awb))).size;
-    st.innerHTML=`<div class="stat"><b class="mono">${list.length}</b><span>ULDs · ${list.length} / ${slots} positions</span></div><div class="stat"><b class="mono">${awbs}</b><span>AWBs on board</span></div><div class="stat"><b class="mono">${kgF(kg)}</b><span>loaded</span></div>`;
+    st.innerHTML=`<div class="stat"><b class="mono">${list.length}</b><span>ULDs · ${list.length} / ${slots} positions</span></div><div class="stat"><b class="mono">${awbs}</b><span>AWBs on board</span></div><div class="stat"><b class="mono">${kgF(kg)}</b><span>loaded</span></div>${m2Stat()}`;
     box.innerHTML=list.map(({sl,u})=>{const cs=consign(u),shcs=[...new Set(cs.flatMap(c=>c.s.shc))].slice(0,3);
       return `<button type="button" class="ulrow" data-k="${sl.key}" data-s="${u.side}" ${sl.key===sel2&&u.side===side2?'aria-current="true"':''}><span class="stack">${cs.slice().reverse().map(c=>`<i style="flex:${c.share.toFixed(3)};background:${c.col}"></i>`).join('')}</span><span style="min-width:0"><span class="mono" style="font-weight:600">${u.id}</span> · ${esc(cs[0].s.nat||'Cargo')}<br><span class="mono mut" style="font-size:12px">${sl.c.key==='main'?'Main ':''}${u.pos} · ${cs.length} AWB${cs.length>1?'s':''} · ${kgF(u.kg)}</span></span><span class="shcs">${shcHtml(shcs)}${u.flags.has('DG')?'<span class="shc dg">DG</span>':''}</span></button>`}).join('')+bulkRows}
   box.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>select2(b.dataset.k,b.dataset.s));

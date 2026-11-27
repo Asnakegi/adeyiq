@@ -543,3 +543,28 @@ test("Module 2: Rate and Priority columns are found in a manifest, without hurti
   assert.equal(JSON.stringify(r.list.map((s) => [s.rate, s.prio])), JSON.stringify([[2.6, "contract"], [3.1, "mail"]]));
   assert.ok(r.info.cols.some((c) => c.k === "rate") && r.info.cols.some((c) => c.k === "prio"), "shown in the import summary");
 });
+
+// ---------- Module 2 step 2: revenue = chargeable kg x rate; must match the M2 sheet of the sample workbook ----------
+const rv = (() => {
+  const c = vm.createContext({ Math });
+  vm.runInContext(slice("const chgOf=", "\n") + "\n" + slice("const uldRev=", "\n") + "\nthis.R={chgOf,revOf,uldRev,uldChg};", c);
+  return c.R;
+})();
+test("Module 2: chargeable weight and revenue follow the M2 sheet (sample workbook, divisor 6000)", () => {
+  // goods, pcs, kg, L, W, H, rate: the 18 shipments of adeyiq-sample-3-modules.xlsx
+  const S = [[12, 1800, 120, 80, 90, 1.6], [40, 700, 100, 40, 30, 2.6], [20, 900, 80, 60, 50, 2.8], [30, 600, 60, 40, 30, 2.7], [10, 250, 60, 40, 40, 3.4],
+    [25, 750, 60, 50, 40, 1.6], [6, 180, 40, 40, 40, 3.0], [4, 200, 60, 40, 40, 3.6], [2, 40, 50, 40, 40, 3.8], [1, 950, 200, 120, 110, 2.2], [8, 160, 50, 40, 40, 3.1],
+    [15, 90, 60, 40, 20, 3.5], [5, 60, 40, 30, 30, 1.6], [6, 210, 40, 40, 40, 3.0], [30, 1800, 70, 45, 20, 1.6], [20, 500, 60, 40, 30, 2.3], [4, 800, 400, 30, 30, 1.6], [3, 600, 120, 100, 150, 1.6]]
+    .map(([pcs, wt, l, w, h, rate]) => ({ pcs, wt, l, w, h, rate }));
+  const chg = S.reduce((t, s) => t + rv.chgOf(s, 6000), 0), rev = S.reduce((t, s) => t + rv.revOf(s, 6000), 0);
+  assert.equal(Math.round(chg), 11020, "total chargeable kg (M2 sheet G23)");
+  assert.equal(Math.round(rev), 23044, "total revenue USD (M2 sheet I23)");
+  assert.equal(rv.chgOf(S[1], 6000), 800, "flowers: volume weight 800 kg beats 700 kg gross");
+  assert.equal(rv.revOf({ ...S[0], rate: 0 }, 6000), 0, "no rate = no revenue");
+});
+test("Module 2: a shipment split over ULDs shares its revenue by pieces", () => {
+  const s = { pcs: 10, wt: 1000, l: 100, w: 100, h: 100, rate: 2 }; // chargeable 1,666.7 kg (volume)
+  const a = { items: [{ s, p: 4 }] }, b = { items: [{ s, p: 6 }] };
+  assert.equal(Math.round(rv.uldRev(a, 6000) + rv.uldRev(b, 6000)), Math.round(rv.revOf(s, 6000)));
+  assert.equal(Math.round(rv.uldChg(a, 6000)), Math.round((1666.666 * 4) / 10));
+});
